@@ -18,7 +18,8 @@
 		"build": "bun run build:web",
 		"build:web": "tsc -b && vite build",
 		"build:app": "bun run build:web && electron-builder",
-		"lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+		"lint": "bun run lint:eslint",
+		"lint:eslint": "eslint .",
 		"preview": "vite preview"
 	},
 	"dependencies": {
@@ -29,6 +30,7 @@
 		"@babel/core": "^7.29.7",
 		"@eslint/js": "^10.0.1",
 		"@rolldown/plugin-babel": "^0.2.4",
+		"@stylistic/eslint-plugin": "^5.10.0",
 		"@types/babel__core": "^7.20.5",
 		"@types/node": "^24.13.6",
 		"@types/react": "^19.3.0",
