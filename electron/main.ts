@@ -3,6 +3,8 @@ import { app, BrowserWindow } from "electron";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
+import * as config from "./config";
+
 
 
 // const require = createRequire(import.meta.url);
@@ -30,10 +32,12 @@ let win: BrowserWindow | null;
 
 function createWindow() {
 	win = new BrowserWindow({
-		icon: path.join(process.env.VITE_PUBLIC, "electron-vite.svg"),
+		icon: path.join(process.env.VITE_PUBLIC, "logo.png"),
 		webPreferences: {
 			preload: path.join(__dirname, "preload.mjs"),
 		},
+
+		...config.window,
 	});
 
 	// Test active push message to Renderer-process.

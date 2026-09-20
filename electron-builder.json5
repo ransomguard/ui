@@ -4,6 +4,7 @@
 	"appId": "ransomguard-ransom0",
 	"asar": true,
 	"productName": "Ransom0",
+	"icon": "public/logo.png",
 	"directories": {
 		"output": "release/${version}"
 	},
@@ -12,6 +13,7 @@
 		"dist-electron"
 	],
 	"mac": {
+		"category": "public.app-category.utilities",
 		"target": [
 			"dmg"
 		],
@@ -35,6 +37,7 @@
 		"deleteAppDataOnUninstall": false
 	},
 	"linux": {
+		"category": "Security",
 		"target": [
 			"AppImage"
 		],
