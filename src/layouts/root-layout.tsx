@@ -1,7 +1,10 @@
 import { Outlet, useMatches, type UIMatch } from "react-router";
 
+import { app } from "@/config";
+
 import {
 	Header,
+	Sidebar,
 } from "@/components/layout";
 
 
@@ -19,18 +22,26 @@ export default function RootLayout() {
 	const heading = (currentMatch ? currentMatch.handle.heading : undefined) || "Default Page Title";
 
 	return (
-		<div
-			style={{
-				"--header-height": "3.5rem",
-			} as React.CSSProperties}
-		>
-			<Header
-				heading={heading}
-				className="px-6"
+		<>
+			<Sidebar
+				heading={app.TITLE}
+				userName="John Doe"
+				userEmail="john.doe@example.com"
 			/>
-			<main className="py-6 px-6">
-				<Outlet/>
-			</main>
-		</div>
+			<div
+				className="flex-1"
+				style={{
+					"--header-height": "3.5rem",
+				} as React.CSSProperties}
+			>
+				<Header
+					heading={heading}
+					className="px-6"
+				/>
+				<main className="py-6 px-6">
+					<Outlet/>
+				</main>
+			</div>
+		</>
 	);
 }

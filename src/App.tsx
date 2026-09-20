@@ -1,6 +1,8 @@
 import { RouterProvider } from "react-router";
 
 import { ThemeProvider } from "@/components/theme-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarProvider } from "@/components/layout";
 
 import { router } from "@/router";
 
@@ -8,9 +10,11 @@ import { router } from "@/router";
 
 function App() {
 	return (
-		<ThemeProvider>
-			<RouterProvider router={router}/>
-		</ThemeProvider>
+		<ThemeProvider><TooltipProvider>
+			<SidebarProvider>
+				<RouterProvider router={router}/>
+			</SidebarProvider>
+		</TooltipProvider></ThemeProvider>
 	);
 }
 

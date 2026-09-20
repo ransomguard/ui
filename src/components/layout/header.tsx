@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
+import { SidebarTrigger } from "@/components/layout/sidebar";
 import { ModeToggle } from "@/components/mode-toggle";
 
 
@@ -13,6 +15,8 @@ export function Header({
 	className,
 	...props
 }: HeaderProps) {
+	const isMobile = useIsMobile();
+
 	return (
 		<header
 			className={cn(
@@ -21,7 +25,10 @@ export function Header({
 			)}
 			{...props}
 		>
-			<h1 className="text-lg font-semibold">{heading}</h1>
+			<div className="flex items-center gap-4">
+				{isMobile && <SidebarTrigger/>}
+				<h1 className="text-lg font-semibold">{heading}</h1>
+			</div>
 			<ModeToggle/>
 		</header>
 	);
