@@ -1,7 +1,7 @@
 function App() {
 	return (
 		<>
-			APP
+			<span className="text-red-400">APP</span>
 		</>
 	);
 }

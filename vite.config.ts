@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
 import electron from "vite-plugin-electron/simple";
+import tailwindcss from "@tailwindcss/vite";
 
 
 
@@ -12,6 +13,7 @@ const IS_WEB = process.env.VITE_BUILD_TARGET === "web";
 export default defineConfig({
 	plugins: [
 		react(),
+		tailwindcss(),
 		babel({
 			presets: [
 				reactCompilerPreset(),
