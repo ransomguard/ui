@@ -11,6 +11,7 @@ import stylistic from "@stylistic/eslint-plugin";
 export default defineConfig([
 	globalIgnores([
 		"dist",
+		"src/components/ui",
 	]),
 	{
 		files: ["**/*.{ts,tsx}"],
