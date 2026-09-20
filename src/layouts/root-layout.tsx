@@ -29,7 +29,7 @@ export default function RootLayout() {
 				userEmail="john.doe@example.com"
 			/>
 			<div
-				className="flex-1"
+				className="flex-1 min-w-0 flex flex-col"
 				style={{
 					"--header-height": "3.5rem",
 				} as React.CSSProperties}
@@ -38,7 +38,7 @@ export default function RootLayout() {
 					heading={heading}
 					className="px-6"
 				/>
-				<main className="py-6 px-6">
+				<main className="py-6 px-6 flex-1 min-w-0">
 					<Outlet/>
 				</main>
 			</div>

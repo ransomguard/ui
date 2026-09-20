@@ -1,4 +1,5 @@
 import * as time from "@/lib/time";
+import * as random from "@/lib/random";
 
 
 
@@ -105,4 +106,25 @@ export async function getAreaChartData(): Promise<AreaChartDataItem[]> {
 		{ date: "2024-06-29", desktop: 103, mobile: 160 },
 		{ date: "2024-06-30", desktop: 446, mobile: 400 },
 	];
+}
+
+
+
+export interface TableDataItem {
+	id: string;
+	column1: number;
+	column2: string;
+	column3: string;
+	column4: number;
+}
+
+export async function getTableData(): Promise<TableDataItem[]> {
+	await time.sleep(500);
+	return Array.from({ length: 23 }).map(() => ({
+		id: random.string(),
+		column1: Math.floor(random.number() * 65 + 18),
+		column2: random.string(),
+		column3: `${random.string()}${random.string()}${random.string()}${random.string()}${random.string()}`,
+		column4: Math.floor(random.number() * 10000),
+	})).sort((a, b) => a.id.localeCompare(b.id));
 }

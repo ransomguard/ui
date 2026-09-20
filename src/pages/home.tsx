@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartAreaInteractive, ChartStats, type MetricCardItem } from "@/components/chart";
+import { DataTable, columns } from "@/components/data-table";
 
 
 
@@ -73,6 +74,9 @@ export default function Home() {
 	const [allData, setAllData] = useState<api.AreaChartDataItem[]>([]);
 	const [isChartLoading, setIsChartLoading] = useState(true);
 
+	const [tableItems, setTableItems] = useState<api.TableDataItem[]>([]);
+	const [isTableLoading, setIsTableLoading] = useState(true);
+
 	const updateTimeRange = (value: FilterItem | null) => {
 		setTimeRange(value ?? timeRangeItems[0]);
 	};
@@ -84,6 +88,13 @@ export default function Home() {
 			if (isMounted) {
 				setAllData(chartData);
 				setIsChartLoading(false);
+			}
+		});
+
+		api.getTableData().then((data) => {
+			if (isMounted) {
+				setTableItems(data);
+				setIsTableLoading(false);
 			}
 		});
 
@@ -179,7 +190,7 @@ export default function Home() {
 	}, [filteredData, isChartLoading]);
 
 	return (
-		<div className="flex flex-col gap-6">
+		<div className="flex flex-col gap-6 min-w-0">
 			{/* 수치 카드 컴포넌트 */}
 			<ChartStats
 				items={statItems}
@@ -219,6 +230,19 @@ export default function Home() {
 					</SelectContent>
 				</Select>
 			</ChartAreaInteractive>
+
+			{/* Data Table 섹션 */}
+			<div className="space-y-3 min-w-0">
+				<div>
+					<h2 className="text-lg font-semibold tracking-tight">Data Table</h2>
+				</div>
+				<DataTable
+					columns={columns}
+					data={tableItems}
+					onDataChange={setTableItems}
+					isLoading={isTableLoading}
+				/>
+			</div>
 		</div>
 	);
 }
