@@ -28,7 +28,10 @@
 		"isolatedModules": true,
 
 		/* Custom */
-		"noUncheckedIndexedAccess": true
+		"noUncheckedIndexedAccess": true,
+		"paths": {
+			"@/*": ["./src/*"]
+		}
 	},
 	"include": [
 		"src",
