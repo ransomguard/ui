@@ -1,8 +1,12 @@
+import { RouterProvider } from "react-router";
+
+import { router } from "@/router";
+
+
+
 function App() {
 	return (
-		<>
-			<span className="text-red-400">APP</span>
-		</>
+		<RouterProvider router={router}/>
 	);
 }
 
