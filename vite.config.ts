@@ -7,8 +7,6 @@ import tailwindcss from "@tailwindcss/vite";
 
 
 
-const IS_WEB = process.env.VITE_BUILD_TARGET === "web";
-
 // https://vitejs.dev/config/
 export default defineConfig({
 	plugins: [
@@ -19,7 +17,7 @@ export default defineConfig({
 				reactCompilerPreset(),
 			],
 		}),
-		!IS_WEB && electron({
+		electron({
 			main: {
 				// Shortcut of `build.lib.entry`.
 				entry: "electron/main.ts",

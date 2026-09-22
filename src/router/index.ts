@@ -1,11 +1,7 @@
-import { createBrowserRouter, createHashRouter } from "react-router";
-
-import * as config from "@/config";
+import { createHashRouter } from "react-router";
 
 import { routes } from "./routes";
 
 
 
-export const router = config.env.IS_WEB
-    ? createBrowserRouter(routes) 
-    : createHashRouter(routes);
+export const router = createHashRouter(routes);
