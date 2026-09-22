@@ -41,7 +41,7 @@ function TableFallback() {
 
 
 
-export default function Home() {
+export default function Dashboard() {
 	const [timeRange, setTimeRange] = useState<FilterItem>(timeRangeItems[0]);
 	const [allData, setAllData] = useState<api.AreaChartDataItem[]>([]);
 	const [isChartLoading, setIsChartLoading] = useState(true);

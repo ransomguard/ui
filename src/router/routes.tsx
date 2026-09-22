@@ -2,7 +2,7 @@ import type { RouteObject } from "react-router";
 
 import RootLayout from "@/layouts/root-layout";
 import NotFound from "@/pages/404";
-import Home from "@/pages/home";
+import Dashboard from "@/pages/dashboard";
 
 
 
@@ -13,7 +13,7 @@ export const routes: RouteObject[] = [
 		children: [
 			{
 				index: true,
-				element: <Home/>,
+				element: <Dashboard/>,
 				handle: {
 					heading: "Dashboard"
 				},
