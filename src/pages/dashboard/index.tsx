@@ -10,7 +10,7 @@ import { timeRangeItems, type FilterItem } from "./common";
 
 const StatsSection = lazy(() => import("./stats-section"));
 const MainChartSection = lazy(() => import("./main-chart-section"));
-const MainTableSection = lazy(() => import("./main-table-section"));
+const IpBlockSection = lazy(() => import("./ip-block-section"));
 
 
 
@@ -30,11 +30,11 @@ function ChartFallback() {
 	);
 }
 
-function TableFallback() {
+function IpBlockFallback() {
 	return (
 		<div className="space-y-3 min-w-0">
-			<Skeleton className="h-6 w-28 rounded"/>
-			<Skeleton className="h-96 w-full rounded-xl"/>
+			<Skeleton className="h-6 w-36 rounded"/>
+			<Skeleton className="h-64 w-full rounded-xl"/>
 		</div>
 	);
 }
@@ -45,9 +45,6 @@ export default function Dashboard() {
 	const [timeRange, setTimeRange] = useState<FilterItem>(timeRangeItems[0]);
 	const [allData, setAllData] = useState<api.AreaChartDataItem[]>([]);
 	const [isChartLoading, setIsChartLoading] = useState(true);
-
-	const [tableItems, setTableItems] = useState<api.TableDataItem[]>([]);
-	const [isTableLoading, setIsTableLoading] = useState(true);
 
 	const updateTimeRange = (value: FilterItem | null) => {
 		setTimeRange(value ?? timeRangeItems[0]);
@@ -60,13 +57,6 @@ export default function Dashboard() {
 			if (isMounted) {
 				setAllData(chartData);
 				setIsChartLoading(false);
-			}
-		});
-
-		api.getTableData().then((data) => {
-			if (isMounted) {
-				setTableItems(data);
-				setIsTableLoading(false);
 			}
 		});
 
@@ -120,13 +110,9 @@ export default function Dashboard() {
 				/>
 			</Suspense>
 
-			{/* Data Table 섹션 */}
-			<Suspense fallback={<TableFallback/>}>
-				<MainTableSection
-					data={tableItems}
-					onDataChange={setTableItems}
-					isLoading={isTableLoading}
-				/>
+			{/* IP 차단 목록 관리 섹션 */}
+			<Suspense fallback={<IpBlockFallback/>}>
+				<IpBlockSection/>
 			</Suspense>
 		</div>
 	);
