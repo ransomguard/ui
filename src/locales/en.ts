@@ -1,9 +1,23 @@
 import type { AppTranslations } from "./types";
 
 export const en: AppTranslations = {
-	heading: {
-		dashboard: "Dashboard",
+	sidebar: {
+		open: "Open Sidebar",
+		close: "Close Sidebar",
+		login: "Login",
+		logout: "Logout",
+		userMenu: {
+			profile: "Profile",
+			settings: "Settings",
+		},
+	},
+
+	nav: {
 		notFound: "404 Not Found",
+		dashboard: "Dashboard",
+		protectedFolders: "Protected Folders",
+		threats: "Threats History",
+		settings: "Settings",
 	},
 
 	stats: {

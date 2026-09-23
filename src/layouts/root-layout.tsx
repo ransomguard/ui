@@ -1,7 +1,7 @@
 import { Outlet, useMatches, type UIMatch } from "react-router";
 import { useTranslation } from "react-i18next";
 
-import { app } from "@/config";
+import { app, constants } from "@/config";
 import type { FlattenedKeys } from "@/locales";
 
 import {
@@ -15,7 +15,7 @@ export interface Data {
 }
 
 export interface Handle {
-	heading?: FlattenedKeys<"heading">;
+	heading?: FlattenedKeys<"nav">;
 }
 
 export default function RootLayout() {
@@ -25,14 +25,16 @@ export default function RootLayout() {
 	const currentMatch = matches.find(match => match.handle?.heading);
 	const headingKey = (currentMatch ? currentMatch.handle.heading : undefined);
 
-	const heading = headingKey ? t($ => $.heading[headingKey]) : "Default Page Title";
+	const heading = headingKey ? t($ => $.nav[headingKey]) : "Default Page Title";
 
 	return (
 		<>
 			<Sidebar
 				heading={app.TITLE}
-				userName="John Doe"
-				userEmail="john.doe@example.com"
+				navGroups={constants.NAV_ITEMS}
+				openText={t($ => $.sidebar.open)}
+				closeText={t($ => $.sidebar.close)}
+				loginText={t($ => $.sidebar.login)}
 			/>
 			<div
 				className="flex-1 min-w-0 flex flex-col"

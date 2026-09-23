@@ -1,35 +1,23 @@
-import { Link } from "react-router";
+import { Link, NavLink, useResolvedPath, useMatch } from "react-router";
 import {
 	PanelLeft,
 	PanelLeftOpen,
 	PanelLeftClose,
 	ChevronsUpDown,
-	Sparkles,
-	BadgeCheck,
-	CreditCard,
-	Bell,
-	LogOut,
-	TerminalSquare,
-	Bot,
-	BookOpen,
-	Settings2,
 	ChevronRight,
-	Frame,
 	Ellipsis,
-	Folder,
-	Forward,
-	Trash2,
-	ChartPie,
-	Map,
+	LogIn,
+	type LucideIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import type { FlattenedKeys } from "@/locales";
 
 import * as Base from "@/components/ui/sidebar";
 import {
 	Collapsible,
 	CollapsibleContent,
-	CollapsibleTrigger
+	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
 	DropdownMenu,
@@ -42,7 +30,37 @@ import {
 	DropdownMenuShortcut,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
+import { I18n, type I18nProps } from "@/components/i18n";
 import { Logo } from "@/components/logo";
+
+
+
+type SidebarI18nKey = FlattenedKeys<"sidebar">;
+type NavI18nKey = FlattenedKeys<"nav">;
+
+interface SidebarI18nProps extends Omit<I18nProps<"sidebar">, "prefix"> {
+}
+
+function SidebarI18n(props: SidebarI18nProps) {
+	return (
+		<I18n
+			prefix="sidebar"
+			{...props}
+		/>
+	);
+}
+
+interface NavI18nProps extends Omit<I18nProps<"nav">, "prefix"> {
+}
+
+function NavI18n(props: NavI18nProps) {
+	return (
+		<I18n
+			prefix="nav"
+			{...props}
+		/>
+	);
+}
 
 
 
@@ -59,20 +77,69 @@ export const useSidebar = Base.useSidebar;
 
 
 
+export interface SidebarUserMenuItem {
+	id?: string;
+	label: SidebarI18nKey;
+	icon?: LucideIcon;
+	shortcut?: string;
+	onClick?: () => void;
+	separatorAfter?: boolean;
+}
+
+export interface SidebarNavSubItem {
+	label: NavI18nKey;
+	href?: string;
+	icon?: LucideIcon;
+	onClick?: () => void;
+}
+
+export interface SidebarNavItem {
+	label: NavI18nKey;
+	href?: string;
+	icon?: LucideIcon;
+	tooltip?: NavI18nKey;
+	defaultOpen?: boolean;
+	items?: SidebarNavSubItem[];
+	actions?: {
+		icon?: LucideIcon;
+		onClick?: () => void;
+		menuItems?: {
+			label: NavI18nKey;
+			icon?: LucideIcon;
+			onClick?: () => void;
+			separatorAfter?: boolean;
+		}[];
+	};
+	onClick?: () => void;
+}
+
+export interface SidebarNavGroup {
+	label?: NavI18nKey;
+	items: SidebarNavItem[];
+}
+
+export interface SidebarUserProfile {
+	email: string;
+	name?: string;
+	avatar?: string;
+}
+
+
+
 interface DropdownMenuItemProps extends React.ComponentProps<typeof BaseDropdownMenuItem> {
-	icon?: React.ReactNode;
+	icon?: LucideIcon;
 	shortcut?: string;
 }
 
 function DropdownMenuItem({
-	icon,
+	icon: Icon,
 	shortcut,
 	children,
 	...props
 }: DropdownMenuItemProps) {
 	return (
 		<BaseDropdownMenuItem {...props}>
-			{icon}
+			{Icon && <Icon/>}
 			{children}
 			{shortcut && (
 				<DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>
@@ -99,28 +166,140 @@ function MenuItemGroup({
 			className={cn(
 				"grid flex-1 text-left text-sm leading-tight",
 				className,
-
 			)}
 			{...props}
 		>
 			<span className="truncate font-medium">{label}</span>
-			<span className="truncate text-xs">{description}</span>
+			<span className="truncate text-xs text-muted-foreground">{description}</span>
 		</div>
 	);
 }
 
 
 
-export interface SidebarProps extends Omit<React.ComponentProps<typeof Base.Sidebar>, "collapsible" | "variant"> {
-	heading: string;
-	userName?: string;
-	userEmail?: string;
+const isExternalUrl = (href?: string) => Boolean(href && (href.startsWith("http://") || href.startsWith("https://")));
+const externalProps = {
+	target: "_blank",
+	rel: "noopener noreferrer",
+};
+
+function RenderNavMenuButton({
+	item: {
+		href,
+		tooltip: _tooltip,
+		label,
+		onClick,
+	},
+	children,
+}: {
+	item: SidebarNavItem;
+	children: React.ReactNode;
+}) {
+	const resolvedHref = useResolvedPath(href ?? "");
+	const isActive = useMatch({ path: resolvedHref.pathname });
+
+	const tooltip = _tooltip ?? label;
+	const commonProps = {
+		tooltip: {
+			children: <NavI18n i18nKey={tooltip}/>,
+		},
+		className: "cursor-pointer",
+		onClick: onClick,
+		children,
+	};
+
+	if (href) {
+		const isExternal = isExternalUrl(href);
+		const linkProps = !isExternal ? {} : externalProps;
+
+		return (
+			<Base.SidebarMenuButton
+				isActive={!!isActive}
+				{...linkProps}
+				{...commonProps}
+				render={<NavLink to={href}/>}
+			/>
+		);
+	}
+
+	return (
+		<Base.SidebarMenuButton
+			{...commonProps}
+		/>
+	);
 }
 
+function RenderNavMenuSubButton({
+	item: {
+		icon: Icon,
+		label,
+		href,
+		onClick,
+	},
+}: {
+	item: SidebarNavSubItem;
+}) {
+	const resolvedHref = useResolvedPath(href ?? "");
+	const isActive = useMatch({ path: resolvedHref.pathname });
+
+	const commonProps = {
+		className: "cursor-pointer",
+		onClick: onClick,
+		children: <>
+			{Icon && <Icon/>}
+			<NavI18n i18nKey={label}/>
+		</>,
+	};
+
+	if (href) {
+		const isExternal = isExternalUrl(href);
+		const linkProps = !isExternal ? {} : externalProps;
+
+		return (
+			<Base.SidebarMenuSubButton
+				isActive={!!isActive}
+				{...linkProps}
+				{...commonProps}
+				render={<NavLink to={href}/>}
+			/>
+		);
+	}
+
+	return (
+		<Base.SidebarMenuSubButton
+			{...commonProps}
+			render={<button type="button"/>}
+		/>
+	);
+}
+
+
+
+export interface SidebarProps extends Omit<React.ComponentProps<typeof Base.Sidebar>, "collapsible" | "variant"> {
+	logo?: React.ReactNode;
+	heading: string;
+	openText: string;
+	closeText: string;
+	navGroups?: SidebarNavGroup[];
+
+	enableUserMenu?: boolean;
+	loginText?: string;
+	user?: SidebarUserProfile;
+	userMenuItems?: SidebarUserMenuItem[];
+}
+
+const DEFAULT_AVATAR = "https://ui.shadcn.com/avatars/shadcn.jpg";
+
 export function Sidebar({
+	logo = <Logo/>,
 	heading,
-	userName,
-	userEmail,
+	openText,
+	closeText,
+	navGroups = [],
+	user: _user,
+	enableUserMenu,
+	loginText,
+	userMenuItems = [],
 	...props
 }: SidebarProps) {
 	const {
@@ -128,6 +307,12 @@ export function Sidebar({
 		isMobile,
 		toggleSidebar,
 	} = Base.useSidebar();
+
+	const user = !_user?.email ? null : {
+		email: _user.email,
+		name: _user.name ?? _user.email.split("@")[0],
+		avatar: _user.avatar ?? DEFAULT_AVATAR,
+	};
 
 	return (
 		<Base.Sidebar
@@ -137,373 +322,226 @@ export function Sidebar({
 		>
 			<Base.SidebarHeader>
 				<Base.SidebarMenu>
-					{
-						isMobile || state !== "collapsed"
-						? (
-							<Base.SidebarMenuItem>
-								<Base.SidebarMenuButton
-									size="lg"
-									className="px-0.5 bg-transparent!"
-									render={<div/>}
-								>
-									<Link to="/" className="contents">
-										<Logo/>
-										<h2 className="truncate font-semibold">
-											{heading}
-										</h2>
-									</Link>
-								</Base.SidebarMenuButton>
-								<Base.SidebarMenuAction
-									className="group/menu-action cursor-pointer size-8 translate-x-0.5 -translate-y-0.5"
-									onClick={toggleSidebar}
-								>
-									<PanelLeft className="absolute opacity-100 group-hover/menu-action:opacity-0 group-focus-within/menu-action:opacity-0"/>
-									<PanelLeftClose className="absolute opacity-0 group-hover/menu-action:opacity-100 group-focus-within/menu-action:opacity-100"/>
-								</Base.SidebarMenuAction>
-							</Base.SidebarMenuItem>
-						)
-						: (
-							<Base.SidebarMenuItem>
-								<Base.SidebarMenuButton
-									tooltip="Sidebar Open"
-									className="group-data-[collapsible=icon]:p-0.5! items-center-safe justify-center-safe cursor-pointer"
-									onClick={toggleSidebar}
-								>
-									<Logo className="opacity-100 group-hover/menu-button:opacity-0 group-focus-within/menu-button:opacity-0"/>
-									<PanelLeftOpen className="absolute opacity-0 group-hover/menu-button:opacity-100 group-focus-within/menu-button:opacity-100"/>
-								</Base.SidebarMenuButton>
-							</Base.SidebarMenuItem>
-						)
-					}
-				</Base.SidebarMenu>
-			</Base.SidebarHeader>
-			<Base.SidebarContent>
-				<Base.SidebarGroup>
-					<Base.SidebarGroupLabel>Platform</Base.SidebarGroupLabel>
-					<Base.SidebarMenu>
-						<Collapsible className="group/collapsible" defaultOpen>
-							<Base.SidebarMenuItem>
-								<CollapsibleTrigger
-									render={<Base.SidebarMenuButton tooltip="Playground" className="cursor-pointer"/>}
-								>
-									<TerminalSquare/>
-									<span>Playground</span>
-									<ChevronRight className="ml-auto transition-transform group-data-open/collapsible:rotate-90"/>
-								</CollapsibleTrigger>
-								<CollapsibleContent>
-									<Base.SidebarMenuSub>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>History</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>Starred</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>Settings</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-									</Base.SidebarMenuSub>
-								</CollapsibleContent>
-							</Base.SidebarMenuItem>
-						</Collapsible>
-						<Collapsible className="group/collapsible">
-							<Base.SidebarMenuItem>
-								<CollapsibleTrigger
-									render={<Base.SidebarMenuButton tooltip="Models" className="cursor-pointer"/>}
-								>
-									<Bot/>
-									<span>Models</span>
-									<ChevronRight className="ml-auto transition-transform group-data-open/collapsible:rotate-90"/>
-								</CollapsibleTrigger>
-								<CollapsibleContent>
-									<Base.SidebarMenuSub>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>Genesis</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>Explorer</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>Quantum</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-									</Base.SidebarMenuSub>
-								</CollapsibleContent>
-							</Base.SidebarMenuItem>
-						</Collapsible>
-						<Collapsible className="group/collapsible">
-							<Base.SidebarMenuItem>
-								<CollapsibleTrigger
-									render={<Base.SidebarMenuButton tooltip="Documentation" className="cursor-pointer"/>}
-								>
-									<BookOpen/>
-									<span>Documentation</span>
-									<ChevronRight className="ml-auto transition-transform group-data-open/collapsible:rotate-90"/>
-								</CollapsibleTrigger>
-								<CollapsibleContent>
-									<Base.SidebarMenuSub>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>Introduction</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>Get Started</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>Tutorial</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>Changelog</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-									</Base.SidebarMenuSub>
-								</CollapsibleContent>
-							</Base.SidebarMenuItem>
-						</Collapsible>
-						<Collapsible className="group/collapsible">
-							<Base.SidebarMenuItem>
-								<CollapsibleTrigger
-									render={<Base.SidebarMenuButton tooltip="Settings" className="cursor-pointer"/>}
-								>
-									<Settings2/>
-									<span>Settings</span>
-									<ChevronRight className="ml-auto transition-transform group-data-open/collapsible:rotate-90"/>
-								</CollapsibleTrigger>
-								<CollapsibleContent>
-									<Base.SidebarMenuSub>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>General</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>Team</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>Billing</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-										<Base.SidebarMenuSubItem>
-											<Base.SidebarMenuSubButton href="#" className="cursor-pointer">
-												<span>Limits</span>
-											</Base.SidebarMenuSubButton>
-										</Base.SidebarMenuSubItem>
-									</Base.SidebarMenuSub>
-								</CollapsibleContent>
-							</Base.SidebarMenuItem>
-						</Collapsible>
-					</Base.SidebarMenu>
-				</Base.SidebarGroup>
-				<Base.SidebarGroup>
-					<Base.SidebarGroupLabel>Projects</Base.SidebarGroupLabel>
-					<Base.SidebarMenu>
+					{isMobile || state !== "collapsed" ? (
 						<Base.SidebarMenuItem>
-							<DropdownMenu>
-								<Base.SidebarMenuButton tooltip="Design Engineering" className="cursor-pointer">
-									<Frame/>
-									<span>Design Engineering</span>
-								</Base.SidebarMenuButton>
-								<DropdownMenuTrigger
-									render={<Base.SidebarMenuAction
-										showOnHover
-										className="cursor-pointer"
-									/>}
-								>
-									<Ellipsis/>
-									<span className="sr-only">More</span>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent
-									side={isMobile ? "bottom" : "right"}
-									align="end"
-									className="w-48"
-								>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<Folder/>}
-									>View Project</DropdownMenuItem>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<Forward/>}
-									>Share Project</DropdownMenuItem>
-									<DropdownMenuSeparator/>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<Trash2/>}
-									>Delete Project</DropdownMenuItem>
-								</DropdownMenuContent>
-							</DropdownMenu>
+							<Base.SidebarMenuButton
+								size="lg"
+								className="px-0.5 bg-transparent!"
+								render={<div/>}
+							>
+								<Link to="/" className="contents">
+									{logo}
+									<h2 className="truncate font-semibold">
+										{heading}
+									</h2>
+								</Link>
+							</Base.SidebarMenuButton>
+							<Base.SidebarMenuAction
+								aria-label={closeText}
+								className="group/menu-action cursor-pointer size-8 translate-x-0.5 -translate-y-0.5"
+								onClick={toggleSidebar}
+							>
+								<PanelLeft className="absolute opacity-100 group-hover/menu-action:opacity-0 group-focus-within/menu-action:opacity-0"/>
+								<PanelLeftClose className="absolute opacity-0 group-hover/menu-action:opacity-100 group-focus-within/menu-action:opacity-100"/>
+							</Base.SidebarMenuAction>
 						</Base.SidebarMenuItem>
+					) : (
 						<Base.SidebarMenuItem>
-							<DropdownMenu>
-								<Base.SidebarMenuButton tooltip="Sales & Marketing" className="cursor-pointer">
-									<ChartPie/>
-									<span>Sales & Marketing</span>
-								</Base.SidebarMenuButton>
-								<DropdownMenuTrigger
-									render={<Base.SidebarMenuAction
-										showOnHover
-										className="cursor-pointer"
-									/>}
-								>
-									<Ellipsis/>
-									<span className="sr-only">More</span>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent
-									side={isMobile ? "bottom" : "right"}
-									align="end"
-									className="w-48"
-								>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<Folder/>}
-									>View Project</DropdownMenuItem>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<Forward/>}
-									>Share Project</DropdownMenuItem>
-									<DropdownMenuSeparator/>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<Trash2/>}
-									>Delete Project</DropdownMenuItem>
-								</DropdownMenuContent>
-							</DropdownMenu>
-						</Base.SidebarMenuItem>
-						<Base.SidebarMenuItem>
-							<DropdownMenu>
-								<Base.SidebarMenuButton tooltip="Travel" className="cursor-pointer">
-									<Map/>
-									<span>Travel</span>
-								</Base.SidebarMenuButton>
-								<DropdownMenuTrigger
-									render={<Base.SidebarMenuAction
-										showOnHover
-										className="cursor-pointer"
-									/>}
-								>
-									<Ellipsis/>
-									<span className="sr-only">More</span>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent
-									side={isMobile ? "bottom" : "right"}
-									align="end"
-									className="w-48"
-								>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<Folder/>}
-									>View Project</DropdownMenuItem>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<Forward/>}
-									>Share Project</DropdownMenuItem>
-									<DropdownMenuSeparator/>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<Trash2/>}
-									>Delete Project</DropdownMenuItem>
-								</DropdownMenuContent>
-							</DropdownMenu>
-						</Base.SidebarMenuItem>
-						<Base.SidebarMenuItem>
-							<Base.SidebarMenuButton tooltip="More" className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sidebar-foreground/70 cursor-pointer">
-								<Ellipsis/>
-								<span>More</span>
+							<Base.SidebarMenuButton
+								tooltip={openText}
+								className="group-data-[collapsible=icon]:p-0.5! items-center-safe justify-center-safe cursor-pointer"
+								onClick={toggleSidebar}
+							>
+								<div className="opacity-100 group-hover/menu-button:opacity-0 group-focus-within/menu-button:opacity-0">
+									{logo}
+								</div>
+								<PanelLeftOpen className="absolute opacity-0 group-hover/menu-button:opacity-100 group-focus-within/menu-button:opacity-100"/>
 							</Base.SidebarMenuButton>
 						</Base.SidebarMenuItem>
-					</Base.SidebarMenu>
-				</Base.SidebarGroup>
+					)}
+				</Base.SidebarMenu>
+			</Base.SidebarHeader>
+
+			<Base.SidebarContent>
+				{navGroups.map((group, groupIdx) => (
+					<Base.SidebarGroup key={group.label ?? `group-${groupIdx}`}>
+						{group.label && (
+							<NavI18n
+								i18nKey={group.label}
+								render={<Base.SidebarGroupLabel/>}
+							/>
+						)}
+						<Base.SidebarMenu>
+							{group.items.map((item) => {
+								const hasSubItems = Boolean(item.items && item.items.length > 0);
+								const hasActions = Boolean(item.actions?.menuItems && item.actions.menuItems.length > 0);
+
+								if (hasSubItems) {
+									return (
+										<Collapsible
+											key={item.label}
+											className="group/collapsible"
+											defaultOpen={item.defaultOpen}
+										>
+											<Base.SidebarMenuItem>
+												<CollapsibleTrigger
+													render={
+														<Base.SidebarMenuButton
+															tooltip={{
+																children: <NavI18n i18nKey={item.tooltip ?? item.label}/>,
+															}}
+															className="cursor-pointer"
+														/>
+													}
+												>
+													{item.icon && <item.icon/>}
+													<NavI18n i18nKey={item.label}/>
+													<ChevronRight className="ml-auto transition-transform group-data-open/collapsible:rotate-90"/>
+												</CollapsibleTrigger>
+												<CollapsibleContent>
+													<Base.SidebarMenuSub>
+														{item.items?.map((subItem) => (
+															<Base.SidebarMenuSubItem key={subItem.label}>
+																<RenderNavMenuSubButton item={subItem}/>
+															</Base.SidebarMenuSubItem>
+														))}
+													</Base.SidebarMenuSub>
+												</CollapsibleContent>
+											</Base.SidebarMenuItem>
+										</Collapsible>
+									);
+								}
+
+								if (hasActions) {
+									return (
+										<Base.SidebarMenuItem key={item.label}>
+											<DropdownMenu>
+												<RenderNavMenuButton item={item}>
+													{item.icon && <item.icon/>}
+													<NavI18n i18nKey={item.label}/>
+												</RenderNavMenuButton>
+												<DropdownMenuTrigger
+													render={
+														<Base.SidebarMenuAction
+															showOnHover
+															className="cursor-pointer"
+														/>
+													}
+												>
+													{item.actions?.icon ? <item.actions.icon/> : <Ellipsis/>}
+													<span className="sr-only">More</span>
+												</DropdownMenuTrigger>
+												<DropdownMenuContent
+													side={isMobile ? "bottom" : "right"}
+													align="end"
+													className="w-48"
+												>
+													{item.actions?.menuItems?.map((actionItem) => (
+														<div key={actionItem.label}>
+															<DropdownMenuItem
+																className="cursor-pointer"
+																icon={actionItem.icon}
+																onClick={actionItem.onClick}
+															>
+																<NavI18n i18nKey={actionItem.label}/>
+															</DropdownMenuItem>
+															{actionItem.separatorAfter && <DropdownMenuSeparator/>}
+														</div>
+													))}
+												</DropdownMenuContent>
+											</DropdownMenu>
+										</Base.SidebarMenuItem>
+									);
+								}
+
+								return (
+									<Base.SidebarMenuItem key={item.label}>
+										<RenderNavMenuButton item={item}>
+											{item.icon && <item.icon/>}
+											<NavI18n i18nKey={item.label}/>
+										</RenderNavMenuButton>
+									</Base.SidebarMenuItem>
+								);
+							})}
+						</Base.SidebarMenu>
+					</Base.SidebarGroup>
+				))}
 			</Base.SidebarContent>
-			<Base.SidebarFooter>
-				<Base.SidebarMenu>
-					<Base.SidebarMenuItem>
-						<DropdownMenu>
-							<DropdownMenuTrigger
-								render={<Base.SidebarMenuButton
-									size="lg"
-									className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground cursor-pointer"
-								/>}
-							>
-								<Avatar size="default">
-									<AvatarImage src="https://ui.shadcn.com/avatars/shadcn.jpg"/>
-								</Avatar>
-								<MenuItemGroup
-									label={userName}
-									description={userEmail}
-								/>
-								<ChevronsUpDown/>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent
-								side={isMobile ? "bottom" : "right"}
-								align="end"
-								className="w-full min-w-56"
-							>
-								<DropdownMenuGroup>
-									<DropdownMenuLabel className="p-0 font-normal">
-										<div className="flex items-center-safe gap-2 px-1 py-1.5 text-left text-sm">
+
+			{enableUserMenu && (
+				<Base.SidebarFooter>
+					<Base.SidebarMenu>
+						<Base.SidebarMenuItem>
+						{
+							!user?.email
+							? (
+								<Base.SidebarMenuButton
+									tooltip={loginText}
+									className="cursor-pointer"
+								>
+									<LogIn className="not-group-data-[collapsible=icon]:hidden"/>
+									<span className="w-full text-center font-medium">{loginText}</span>
+								</Base.SidebarMenuButton>
+							)
+							: (
+								<DropdownMenu>
+									<DropdownMenuTrigger
+										render={
+											<Base.SidebarMenuButton
+												size="lg"
+												className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground cursor-pointer"
+											/>
+										}
+									>
 										<Avatar size="default">
-											<AvatarImage src="https://ui.shadcn.com/avatars/shadcn.jpg"/>
+											<AvatarImage src={user.avatar}/>
 										</Avatar>
 										<MenuItemGroup
-											label={userName}
-											description={userEmail}
+											label={user.name}
+											description={user.email}
 										/>
-									</div>
-									</DropdownMenuLabel>
-								</DropdownMenuGroup>
-								<DropdownMenuSeparator/>
-								<DropdownMenuGroup>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<Sparkles/>}
-									>Upgrade to Pro</DropdownMenuItem>
-								</DropdownMenuGroup>
-								<DropdownMenuSeparator/>
-								<DropdownMenuGroup>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<BadgeCheck/>}
-									>Account</DropdownMenuItem>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<CreditCard/>}
-									>Billing</DropdownMenuItem>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<Bell/>}
-									>Notifications</DropdownMenuItem>
-								</DropdownMenuGroup>
-								<DropdownMenuSeparator/>
-								<DropdownMenuGroup>
-									<DropdownMenuItem
-										className="cursor-pointer"
-										icon={<LogOut/>}
-									>Log out</DropdownMenuItem>
-								</DropdownMenuGroup>
-							</DropdownMenuContent>
-						</DropdownMenu>
-					</Base.SidebarMenuItem>
-				</Base.SidebarMenu>
-			</Base.SidebarFooter>
+										<ChevronsUpDown/>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent
+										side={isMobile ? "bottom" : "right"}
+										align="end"
+										className="w-full min-w-56"
+									>
+										<DropdownMenuGroup>
+											<DropdownMenuLabel className="p-0 font-normal">
+												<div className="flex items-center-safe gap-2 px-1 py-1.5 text-left text-sm">
+													<Avatar size="default">
+														<AvatarImage src={user.avatar}/>
+													</Avatar>
+													<MenuItemGroup
+														label={user.name}
+														description={user.email}
+													/>
+												</div>
+											</DropdownMenuLabel>
+										</DropdownMenuGroup>
+										<DropdownMenuSeparator/>
+										{userMenuItems.map((item) => (
+											<div key={item.id ?? item.label}>
+												<DropdownMenuItem
+													className="cursor-pointer"
+													icon={item.icon}
+													shortcut={item.shortcut}
+													onClick={item.onClick}
+												>
+													<SidebarI18n i18nKey={item.label}/>
+												</DropdownMenuItem>
+												{item.separatorAfter && <DropdownMenuSeparator/>}
+											</div>
+										))}
+									</DropdownMenuContent>
+								</DropdownMenu>
+							)
+						}
+						</Base.SidebarMenuItem>
+					</Base.SidebarMenu>
+				</Base.SidebarFooter>
+			)}
 		</Base.Sidebar>
 	);
 }

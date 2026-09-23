@@ -1,9 +1,23 @@
 import type { AppTranslations } from "./types";
 
 export const ko: AppTranslations = {
-	heading: {
-		dashboard: "대시보드",
+	sidebar: {
+		open: "열기",
+		close: "닫기",
+		login: "로그인",
+		logout: "로그아웃",
+		userMenu: {
+			profile: "프로필",
+			settings: "환경 설정",
+		},
+	},
+
+	nav: {
 		notFound: "페이지를 찾을 수 없음",
+		dashboard: "대시보드",
+		protectedFolders: "보호 폴더",
+		threats: "차단 내역",
+		settings: "환경 설정"
 	},
 
 	stats: {
