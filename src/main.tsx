@@ -31,10 +31,3 @@ createRoot(document.getElementById("root")!).render(
 		<App/>
 	</StrictMode>,
 );
-
-
-
-// Use contextBridge, for electron
-window.ipcRenderer.on("main-process-message", (_event, message) => {
-	console.log(message);
-});
