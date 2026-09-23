@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 
@@ -18,6 +18,10 @@ import {
 	DialogFooter,
 	DialogClose,
 } from "@/components/ui/dialog";
+import {
+	Field,
+	FieldLabel,
+} from "@/components/ui/field";
 import { DataTable, type DataTableFeatures } from "@/components/data-table";
 
 
@@ -72,44 +76,28 @@ const ipBlockColumns: ColumnDef<DataTableFeatures, api.BlockedIpItem>[] = column
 
 
 
+const IPV4_REG = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.){3}(25[0-5]|(2[0-4]|1\d|[1-9]|)\d)$/;
+const validateIp = (ip: string) => IPV4_REG.test(ip.trim());
+
 export interface IpBlockSectionProps {
-	data?: api.BlockedIpItem[];
+	data: api.BlockedIpItem[];
+	addItem: (value: api.BlockedIpItem | null) => void;
+	removeItem: (value: api.BlockedIpItem | null) => void;
 	isLoading?: boolean;
 }
 
 export default function IpBlockSection({
-	data: initialData,
-	isLoading: externalLoading,
+	data,
+	addItem,
+	removeItem,
+	isLoading,
 }: IpBlockSectionProps) {
-	const [items, setItems] = useState<api.BlockedIpItem[]>(initialData ?? []);
-	const [isLoading, setIsLoading] = useState(externalLoading ?? !initialData);
 	const [selectedRows, setSelectedRows] = useState<api.BlockedIpItem[]>([]);
 
 	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 	const [newIp, setNewIp] = useState("");
 	const [newReason, setNewReason] = useState("");
 	const [ipError, setIpError] = useState("");
-
-	useEffect(() => {
-		if (initialData) return;
-
-		let isMounted = true;
-		api.getBlockedIpData().then((res) => {
-			if (isMounted) {
-				setItems(res);
-				setIsLoading(false);
-			}
-		});
-
-		return () => {
-			isMounted = false;
-		};
-	}, [initialData]);
-
-	const validateIp = (ip: string) => {
-		const ipv4Regex = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.){3}(25[0-5]|(2[0-4]|1\d|[1-9]|)\d)$/;
-		return ipv4Regex.test(ip.trim());
-	};
 
 	const handleAddIp = () => {
 		const trimmedIp = newIp.trim();
@@ -123,7 +111,7 @@ export default function IpBlockSection({
 			return;
 		}
 
-		if (items.some((item) => item.ipAddress === trimmedIp)) {
+		if (data.some((item) => item.ipAddress === trimmedIp)) {
 			setIpError("This IP address is already blocked.");
 			return;
 		}
@@ -139,7 +127,7 @@ export default function IpBlockSection({
 			blockedAt: formattedDate,
 		};
 
-		setItems((prev) => [newItem, ...prev]);
+		addItem(newItem);
 		setNewIp("");
 		setNewReason("");
 		setIpError("");
@@ -148,26 +136,24 @@ export default function IpBlockSection({
 
 	const handleBulkUnblock = () => {
 		if (selectedRows.length === 0) return;
-		const idsToRemove = new Set(selectedRows.map((r) => r.id));
-		setItems((prev) => prev.filter((item) => !idsToRemove.has(item.id)));
+		for (const item of selectedRows) {
+			removeItem(item);
+		}
 		setSelectedRows([]);
 	};
 
 	return (
 		<DataTable
 			heading="Blocked IP List"
-			description="Manage detected or manually added blocked IP addresses and unblock selected IPs."
 			columns={ipBlockColumns}
-			data={items}
+			data={data}
 			isLoading={isLoading}
-			enableRowSelection={true}
-			enableRowDrag={false}
-			enableColumnVisibility={false}
-			enableSearch={true}
-			enablePagination={true}
-			enableRowNumber
 			filterPlaceholder="Search IP address or reason..."
 			onRowSelectionChange={(rows) => setSelectedRows(rows)}
+			enableRowSelection
+			enableSearch
+			enablePagination
+			enableRowNumber
 		>
 			<Button
 				variant="destructive"
@@ -202,10 +188,11 @@ export default function IpBlockSection({
 					</DialogHeader>
 
 					<div className="flex flex-col gap-4 py-2">
-						<div className="flex flex-col gap-1.5">
-							<label htmlFor="ip-address" className="text-xs">
-								IP Address <span className="text-destructive">*</span>
-							</label>
+						<Field>
+							<FieldLabel htmlFor="ip-address" className="gap-1.5">
+								IP Address
+								<span className="text-destructive">*</span>
+							</FieldLabel>
 							<Input
 								id="ip-address"
 								placeholder="e.g. 192.168.1.100"
@@ -219,30 +206,30 @@ export default function IpBlockSection({
 							{ipError && (
 								<p className="text-xs text-destructive">{ipError}</p>
 							)}
-						</div>
+						</Field>
 
-						<div className="grid gap-1.5">
-							<label htmlFor="block-reason" className="text-xs">
+						<Field>
+							<FieldLabel htmlFor="block-reason" className="gap-1.5">
 								Reason
-							</label>
+							</FieldLabel>
 							<Input
 								id="block-reason"
 								placeholder="e.g. Manual block by administrator"
 								value={newReason}
 								onChange={(e) => setNewReason(e.target.value)}
 							/>
-						</div>
+						</Field>
 					</div>
 
 					<DialogFooter className="gap-2">
 						<DialogClose
 							render={
-								<Button type="button" variant="outline" size="sm">
+								<Button type="button" variant="outline">
 									Cancel
 								</Button>
 							}
 						/>
-						<Button type="button" size="sm" onClick={handleAddIp}>
+						<Button type="button" onClick={handleAddIp}>
 							Add Block
 						</Button>
 					</DialogFooter>

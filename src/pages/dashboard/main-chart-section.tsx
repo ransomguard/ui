@@ -8,10 +8,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import type { ChartConfig } from "@/components/ui/chart";
 import { ChartAreaInteractive } from "@/components/chart/area";
+import type { ChartConfig } from "@/components/ui/chart";
 
-import { timeRangeItems, type FilterItem } from "./common";
+import type { TimeRangeItem } from "./common";
 
 
 
@@ -42,31 +42,36 @@ const formatDate = (value: unknown) => {
 
 
 
-export interface MainChartSectionProps {
+export interface MainChartSectionProps<T extends TimeRangeItem> {
 	data: api.AreaChartDataItem[];
-	timeRange: FilterItem;
-	onTimeRangeChange: (value: FilterItem | null) => void;
+	timeRange: T;
+	timeRangeItems: T[];
+	onTimeRangeChange: (value: T | null) => void;
 	isLoading?: boolean;
 }
 
-export default function MainChartSection({
+export default function MainChartSection<T extends TimeRangeItem>({
 	data,
 	timeRange,
+	timeRangeItems,
 	onTimeRangeChange,
 	isLoading,
-}: MainChartSectionProps) {
+}: MainChartSectionProps<T>) {
 	return (
 		<ChartAreaInteractive
 			data={data}
 			config={chartConfig}
+			heading="Area Chart"
+			description={`Showing total visitors for the ${timeRange.label}`}
 			xAxisKey="date"
 			xAxisFormatter={formatDate}
 			tooltipLabelFormatter={formatDate}
-			heading="Area Chart"
-			description={`Showing total visitors for the ${timeRange.label}`}
 			isLoading={isLoading}
 		>
-			<Select value={timeRange} onValueChange={onTimeRangeChange}>
+			<Select
+				value={timeRange}
+				onValueChange={onTimeRangeChange}
+			>
 				<SelectTrigger
 					className="hidden w-40 rounded-lg sm:ml-auto sm:flex"
 					aria-label="Select a value"

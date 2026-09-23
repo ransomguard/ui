@@ -21,8 +21,8 @@ export function SortButton({
 }: SortButtonProps) {
 	return (
 		<Button
-			variant="ghost"
 			size="sm"
+			variant="ghost"
 			className={cn(
 				"p-0 bg-transparent! cursor-pointer",
 				className,

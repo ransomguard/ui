@@ -28,15 +28,13 @@ export interface AreaSeriesItem {
 	stackId?: string;
 }
 
-export interface ChartAreaInteractiveProps {
+export interface ChartAreaInteractiveProps extends React.ComponentProps<typeof Card> {
 	data: Record<string, unknown>[];
 	config: ChartConfig;
 	xAxisKey?: string;
 	areas?: (string | AreaSeriesItem)[];
 	heading?: ReactNode;
 	description?: ReactNode;
-	children?: ReactNode;
-	className?: string;
 	showLegend?: boolean;
 	xAxisFormatter?: (value: unknown) => string;
 	tooltipLabelFormatter?: (value: ReactNode, payload?: readonly unknown[]) => ReactNode;
@@ -53,13 +51,14 @@ export function ChartAreaInteractive({
 	areas,
 	heading,
 	description,
-	children,
-	className,
 	showLegend = true,
 	xAxisFormatter = defaultStringFormatter,
 	tooltipLabelFormatter,
 	isLoading,
 	loadingText,
+	className,
+	children,
+	...props
 }: ChartAreaInteractiveProps) {
 	// xAxisKey가 지정되지 않은 경우 데이터에서 config에 없는 첫 번째 키를 자동 감지
 	const resolvedXAxisKey = (
@@ -103,6 +102,7 @@ export function ChartAreaInteractive({
 				"pt-0",
 				className,
 			)}
+			{...props}
 		>
 			{(heading || description || children) && (
 				<CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">

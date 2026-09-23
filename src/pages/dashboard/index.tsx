@@ -1,10 +1,17 @@
-import { useState, useMemo, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
+import {
+	Users,
+	Monitor,
+	Smartphone,
+	TrendingUp,
+} from "lucide-react";
 
 import * as api from "@/lib/api";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { timeRangeItems, type FilterItem } from "./common";
+import { timeRangeItems, type TimeRangeItem } from "./common";
+import type { StatsItem } from "./stats-section";
 
 
 
@@ -42,21 +49,52 @@ function IpBlockFallback() {
 
 
 export default function Dashboard() {
-	const [timeRange, setTimeRange] = useState<FilterItem>(timeRangeItems[0]);
-	const [allData, setAllData] = useState<api.AreaChartDataItem[]>([]);
+	const [timeRange, setTimeRange] = useState<TimeRangeItem>(timeRangeItems[0]);
+	const [chartItems, setChartItems] = useState<api.AreaChartDataItem[]>([]);
 	const [isChartLoading, setIsChartLoading] = useState(true);
-
-	const updateTimeRange = (value: FilterItem | null) => {
+	const updateTimeRange = (value: TimeRangeItem | null) => {
 		setTimeRange(value ?? timeRangeItems[0]);
 	};
+
+	const [blockedItems, setBlockedItems] = useState<api.BlockedIpItem[]>([]);
+	const [isBlockedLoading, setIsBlockedLoading] = useState(true);
+	const addBlockedItem = (value: api.BlockedIpItem | null) => {
+		if (value) {
+			setBlockedItems((prev) => [value, ...prev]);
+		}
+	};
+	const removeBlockedItem = (value: api.BlockedIpItem | null) => {
+		if (value) {
+			setBlockedItems((prev) => prev.filter((item) => item.id !== value.id));
+		}
+	};
+
+	let filteredChartData: api.AreaChartDataItem[] = [];
+	if (chartItems.length) {
+		// 마지막 날짜 기준으로 범위 필터링
+		const lastItem = chartItems.at(-1)!;
+		const daysToSubtract = timeRange.value;
+
+		const startDate = new Date(lastItem.date);
+		startDate.setDate(startDate.getDate() - daysToSubtract);
+
+		filteredChartData = chartItems.filter((item) => new Date(item.date) >= startDate);
+	}
 
 	useEffect(() => {
 		let isMounted = true;
 
-		api.getAreaChartData().then((chartData) => {
+		api.getAreaChartData().then((data) => {
 			if (isMounted) {
-				setAllData(chartData);
+				setChartItems(data);
 				setIsChartLoading(false);
+			}
+		});
+
+		api.getBlockedIpData().then((data) => {
+			if (isMounted) {
+				setBlockedItems(data);
+				setIsBlockedLoading(false);
 			}
 		});
 
@@ -65,37 +103,58 @@ export default function Dashboard() {
 		};
 	}, []);
 
-	const filteredData = useMemo(() => {
-		if (!allData.length) return [];
+	
 
-		// 마지막 날짜 기준으로 범위 필터링
-		const lastItem = allData.at(-1)!;
-		const referenceDate = new Date(lastItem.date);
+	const isChartReady = !isChartLoading && filteredChartData.length > 0;
+	const { totalDesktop, totalMobile } = isChartReady
+		? filteredChartData.reduce(
+			(acc, cur) => {
+				acc.totalDesktop += Number(cur.desktop) || 0;
+				acc.totalMobile += Number(cur.mobile) || 0;
+				return acc;
+			},
+			{ totalDesktop: 0, totalMobile: 0 }
+		)
+		: { totalDesktop: 0, totalMobile: 0 };
 
-		let daysToSubtract: number;
-		switch (timeRange.value) {
-			case "30d":
-				daysToSubtract = 30;
-				break;
-			case "7d":
-				daysToSubtract = 7;
-				break;
-			default:
-				daysToSubtract = 90;
-		}
+	const totalVisitors = totalDesktop + totalMobile;
+	const avgDaily = filteredChartData.length > 0 ? Math.round(totalVisitors / filteredChartData.length) : 0;
+	const desktopPercent = totalVisitors > 0 ? Math.round((totalDesktop / totalVisitors) * 100) : 0;
+	const mobilePercent = totalVisitors > 0 ? Math.round((totalMobile / totalVisitors) * 100) : 0;
 
-		const startDate = new Date(referenceDate);
-		startDate.setDate(startDate.getDate() - daysToSubtract);
-
-		return allData.filter((item) => new Date(item.date) >= startDate);
-	}, [allData, timeRange]);
+	const statsItems: StatsItem[] = [
+		{
+			icon: Users,
+			label: "Total",
+			description: "Total Visitors",
+			...(isChartReady && { value: totalVisitors.toLocaleString() }),
+		},
+		{
+			icon: Monitor,
+			label: "Desktop",
+			description: `${desktopPercent}% of total`,
+			...(isChartReady && { value: totalDesktop.toLocaleString() }),
+		},
+		{
+			icon: Smartphone,
+			label: "Mobile",
+			description: `${mobilePercent}% of total`,
+			...(isChartReady && { value: totalMobile.toLocaleString() }),
+		},
+		{
+			icon: TrendingUp,
+			label: "Daily Average",
+			description: "Average visitors per day",
+			...(isChartReady && { value: avgDaily.toLocaleString() }),
+		},
+	];
 
 	return (
 		<div className="flex flex-col gap-6 min-w-0">
 			{/* 수치 카드 섹션 */}
 			<Suspense fallback={<StatsFallback/>}>
 				<StatsSection
-					data={filteredData}
+					items={statsItems}
 					isLoading={isChartLoading}
 				/>
 			</Suspense>
@@ -103,8 +162,9 @@ export default function Dashboard() {
 			{/* Area 차트 섹션 */}
 			<Suspense fallback={<ChartFallback/>}>
 				<MainChartSection
-					data={filteredData}
+					data={filteredChartData}
 					timeRange={timeRange}
+					timeRangeItems={timeRangeItems}
 					onTimeRangeChange={updateTimeRange}
 					isLoading={isChartLoading}
 				/>
@@ -112,7 +172,12 @@ export default function Dashboard() {
 
 			{/* IP 차단 목록 관리 섹션 */}
 			<Suspense fallback={<IpBlockFallback/>}>
-				<IpBlockSection/>
+				<IpBlockSection
+					data={blockedItems}
+					addItem={addBlockedItem}
+					removeItem={removeBlockedItem}
+					isLoading={isBlockedLoading}
+				/>
 			</Suspense>
 		</div>
 	);

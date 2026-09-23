@@ -1,19 +1,19 @@
-export interface FilterItem {
+export interface TimeRangeItem {
 	label: string;
-	value: string;
+	value: number;
 }
 
-export const timeRangeItems: [FilterItem, ...FilterItem[]] = [
+export const timeRangeItems: [TimeRangeItem, ...TimeRangeItem[]] = [
 	{
 		label: "Last 3 months",
-		value: "90d",
+		value: 90,
 	},
 	{
 		label: "Last 30 days",
-		value: "30d",
+		value: 30,
 	},
 	{
 		label: "Last 7 days",
-		value: "7d",
+		value: 7,
 	},
 ];

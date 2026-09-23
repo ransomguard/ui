@@ -11,13 +11,12 @@ import {
 
 
 
-export interface MetricCardItem {
+export interface MetricCardItem extends React.ComponentProps<typeof Card> {
 	label: React.ReactNode;
 	value?: React.ReactNode;
 	description?: React.ReactNode;
 	icon?: React.ComponentType<{ className?: string }>;
 	action?: React.ReactNode;
-	className?: string;
 	isLoading?: boolean;
 }
 
@@ -27,17 +26,31 @@ export function MetricCard({
 	description,
 	icon: Icon,
 	action,
-	className,
 	isLoading,
+	color,
+	style,
+	className,
+	...props
 }: MetricCardItem) {
 	return (
-		<Card size="sm" className={className}>
+		<Card
+			size="sm"
+			className={cn(
+				"ring-(--color)/30 text-(--color)",
+				className,
+			)}
+			style={{
+				"--color": color ?? "var(--foreground)",
+				...style,
+			} as React.CSSProperties}
+			{...props}
+		>
 			<CardHeader>
 				<CardDescription>{label}</CardDescription>
 				<CardTitle className="font-bold">{isLoading || !value ? "-" : value}</CardTitle>
 				{(Icon || action) && (
 					<CardAction>
-						{action ?? (Icon && <Icon className="size-4 text-muted-foreground"/>)}
+						{action ?? (Icon && <Icon className="size-4 opacity-70"/>)}
 					</CardAction>
 				)}
 			</CardHeader>
@@ -47,36 +60,5 @@ export function MetricCard({
 				</CardContent>
 			)}
 		</Card>
-	);
-}
-
-
-
-export interface ChartStatsProps {
-	items: MetricCardItem[];
-	className?: string;
-	isLoading?: boolean;
-}
-
-export function ChartStats({
-	items,
-	className,
-	isLoading,
-}: ChartStatsProps) {
-	return (
-		<div
-			className={cn(
-				"grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4",
-				className,
-			)}
-		>
-			{items.map((item, index) => (
-				<MetricCard
-					key={typeof item.label === "string" ? item.label : index}
-					{...item}
-					isLoading={item.isLoading ?? isLoading}
-				/>
-			))}
-		</div>
 	);
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useId, useState, useEffect } from "react";
 import {
 	DndContext,
 	KeyboardSensor,
@@ -40,6 +40,10 @@ import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+	Field,
+	FieldLabel,
+} from "@/components/ui/field";
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -116,9 +120,8 @@ function SortableTableRow({ id, children, isSelected }: SortableTableRowProps) {
 
 
 
-export interface DataTableProps<TData extends RowData & { id: string }> {
+export interface DataTableProps<TData extends RowData & { id: string }> extends React.ComponentProps<"div"> {
 	heading?: React.ReactNode;
-	description?: React.ReactNode;
 
 	columns: ColumnDef<DataTableFeatures, TData>[];
 	data: TData[];
@@ -143,13 +146,10 @@ export interface DataTableProps<TData extends RowData & { id: string }> {
 	skeletonRowCount?: number;
 
 	onRowSelectionChange?: (selectedRows: TData[], selectedRowIds: RowSelectionState) => void;
-
-	children?: React.ReactNode;
 }
 
 export function DataTable<TData extends RowData & { id: string }>({
 	heading,
-	description,
 	columns,
 	data,
 	onDataChange,
@@ -162,14 +162,21 @@ export function DataTable<TData extends RowData & { id: string }>({
 	enablePagination,
 	defaultPageSize = 10,
 	pageSizeOptions = [5, 10, 20, 30, 50],
-	filterPlaceholder = "Filter...",
+	filterPlaceholder,
 	filterColumnKey,
 	maxHeight = "600px",
 	isLoading,
 	skeletonRowCount = 5,
 	onRowSelectionChange,
+	id: _id,
+	className,
 	children,
+	...props
 }: DataTableProps<TData>) {
+	const localId = useId();
+	const id = _id ?? `data-table-${localId}`;
+	const searchId = `${id}-search`;
+
 	const [prevData, setPrevData] = useState<TData[]>(data);
 	const [tableData, setTableData] = useState<TData[]>(data);
 	const [sorting, setSorting] = useState<SortingState>([]);
@@ -187,90 +194,65 @@ export function DataTable<TData extends RowData & { id: string }>({
 		setTableData(data);
 	}
 
-	const resolvedColumns = useMemo(() => {
-		let cols = [...columns];
+	// 1. 기존 컬럼에서 특수 컬럼(drag, select, rowNumber)이 이미 섞여 있다면 안전하게 제거
+	const baseColumns = columns.filter(
+		(c) => c.id !== "drag" && c.id !== "select" && c.id !== "rowNumber"
+	);
 
-		// enableRowDrag 플래그 제어: false면 drag 컬럼 제거, true인데 없으면 추가
-		if (!enableRowDrag) {
-			cols = cols.filter((c) => c.id !== "drag");
-		} else if (!cols.some((c) => c.id === "drag")) {
-			const dragCol: ColumnDef<DataTableFeatures, TData> = {
-				id: "drag",
-				header: () => null,
-				cell: () => <RowDragHandle/>,
-				enableSorting: false,
-				enableHiding: false,
-			};
-			cols = [dragCol, ...cols];
-		}
+	// 2. 조건에 맞는 시스템 컬럼들을 순서대로 담을 배열 생성
+	const systemColumns: ColumnDef<DataTableFeatures, TData>[] = [];
+	if (enableRowDrag) {
+		systemColumns.push({
+			id: "drag",
+			header: () => null,
+			cell: () => <RowDragHandle/>,
+			enableSorting: false,
+			enableHiding: false,
+		});
+	}
+	if (enableRowSelection) {
+		systemColumns.push({
+			id: "select",
+			header: ({ table }) => (
+				<Checkbox
+					checked={table.getIsAllPageRowsSelected()}
+					onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+					aria-label="Select all"
+				/>
+			),
+			cell: ({ row }) => (
+				<Checkbox
+					checked={row.getIsSelected()}
+					onCheckedChange={(value) => row.toggleSelected(!!value)}
+					aria-label="Select row"
+				/>
+			),
+			meta: {
+				className: "w-12 px-3 text-center",
+			},
+			enableSorting: false,
+			enableHiding: false,
+		});
+	}
+	if (enableRowNumber) {
+		systemColumns.push({
+			id: "rowNumber",
+			header: () => "#",
+			cell: ({ row }) => (
+				<div className="text-xs text-muted-foreground tabular-nums">
+					{row.index + 1}
+				</div>
+			),
+			meta: {
+				className: "w-12 px-2 text-center",
+			},
+			enableSorting: false,
+			enableHiding: false,
+		});
+	}
 
-		// enableRowSelection 플래그 제어: false면 select 컬럼 제거, true인데 없으면 추가
-		if (!enableRowSelection) {
-			cols = cols.filter((c) => c.id !== "select");
-		} else if (!cols.some((c) => c.id === "select")) {
-			const selectionCol: ColumnDef<DataTableFeatures, TData> = {
-				id: "select",
-				header: ({ table }) => (
-					<Checkbox
-						checked={table.getIsAllPageRowsSelected()}
-						onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-						aria-label="Select all"
-					/>
-				),
-				cell: ({ row }) => (
-					<Checkbox
-						checked={row.getIsSelected()}
-						onCheckedChange={(value) => row.toggleSelected(!!value)}
-						aria-label="Select row"
-					/>
-				),
-				meta: {
-					className: "w-12 px-3 text-center",
-				},
-				enableSorting: false,
-				enableHiding: false,
-			};
-
-			const dragIndex = cols.findIndex((c) => c.id === "drag");
-			if (dragIndex !== -1) {
-				cols.splice(dragIndex + 1, 0, selectionCol);
-			} else {
-				cols = [selectionCol, ...cols];
-			}
-		}
-
-		// enableRowNumber 플래그 제어: false면 rowNumber 컬럼 제거, true인데 없으면 추가
-		if (!enableRowNumber) {
-			cols = cols.filter((c) => c.id !== "rowNumber");
-		} else if (!cols.some((c) => c.id === "rowNumber")) {
-			const rowNumberCol: ColumnDef<DataTableFeatures, TData> = {
-				id: "rowNumber",
-				header: () => "#",
-				cell: ({ row }) => (
-					<div className="text-xs text-muted-foreground tabular-nums">
-						{row.index + 1}
-					</div>
-				),
-				meta: {
-					className: "w-12 px-2 text-center",
-				},
-				enableSorting: false,
-				enableHiding: false,
-			};
-
-			let insertIndex = 0;
-			const selectIndex = cols.findIndex((c) => c.id === "select");
-			const dragIndex = cols.findIndex((c) => c.id === "drag");
-			if (selectIndex !== -1) {
-				insertIndex = selectIndex + 1;
-			} else if (dragIndex !== -1) {
-				insertIndex = dragIndex + 1;
-			}
-			cols.splice(insertIndex, 0, rowNumberCol);
-		}
-
-		return cols;
-	}, [columns, enableRowDrag, enableRowSelection, enableRowNumber]);
+	// 3. 시스템 컬럼 뒤에 기본 컬럼을 붙여서 최종 배열 완성 (React Compiler가 알아서 캐싱)
+	const resolvedColumns = [...systemColumns, ...baseColumns];
 
 	const sensors = useSensors(
 		useSensor(MouseSensor, {
@@ -344,32 +326,27 @@ export function DataTable<TData extends RowData & { id: string }>({
 	};
 
 	return (
-		<div className="space-y-4 min-w-0">
+		<div
+			id={id}
+			className={cn(
+				"space-y-4 min-w-0",
+				className,
+			)}
+			{...props}
+		>
 			{/* 상단 통합 헤더/툴바 */}
-			{(heading || description || enableSearch || enableColumnVisibility || children) && (
+			{(heading || enableSearch || enableColumnVisibility || children) && (
 				<div className="flex items-end-safe justify-between gap-2">
-					{/* 좌측에 위치한 타이틀 & 설명 & 검색 */}
-					{(heading || description || enableSearch) && (
-						<div className="space-y-3">
-							{heading && (
-								typeof heading === "string" ? (
-									<h2 className="text-lg font-semibold tracking-tight">{heading}</h2>
-								) : (
-									heading
-								)
-							)}
-							{description && (
-								typeof description === "string" ? (
-									<p className="text-xs text-muted-foreground">{description}</p>
-								) : (
-									description
-								)
-							)}
+					{/* 좌측에 위치한 타이틀 & 검색 */}
+					{(heading || enableSearch) && (
+						<Field className="max-w-lg w-full">
+							<FieldLabel className="text-lg tracking-tight" htmlFor={searchId}>{heading}</FieldLabel>
 							{enableSearch && (
 								<InputGroup>
 									<InputGroupInput
+										id={searchId}
 										type="text"
-										placeholder={filterPlaceholder}
+										placeholder={filterPlaceholder ?? "Search..."}
 										value={searchValue}
 										onChange={(e) => handleSearchChange(e.target.value)}
 									/>
@@ -378,7 +355,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 									</InputGroupAddon>
 								</InputGroup>
 							)}
-						</div>
+						</Field>
 					)}
 
 					{/* 우측 툴바 (Children & Columns) */}
@@ -389,7 +366,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 							{enableColumnVisibility && (
 								<DropdownMenu>
 									<DropdownMenuTrigger
-										render={<Button size="lg"/>}
+										render={<Button size="icon-lg" variant="secondary"/>}
 									>
 										<SlidersHorizontal/>
 										Columns
