@@ -38,7 +38,7 @@ export default defineConfig([
 
 			// TypeScript
 			"@typescript-eslint/no-empty-object-type": [
-				"error",
+				"off",
 				{
 					allowInterfaces: "always",
 				},
@@ -48,6 +48,14 @@ export default defineConfig([
 			"@stylistic/semi": [
 				"error",
 				"always",
+			],
+			"@stylistic/quotes": [
+				"error",
+				"double",
+			],
+			"@stylistic/jsx-quotes": [
+				"error",
+				"prefer-double",
 			],
 			"@stylistic/jsx-tag-spacing": [
 				"error",
