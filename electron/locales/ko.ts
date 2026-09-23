@@ -28,5 +28,12 @@ export const ko: MenuTranslations = {
 		zoomWindow: "확대/축소",
 
 		github: "GitHub 방문",
+		about: "정보",
+		aboutData: {
+			title: "About",
+			message: "Ransom0",
+			copy: "복사",
+			close: "확인",
+		},
 	},
 };

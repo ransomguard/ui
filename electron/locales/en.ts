@@ -28,5 +28,12 @@ export const en: MenuTranslations = {
 		zoomWindow: "Zoom",
 
 		github: "Visit GitHub",
+		about: "About",
+		aboutData: {
+			title: "About",
+			message: "Ransom0",
+			copy: "Copy",
+			close: "OK",
+		},
 	},
 };

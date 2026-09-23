@@ -1,3 +1,12 @@
+export interface AboutDetailData {
+	title: string;
+	message: string;
+	copy: string;
+	close: string;
+}
+
+
+
 export interface MenuTranslations {
 	menu: {
 		language: string;
@@ -29,5 +38,7 @@ export interface MenuTranslations {
 
 		// Help 하위
 		github: string;
+		about: string;
+		aboutData: AboutDetailData;
 	};
 }

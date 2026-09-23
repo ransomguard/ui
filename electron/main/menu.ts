@@ -1,5 +1,5 @@
 import type { BrowserWindow } from "electron";
-import { Menu, shell } from "electron";
+import { Menu, shell, app, dialog, clipboard } from "electron";
 
 import { locales } from "../locales";
 
@@ -68,6 +68,37 @@ export function setApplicationMenu(localeCode: string, win: BrowserWindow) {
 				{
 					label: i18n.github,
 					click: async () => await shell.openExternal("https://github.com/ransomguard"),
+				},
+				{
+					label: i18n.about,
+					async click() {
+						const version = app.getVersion();
+						const detailLines = [
+							`Version: ${version}`,
+							`Electron: ${process.versions.electron}`,
+							`Chrome: ${process.versions.chrome}`,
+							`Node.js: ${process.versions.node}`,
+							`V8: ${process.versions.v8}`,
+							`Chromium: ${process.versions.chromium}`,
+							`OS: ${process.platform} ${process.arch}`,
+							`Architecture: ${process.arch}`,
+						];
+						const detailText = detailLines.join("\n");
+
+						const { response } = await dialog.showMessageBox(win, {
+							type: "none",
+							title: i18n.aboutData.title,
+                            message: i18n.aboutData.message,
+                            detail: detailText,
+                            buttons: [i18n.close, i18n.aboutData.copy], 
+                            defaultId: 0,
+                            cancelId: 0,
+						});
+						
+						if (response === 1) {
+							clipboard.writeText(detailText);
+						}
+					},
 				},
 			],
 		},
