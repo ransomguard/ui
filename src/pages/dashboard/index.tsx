@@ -125,26 +125,32 @@ export default function Dashboard() {
 	const statsItems: StatsItem[] = [
 		{
 			icon: Users,
-			label: "Total",
-			description: "Total Visitors",
+			label: "total",
+			description: "totalVisitors",
 			...(isChartReady && { value: totalVisitors.toLocaleString() }),
 		},
 		{
 			icon: Monitor,
-			label: "Desktop",
-			description: `${desktopPercent}% of total`,
+			label: "desktop",
+			description: "desktopVisitors",
+			i18nContext: {
+				percent: isChartReady ? desktopPercent : "-",
+			},
 			...(isChartReady && { value: totalDesktop.toLocaleString() }),
 		},
 		{
 			icon: Smartphone,
-			label: "Mobile",
-			description: `${mobilePercent}% of total`,
+			label: "mobile",
+			description: "mobileVisitors",
+			i18nContext: {
+				percent: isChartReady ? mobilePercent : "-",
+			},
 			...(isChartReady && { value: totalMobile.toLocaleString() }),
 		},
 		{
 			icon: TrendingUp,
-			label: "Daily Average",
-			description: "Average visitors per day",
+			label: "dailyAverage",
+			description: "avgVisitorsPerDay",
 			...(isChartReady && { value: avgDaily.toLocaleString() }),
 		},
 	];

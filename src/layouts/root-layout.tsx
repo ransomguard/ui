@@ -1,6 +1,8 @@
 import { Outlet, useMatches, type UIMatch } from "react-router";
+import { useTranslation } from "react-i18next";
 
 import { app } from "@/config";
+import type { FlattenedKeys } from "@/locales";
 
 import {
 	Header,
@@ -13,13 +15,17 @@ export interface Data {
 }
 
 export interface Handle {
-	heading?: string;
+	heading?: FlattenedKeys<"heading">;
 }
 
 export default function RootLayout() {
+	const { t } = useTranslation();
+
 	const matches = useMatches() as UIMatch<Data, Handle>[];
 	const currentMatch = matches.find(match => match.handle?.heading);
-	const heading = (currentMatch ? currentMatch.handle.heading : undefined) || "Default Page Title";
+	const headingKey = (currentMatch ? currentMatch.handle.heading : undefined);
+
+	const heading = headingKey ? t($ => $.heading[headingKey]) : "Default Page Title";
 
 	return (
 		<>

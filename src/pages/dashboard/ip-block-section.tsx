@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
+import { useTranslation } from "react-i18next";
 
 import * as api from "@/lib/api";
 import * as random from "@/lib/random";
@@ -23,6 +24,7 @@ import {
 	FieldLabel,
 } from "@/components/ui/field";
 import { DataTable, type DataTableFeatures } from "@/components/data-table";
+import { I18n } from "@/components/i18n";
 
 
 
@@ -31,7 +33,7 @@ const columnHelper = createColumnHelper<DataTableFeatures, api.BlockedIpItem>();
 const ipBlockColumns: ColumnDef<DataTableFeatures, api.BlockedIpItem>[] = columnHelper.columns([
 	{
 		accessorKey: "ipAddress",
-		header: "IP Address",
+		header: () =>  <I18n i18nKey={"ipBlock.columns.ipAddress"}/>,
 		cell: ({ row }) => (
 			<span className="font-mono font-medium">{row.original.ipAddress}</span>
 		),
@@ -41,13 +43,15 @@ const ipBlockColumns: ColumnDef<DataTableFeatures, api.BlockedIpItem>[] = column
 		meta: {
 			className: "text-center",
 		},
-		header: "Block Type",
+		header: () =>  <I18n i18nKey={"ipBlock.columns.blockType"}/>,
 		cell: ({ row }) => (
-			<Badge
-				variant={row.original.type === "manual" ? "secondary" : "destructive"}
-			>
-				{row.original.type === "manual" ? "Manual" : "Auto Detected"}
-			</Badge>
+			<I18n
+				prefix="ipBlock.type"
+				i18nKey={row.original.type === "manual" ? "manual" : "auto"}
+				render={<Badge
+					variant={row.original.type === "manual" ? "secondary" : "destructive"}
+				/>}
+			/>
 		),
 	},
 	{
@@ -55,7 +59,7 @@ const ipBlockColumns: ColumnDef<DataTableFeatures, api.BlockedIpItem>[] = column
 		meta: {
 			className: "w-full max-w-xs truncate",
 		},
-		header: "Reason",
+		header: () => <I18n i18nKey={"ipBlock.columns.reason"}/>,
 		cell: ({ row }) => (
 			<span className="text-foreground/90">{row.original.reason}</span>
 		),
@@ -65,7 +69,7 @@ const ipBlockColumns: ColumnDef<DataTableFeatures, api.BlockedIpItem>[] = column
 		meta: {
 			className: "text-right",
 		},
-		header: "Blocked At",
+		header: () => <I18n i18nKey={"ipBlock.columns.blockedAt"}/>,
 		cell: ({ row }) => (
 			<div className="text-muted-foreground font-mono">
 				{row.original.blockedAt}
@@ -92,6 +96,8 @@ export default function IpBlockSection({
 	removeItem,
 	isLoading,
 }: IpBlockSectionProps) {
+	const { t } = useTranslation();
+
 	const [selectedRows, setSelectedRows] = useState<api.BlockedIpItem[]>([]);
 
 	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -102,17 +108,17 @@ export default function IpBlockSection({
 	const handleAddIp = () => {
 		const trimmedIp = newIp.trim();
 		if (!trimmedIp) {
-			setIpError("Please enter an IP address.");
+			setIpError(t($ => $.ipBlock.errors.emptyIp));
 			return;
 		}
 
 		if (!validateIp(trimmedIp)) {
-			setIpError("Invalid IPv4 address format (e.g. 192.168.1.100).");
+			setIpError(t($ => $.ipBlock.errors.invalidIp));
 			return;
 		}
 
 		if (data.some((item) => item.ipAddress === trimmedIp)) {
-			setIpError("This IP address is already blocked.");
+			setIpError(t($ => $.ipBlock.errors.duplicateIp));
 			return;
 		}
 
@@ -144,11 +150,11 @@ export default function IpBlockSection({
 
 	return (
 		<DataTable
-			heading="Blocked IP List"
+			heading={t($ => $.ipBlock.heading)}
 			columns={ipBlockColumns}
 			data={data}
 			isLoading={isLoading}
-			filterPlaceholder="Search IP address or reason..."
+			filterPlaceholder={t($ => $.ipBlock.searchPlaceholder)}
 			onRowSelectionChange={(rows) => setSelectedRows(rows)}
 			enableRowSelection
 			enableSearch
@@ -163,7 +169,7 @@ export default function IpBlockSection({
 				className="disabled:hidden"
 			>
 				<Trash2/>
-				<span className="sr-only">Unblock ({selectedRows.length})</span>
+				<span className="sr-only">{t($ => $.ipBlock.unblock)}</span>
 			</Button>
 
 			<Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -171,7 +177,7 @@ export default function IpBlockSection({
 					render={
 						<Button size="lg">
 							<Plus/>
-							<span>Add Blocked IP</span>
+							<span>{t($ => $.ipBlock.addBlockedIp)}</span>
 						</Button>
 					}
 				/>
@@ -180,17 +186,17 @@ export default function IpBlockSection({
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2">
 							<ShieldAlert className="size-5 text-destructive"/>
-							<span>Manual IP Block</span>
+							<span>{t($ => $.ipBlock.dialogTitle)}</span>
 						</DialogTitle>
 						<DialogDescription>
-							Enter the IP address and reason to manually block.
+							{t($ => $.ipBlock.dialogDescription)}
 						</DialogDescription>
 					</DialogHeader>
 
 					<div className="flex flex-col gap-4 py-2">
 						<Field>
 							<FieldLabel htmlFor="ip-address" className="gap-1.5">
-								IP Address
+								{t($ => $.ipBlock.columns.ipAddress)}
 								<span className="text-destructive">*</span>
 							</FieldLabel>
 							<Input
@@ -210,11 +216,11 @@ export default function IpBlockSection({
 
 						<Field>
 							<FieldLabel htmlFor="block-reason" className="gap-1.5">
-								Reason
+								{t($ => $.ipBlock.columns.reason)}
 							</FieldLabel>
 							<Input
 								id="block-reason"
-								placeholder="e.g. Manual block by administrator"
+								placeholder={`e.g. ${t($ => $.ipBlock.defaultReason)}`}
 								value={newReason}
 								onChange={(e) => setNewReason(e.target.value)}
 							/>
@@ -225,12 +231,12 @@ export default function IpBlockSection({
 						<DialogClose
 							render={
 								<Button type="button" variant="outline">
-									Cancel
+									{t($ => $.ipBlock.cancel)}
 								</Button>
 							}
 						/>
 						<Button type="button" onClick={handleAddIp}>
-							Add Block
+							{t($ => $.ipBlock.addBlock)}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

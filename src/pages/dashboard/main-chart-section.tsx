@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import type * as api from "@/lib/api";
 
 import {
@@ -12,33 +14,6 @@ import { ChartAreaInteractive } from "@/components/chart/area";
 import type { ChartConfig } from "@/components/ui/chart";
 
 import type { TimeRangeItem } from "./common";
-
-
-
-const chartConfig = {
-	visitors: {
-		label: "Visitors",
-	},
-	desktop: {
-		label: "Desktop",
-		color: "var(--chart-1)",
-	},
-	mobile: {
-		label: "Mobile",
-		color: "var(--chart-2)",
-	},
-} satisfies ChartConfig;
-
-const formatDate = (value: unknown) => {
-	const date = new Date(String(value));
-	if (Number.isNaN(date.getTime())) {
-		return String(value ?? "");
-	}
-	return date.toLocaleDateString("en-US", {
-		month: "short",
-		day: "numeric",
-	});
-};
 
 
 
@@ -57,12 +32,41 @@ export default function MainChartSection<T extends TimeRangeItem>({
 	onTimeRangeChange,
 	isLoading,
 }: MainChartSectionProps<T>) {
+	const { t, i18n: { language } } = useTranslation();
+
+	const getLabel = (item: T) => t($ => $.timeRange[item.label]);
+
+	const chartConfig = {
+		visitors: {
+			label: t($ => $.chart.visitors),
+		},
+		desktop: {
+			label: t($ => $.chart.desktop),
+			color: "var(--chart-1)",
+		},
+		mobile: {
+			label: t($ => $.chart.mobile),
+			color: "var(--chart-2)",
+		},
+	} satisfies ChartConfig;
+
+	const formatDate = (value: unknown) => {
+		const date = new Date(String(value));
+		if (Number.isNaN(date.getTime())) {
+			return String(value ?? "");
+		}
+		return date.toLocaleDateString(language, {
+			month: "short",
+			day: "numeric",
+		});
+	};
+
 	return (
 		<ChartAreaInteractive
 			data={data}
 			config={chartConfig}
-			heading="Area Chart"
-			description={`Showing total visitors for the ${timeRange.label}`}
+			heading={t($ => $.chart.heading)}
+			description={t($ => $.chart.description, { timeRange: getLabel(timeRange) })}
 			xAxisKey="date"
 			xAxisFormatter={formatDate}
 			tooltipLabelFormatter={formatDate}
@@ -71,12 +75,13 @@ export default function MainChartSection<T extends TimeRangeItem>({
 			<Select
 				value={timeRange}
 				onValueChange={onTimeRangeChange}
+				itemToStringLabel={getLabel}
 			>
 				<SelectTrigger
 					className="hidden w-40 rounded-lg sm:ml-auto sm:flex"
 					aria-label="Select a value"
 				>
-					<SelectValue placeholder="Last 3 months"/>
+					<SelectValue placeholder={t($ => $.timeRange.last90Days)}/>
 				</SelectTrigger>
 				<SelectContent className="rounded-xl">
 					<SelectGroup>
@@ -86,7 +91,7 @@ export default function MainChartSection<T extends TimeRangeItem>({
 								value={item}
 								className="rounded-lg"
 							>
-								{item.label}
+								{getLabel(item)}
 							</SelectItem>
 						))}
 					</SelectGroup>

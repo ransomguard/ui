@@ -15,14 +15,14 @@ export const routes: RouteObject[] = [
 				index: true,
 				element: <Dashboard/>,
 				handle: {
-					heading: "Dashboard"
+					heading: "dashboard"
 				},
 			},
 			{
 				path: "*",
 				element: <NotFound/>,
 				handle: {
-					heading: "404 Not Found"
+					heading: "notFound"
 				},
 			},
 		],

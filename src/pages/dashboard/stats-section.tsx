@@ -1,3 +1,6 @@
+import { useTranslation } from "react-i18next";
+
+import type { FlattenedKeys } from "@/locales";
 import { cn } from "@/lib/utils";
 
 import { MetricCard, type MetricCardItem } from "@/components/chart/stats";
@@ -5,6 +8,9 @@ import { MetricCard, type MetricCardItem } from "@/components/chart/stats";
 
 
 export interface StatsItem extends MetricCardItem {
+	label: FlattenedKeys<"stats">;
+	description?: FlattenedKeys<"stats">;
+	i18nContext?: Record<string, unknown>;
 }
 
 export interface StatsSectionProps extends React.ComponentProps<"div"> {
@@ -18,6 +24,8 @@ export default function StatsSection({
 	className,
 	...props
 }: StatsSectionProps) {
+	const { t } = useTranslation();
+
 	return (
 		<div
 			className={cn(
@@ -26,10 +34,12 @@ export default function StatsSection({
 			)}
 			{...props}
 		>
-			{items.map((item, index) => (
+			{items.map(({ i18nContext, ...item }, index) => (
 				<MetricCard
 					key={index}
 					{...item}
+					label={t($ => $.stats[item.label])}
+					description={!item.description ? undefined : t($ => $.stats[item.description!], i18nContext)}
 					isLoading={item.isLoading ?? isLoading}
 				/>
 			))}

@@ -35,6 +35,7 @@ import {
 	ChevronsRight,
 	Search,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
@@ -173,6 +174,8 @@ export function DataTable<TData extends RowData & { id: string }>({
 	children,
 	...props
 }: DataTableProps<TData>) {
+	const { t } = useTranslation();
+
 	const localId = useId();
 	const id = _id ?? `data-table-${localId}`;
 	const searchId = `${id}-search`;
@@ -346,7 +349,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 									<InputGroupInput
 										id={searchId}
 										type="text"
-										placeholder={filterPlaceholder ?? "Search..."}
+										placeholder={filterPlaceholder ?? t($ => $.table.filterPlaceholder)}
 										value={searchValue}
 										onChange={(e) => handleSearchChange(e.target.value)}
 									/>
@@ -369,7 +372,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 										render={<Button size="icon-lg" variant="secondary"/>}
 									>
 										<SlidersHorizontal/>
-										Columns
+										<span className="sr-only">{t($ => $.table.columns)}</span>
 									</DropdownMenuTrigger>
 									<DropdownMenuContent align="end">
 										{table
@@ -475,7 +478,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 										) : (
 											<TableRow>
 												<TableCell colSpan={resolvedColumns.length} className="h-24 text-center text-muted-foreground">
-													No results.
+													{t($ => $.table.noResults)}
 												</TableCell>
 											</TableRow>
 										)}
@@ -536,7 +539,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 							) : (
 								<TableRow>
 									<TableCell colSpan={resolvedColumns.length} className="h-24 text-center text-muted-foreground">
-										No results.
+										{t($ => $.table.noResults)}
 									</TableCell>
 								</TableRow>
 							)}
@@ -549,11 +552,14 @@ export function DataTable<TData extends RowData & { id: string }>({
 			{enablePagination && (
 				<div className="flex items-center justify-between px-4">
 					<div className="hidden flex-1 text-sm text-muted-foreground lg:flex">
-						{isLoading ? 0 : table.getSelectedRowModel().rows.length} of {isLoading ? 0 : table.getFilteredRowModel().rows.length} row(s) selected.
+						{t($ => $.table.selectedRows, {
+							selected: isLoading ? 0 : table.getSelectedRowModel().rows.length,
+							total: isLoading ? 0 : table.getFilteredRowModel().rows.length,
+						})}
 					</div>
 					<div className="flex w-full items-center gap-8 lg:w-fit">
 						<div className="hidden items-center gap-2 lg:flex">
-							<p className="text-sm font-medium">Rows per page</p>
+							<p className="text-sm font-medium">{t($ => $.table.rowsPerPage)}</p>
 							<Select
 								value={table.state.pagination?.pageSize ?? defaultPageSize}
 								onValueChange={(value) => {
@@ -578,7 +584,10 @@ export function DataTable<TData extends RowData & { id: string }>({
 							</Select>
 						</div>
 						<div className="flex w-fit items-center justify-center text-sm font-medium">
-							Page {isLoading ? 0 : table.getPageCount() > 0 ? (table.state.pagination?.pageIndex ?? 0) + 1 : 0} of {isLoading ? 0 : table.getPageCount()}
+							{t($ => $.table.pageOf, {
+								page: isLoading ? 0 : table.getPageCount() > 0 ? (table.state.pagination?.pageIndex ?? 0) + 1 : 0,
+								total: isLoading ? 0 : table.getPageCount(),
+							})}
 						</div>
 						<div className="ml-auto flex items-center gap-2 lg:ml-0">
 							<Button
@@ -587,7 +596,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 								onClick={() => table.firstPage()}
 								disabled={isLoading || !table.getCanPreviousPage()}
 							>
-								<span className="sr-only">Go to first page</span>
+								<span className="sr-only">{t($ => $.table.firstPage)}</span>
 								<ChevronsLeft/>
 							</Button>
 							<Button
@@ -596,7 +605,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 								onClick={() => table.previousPage()}
 								disabled={isLoading || !table.getCanPreviousPage()}
 							>
-								<span className="sr-only">Go to previous page</span>
+								<span className="sr-only">{t($ => $.table.previousPage)}</span>
 								<ChevronLeft/>
 							</Button>
 							<Button
@@ -605,7 +614,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 								onClick={() => table.nextPage()}
 								disabled={isLoading || !table.getCanNextPage()}
 							>
-								<span className="sr-only">Go to next page</span>
+								<span className="sr-only">{t($ => $.table.nextPage)}</span>
 								<ChevronRight/>
 							</Button>
 							<Button
@@ -614,7 +623,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 								onClick={() => table.lastPage()}
 								disabled={isLoading || !table.getCanNextPage()}
 							>
-								<span className="sr-only">Go to last page</span>
+								<span className="sr-only">{t($ => $.table.lastPage)}</span>
 								<ChevronsRight/>
 							</Button>
 						</div>

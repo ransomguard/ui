@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import * as config from "@/config";
 
+import "./locales/init";
 import "./styles/index.css";
 import App from "./App.tsx";
 

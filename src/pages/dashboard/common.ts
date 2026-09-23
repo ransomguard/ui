@@ -1,19 +1,23 @@
+import type { FlattenedKeys } from "@/locales";
+
+
+
 export interface TimeRangeItem {
-	label: string;
+	label: FlattenedKeys<"timeRange">;
 	value: number;
 }
 
 export const timeRangeItems: [TimeRangeItem, ...TimeRangeItem[]] = [
 	{
-		label: "Last 3 months",
+		label: "last90Days",
 		value: 90,
 	},
 	{
-		label: "Last 30 days",
+		label: "last30Days",
 		value: 30,
 	},
 	{
-		label: "Last 7 days",
+		label: "last7Days",
 		value: 7,
 	},
 ];
