@@ -24,7 +24,13 @@ declare namespace NodeJS {
 
 
 // Used in Renderer process, expose in `preload.ts`
+
+type Unsubscribe = () => void;
+
+type OnLanguageChangedCallback = (newLang: string) => void;
+
 interface Window {
 	electronAPI: {
+		onLanguageChanged(callback: OnLanguageChangedCallback): Unsubscribe;
 	};
 }
