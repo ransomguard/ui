@@ -12,7 +12,6 @@
   - 의존성 설치: `bun install` / `bun add <package>` / `bun add -d <package>`
   - 개발 서버 실행: `bun run dev`
   - 프로덕션 빌드: `bun run build`
-  - Electron 앱 빌드: `bun run build:app`
   - 린트 검사: `bun run lint`
 - **주의**: `npm`, `yarn`, `pnpm` 명령어는 사용하지 않습니다.
 
