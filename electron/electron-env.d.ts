@@ -27,10 +27,13 @@ declare namespace NodeJS {
 
 type Unsubscribe = () => void;
 
+type OnEngineStatusChangedCallback = (isActive: boolean) => void;
 type OnLanguageChangedCallback = (newLang: string) => void;
 
 interface Window {
 	electronAPI: {
+		onEngineStatusChanged(callback: OnEngineStatusChangedCallback): Unsubscribe;
+
 		onLanguageChanged(callback: OnLanguageChangedCallback): Unsubscribe;
 
 		getMainChartData(): Promise<import("./services/chart").AreaChartDataItem[]>;

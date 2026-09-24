@@ -18,6 +18,14 @@ export interface AppTranslations {
 		settings: string;
 	};
 
+	engine: {
+		status: string;
+		active: string;
+		inactive: string;
+		activeDescription: string;
+		inactiveDescription: string;
+	};
+
 	stats: {
 		total: string;
 		totalVisitors: string;

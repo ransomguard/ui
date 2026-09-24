@@ -20,6 +20,14 @@ export const en: AppTranslations = {
 		settings: "Settings",
 	},
 
+	engine: {
+		status: "PC Security Status",
+		active: "Real-time Protection Active",
+		inactive: "Real-time Protection Inactive",
+		activeDescription: "Engine is active and protecting your system.",
+		inactiveDescription: "Engine is disconnected or offline. Please check your system status.",
+	},
+
 	stats: {
 		total: "Total",
 		totalVisitors: "Total Visitors",
