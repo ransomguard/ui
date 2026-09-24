@@ -21,6 +21,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			(isActive: boolean) => callback(isActive),
 		);
 	},
+	startEngine() {
+		return ipcRenderer.invoke("start-engine");
+	},
+	stopEngine() {
+		return ipcRenderer.invoke("stop-engine");
+	},
 
 
 
