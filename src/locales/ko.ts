@@ -62,6 +62,11 @@ export const ko: AppTranslations = {
 		cancel: "취소",
 		addBlock: "차단 등록",
 		defaultReason: "수동 차단 지정",
+		confirmUnblock: {
+			title: "IP 차단 해제 확인",
+			description: "선택한 {{ count }}개의 IP 주소 차단을 해제하시겠습니까?",
+			action: "차단 해제",
+		},
 		successes: {
 			title: "IP {{ action }} 성공",
 			added: "IP 주소 {{ ip }}가 차단 목록에 추가되었습니다.",

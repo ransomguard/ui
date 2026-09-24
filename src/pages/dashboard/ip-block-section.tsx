@@ -22,6 +22,16 @@ import {
 	DialogClose,
 } from "@/components/ui/dialog";
 import {
+	AlertDialog,
+	AlertDialogContent,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogCancel,
+	AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import {
 	Field,
 	FieldLabel,
 } from "@/components/ui/field";
@@ -101,6 +111,7 @@ export default function IpBlockSection({
 	const { t } = useTranslation();
 
 	const [selectedRows, setSelectedRows] = useState<api.BlockedIpItem[]>([]);
+	const [isUnblockAlertOpen, setIsUnblockAlertOpen] = useState(false);
 
 	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 	const [newIp, setNewIp] = useState("");
@@ -180,16 +191,43 @@ export default function IpBlockSection({
 			enablePagination
 			enableRowNumber
 		>
-			<Button
-				variant="destructive"
-				size="icon-lg"
-				disabled={selectedRows.length === 0}
-				onClick={handleBulkUnblock}
-				className="disabled:hidden"
-			>
-				<Trash2/>
-				<span className="sr-only">{t($ => $.ipBlock.unblock)}</span>
-			</Button>
+			<AlertDialog open={isUnblockAlertOpen} onOpenChange={setIsUnblockAlertOpen}>
+				<Button
+					variant="destructive"
+					size="icon-lg"
+					disabled={selectedRows.length === 0}
+					onClick={() => setIsUnblockAlertOpen(true)}
+					className="disabled:hidden"
+				>
+					<Trash2/>
+					<span className="sr-only">{t($ => $.ipBlock.unblock)}</span>
+				</Button>
+
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							{t($ => $.ipBlock.confirmUnblock.title)}
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							{t($ => $.ipBlock.confirmUnblock.description, { count: selectedRows.length })}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>
+							{t($ => $.ipBlock.cancel)}
+						</AlertDialogCancel>
+						<AlertDialogAction
+							variant="destructive"
+							onClick={() => {
+								handleBulkUnblock();
+								setIsUnblockAlertOpen(false);
+							}}
+						>
+							{t($ => $.ipBlock.confirmUnblock.action)}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 
 			<Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
 				<DialogTrigger

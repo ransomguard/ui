@@ -62,6 +62,11 @@ export const en: AppTranslations = {
 		cancel: "Cancel",
 		addBlock: "Add Block",
 		defaultReason: "Manual block by administrator",
+		confirmUnblock: {
+			title: "Confirm Unblock IP",
+			description: "Are you sure you want to unblock {{ count }} selected IP address(es)?",
+			action: "Unblock",
+		},
 		successes: {
 			title: "Successfully {{ action }} blocked IP",
 			added: "IP address {{ ip }} has been successfully added to the blocked list.",

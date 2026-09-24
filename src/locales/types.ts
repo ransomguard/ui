@@ -60,6 +60,11 @@ export interface AppTranslations {
 		cancel: string;
 		addBlock: string;
 		defaultReason: string;
+		confirmUnblock: {
+			title: string;
+			description: string;
+			action: string;
+		};
 		successes: {
 			title: string;
 			added: string;
