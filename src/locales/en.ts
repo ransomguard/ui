@@ -21,11 +21,19 @@ export const en: AppTranslations = {
 	},
 
 	engine: {
+		on: "Turn On Real-time Protection",
+		off: "Turn Off Real-time Protection",
 		status: "PC Security Status",
 		active: "Real-time Protection Active",
 		inactive: "Real-time Protection Inactive",
 		activeDescription: "Engine is active and protecting your system.",
 		inactiveDescription: "Engine is disconnected or offline. Please check your system status.",
+		confirmOff: {
+			title: "Confirm Turn Off Real-time Protection",
+			description: "Are you sure you want to turn off real-time protection? This will leave your system unprotected.",
+			action: "Turn Off",
+			cancel: "Cancel",
+		},
 	},
 
 	stats: {

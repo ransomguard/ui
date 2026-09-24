@@ -33,6 +33,8 @@ type OnLanguageChangedCallback = (newLang: string) => void;
 interface Window {
 	electronAPI: {
 		onEngineStatusChanged(callback: OnEngineStatusChangedCallback): Unsubscribe;
+		startEngine(): Promise<void>;
+		stopEngine(): Promise<void>;
 
 		onLanguageChanged(callback: OnLanguageChangedCallback): Unsubscribe;
 

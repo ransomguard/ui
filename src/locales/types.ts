@@ -19,11 +19,19 @@ export interface AppTranslations {
 	};
 
 	engine: {
+		on: string;
+		off: string;
 		status: string;
 		active: string;
 		inactive: string;
 		activeDescription: string;
 		inactiveDescription: string;
+		confirmOff: {
+			title: string;
+			description: string;
+			action: string;
+			cancel: string;
+		};
 	};
 
 	stats: {
