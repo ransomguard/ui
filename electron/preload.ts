@@ -21,4 +21,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			(newLang: string) => callback(newLang),
 		);
 	},
+
+
+
+	getMainChartData() {
+		return ipcRenderer.invoke("get-main-chart-data");
+	},
+	getBlockedIpData() {
+		return ipcRenderer.invoke("get-blocked-ip-data");
+	},
 });

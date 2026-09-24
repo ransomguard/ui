@@ -84,7 +84,7 @@ export default function Dashboard() {
 	useEffect(() => {
 		let isMounted = true;
 
-		api.getAreaChartData().then((data) => {
+		api.getMainChartData().then((data) => {
 			if (isMounted) {
 				setChartItems(data);
 				setIsChartLoading(false);
