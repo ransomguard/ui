@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { RouterProvider } from "react-router";
 import { useTranslation } from "react-i18next";
 
+import { Toaster } from "@/components/ui/toast";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/layout";
@@ -25,6 +26,7 @@ function App() {
 		<ThemeProvider><TooltipProvider>
 			<SidebarProvider>
 				<RouterProvider router={router}/>
+				<Toaster/>
 			</SidebarProvider>
 		</TooltipProvider></ThemeProvider>
 	);

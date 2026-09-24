@@ -62,7 +62,13 @@ export const ko: AppTranslations = {
 		cancel: "취소",
 		addBlock: "차단 등록",
 		defaultReason: "수동 차단 지정",
+		successes: {
+			title: "IP {{ action }} 성공",
+			added: "IP 주소 {{ ip }}가 차단 목록에 추가되었습니다.",
+			removed: "{{ count }}개의 IP가 차단 목록에서 제거되었습니다.",
+		},
 		errors: {
+			title: "IP 차단 등록 실패",
 			emptyIp: "IP 주소를 입력해 주세요.",
 			invalidIp: "올바른 IPv4 주소 형식이 아닙니다 (예: 192.168.1.100).",
 			duplicateIp: "이미 차단 목록에 존재하는 IP 주소입니다.",

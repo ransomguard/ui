@@ -60,7 +60,13 @@ export interface AppTranslations {
 		cancel: string;
 		addBlock: string;
 		defaultReason: string;
+		successes: {
+			title: string;
+			added: string;
+			removed: string;
+		};
 		errors: {
+			title: string;
 			emptyIp: string;
 			invalidIp: string;
 			duplicateIp: string;

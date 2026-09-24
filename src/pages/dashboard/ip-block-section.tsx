@@ -5,7 +5,9 @@ import { useTranslation } from "react-i18next";
 
 import * as api from "@/lib/api";
 import * as random from "@/lib/random";
+import type { FlattenedKeys } from "@/locales";
 
+import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -103,22 +105,24 @@ export default function IpBlockSection({
 	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 	const [newIp, setNewIp] = useState("");
 	const [newReason, setNewReason] = useState("");
-	const [ipError, setIpError] = useState("");
 
 	const handleAddIp = () => {
 		const trimmedIp = newIp.trim();
+		let errorKey: FlattenedKeys<"ipBlock.errors"> | null = null;
 		if (!trimmedIp) {
-			setIpError(t($ => $.ipBlock.errors.emptyIp));
-			return;
+			errorKey = "emptyIp";
+		} else if (!validateIp(trimmedIp)) {
+			errorKey = "invalidIp";
+		} else if (data.some((item) => item.ipAddress === trimmedIp)) {
+			errorKey = "duplicateIp";
 		}
 
-		if (!validateIp(trimmedIp)) {
-			setIpError(t($ => $.ipBlock.errors.invalidIp));
-			return;
-		}
-
-		if (data.some((item) => item.ipAddress === trimmedIp)) {
-			setIpError(t($ => $.ipBlock.errors.duplicateIp));
+		if (errorKey) {
+			toast.add({
+				type: "error",
+				title: t($ => $.ipBlock.errors.title),
+				description: t($ => $.ipBlock.errors[errorKey]),
+			});
 			return;
 		}
 
@@ -134,17 +138,32 @@ export default function IpBlockSection({
 		};
 
 		addItem(newItem);
+		toast.add({
+			type: "success",
+			title: t($ => $.ipBlock.successes.title, {
+				action: t($ => $.ipBlock.addBlock).toLowerCase(),
+			}),
+			description: t($ => $.ipBlock.successes.added, { ip: trimmedIp }),
+		});
+
 		setNewIp("");
 		setNewReason("");
-		setIpError("");
 		setIsAddDialogOpen(false);
 	};
 
 	const handleBulkUnblock = () => {
-		if (selectedRows.length === 0) return;
+		const count = selectedRows.length;
+		if (count === 0) return;
 		for (const item of selectedRows) {
 			removeItem(item);
 		}
+		toast.add({
+			type: "success",
+			title: t($ => $.ipBlock.successes.title, {
+				action: t($ => $.ipBlock.unblock).toLowerCase(),
+			}),
+			description: t($ => $.ipBlock.successes.removed, { count }),
+		});
 		setSelectedRows([]);
 	};
 
@@ -203,15 +222,9 @@ export default function IpBlockSection({
 								id="ip-address"
 								placeholder="e.g. 192.168.1.100"
 								value={newIp}
-								onChange={(e) => {
-									setNewIp(e.target.value);
-									if (ipError) setIpError("");
-								}}
+								onChange={(e) => setNewIp(e.target.value)}
 								className="font-mono"
 							/>
-							{ipError && (
-								<p className="text-xs text-destructive">{ipError}</p>
-							)}
 						</Field>
 
 						<Field>

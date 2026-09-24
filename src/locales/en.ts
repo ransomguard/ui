@@ -62,7 +62,13 @@ export const en: AppTranslations = {
 		cancel: "Cancel",
 		addBlock: "Add Block",
 		defaultReason: "Manual block by administrator",
+		successes: {
+			title: "Successfully {{ action }} blocked IP",
+			added: "IP address {{ ip }} has been successfully added to the blocked list.",
+			removed: "{{ count }} IP addresses have been successfully removed from the blocked list.",
+		},
 		errors: {
+			title: "Failed to add blocked IP",
 			emptyIp: "Please enter an IP address.",
 			invalidIp: "Invalid IPv4 address format (e.g. 192.168.1.100).",
 			duplicateIp: "This IP address is already blocked.",

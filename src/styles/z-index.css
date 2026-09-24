@@ -1,0 +1,3 @@
+[data-slot="toast-viewport"] {
+	@apply z-999;
+}
