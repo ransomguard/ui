@@ -20,6 +20,14 @@ export const ko: AppTranslations = {
 		settings: "환경 설정"
 	},
 
+	engine: {
+		status: "PC 보안 상태",
+		active: "실시간 보호 작동 중",
+		inactive: "실시간 보호 중지됨",
+		activeDescription: "엔진이 활성화되어 시스템이 안전하게 보호되고 있습니다.",
+		inactiveDescription: "엔진이 중지되었거나 연결할 수 없습니다. 시스템 상태를 확인해 주세요.",
+	},
+
 	stats: {
 		total: "전체",
 		totalVisitors: "전체 방문자 수",

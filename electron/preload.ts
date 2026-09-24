@@ -15,6 +15,15 @@ const generateSubscription = <T>(eventName: string, callback: (data: T) => void)
 
 
 contextBridge.exposeInMainWorld("electronAPI", {
+	onEngineStatusChanged(callback: OnEngineStatusChangedCallback) {
+		return generateSubscription(
+			"engine-status-changed",
+			(isActive: boolean) => callback(isActive),
+		);
+	},
+
+
+
 	onLanguageChanged(callback: OnLanguageChangedCallback) {
 		return generateSubscription(
 			"language-changed",

@@ -15,11 +15,18 @@ import type { StatsItem } from "./stats-section";
 
 
 
+const EngineStatus = lazy(() => import("@/components/engine-status"));
 const StatsSection = lazy(() => import("./stats-section"));
 const MainChartSection = lazy(() => import("./main-chart-section"));
 const IpBlockSection = lazy(() => import("./ip-block-section"));
 
 
+
+function EngineStatusFallback() {
+	return (
+		<Skeleton className="h-20 w-full rounded-xl"/>
+	);
+}
 
 function StatsFallback() {
 	return (
@@ -157,6 +164,11 @@ export default function Dashboard() {
 
 	return (
 		<div className="flex flex-col gap-6 min-w-0">
+			{/* 엔진 상태 안내 배너 */}
+			<Suspense fallback={<EngineStatusFallback/>}>
+				<EngineStatus/>
+			</Suspense>
+
 			{/* 수치 카드 섹션 */}
 			<Suspense fallback={<StatsFallback/>}>
 				<StatsSection

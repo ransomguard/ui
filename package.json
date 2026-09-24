@@ -13,6 +13,7 @@
 	"main": "dist-electron/index.js",
 	"scripts": {
 		"dev": "vite",
+		"mock:engine": "bun scripts/fake-engine.ts",
 		"build": "tsc -b && vite build && electron-builder",
 		"lint": "bun run lint:eslint",
 		"lint:eslint": "eslint .",
