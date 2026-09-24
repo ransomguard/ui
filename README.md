@@ -26,16 +26,9 @@ bun run dev
 
 ### 빌드 후 실행
 
+아래 명령어로 빌드 후
+`release/버전` 폴더 내 생성된 실행 파일을 실행하면 됨
+
 ```shell
 bun run build
-bun run preview
-```
-
-### 앱 빌드
-
-`--linux`, `--win`, `--mac` 옵션을 추가하여 빌드 가능하지만,
-로컬에서 다른 OS용 앱을 빌드하는 경우 별도의 추가 구성 필요.
-
-```shell
-bun run build:app
 ```
