@@ -1,8 +1,8 @@
 {
-	"name": "frontend",
+	"name": "ransom0-ui",
 	"private": true,
 	"version": "0.0.0",
-	"description": "Ransom0 Web UI",
+	"description": "Ransom0 UI",
 	"desktopName": "Ransom0",
 	"author": {
 		"name": "kimzuni",

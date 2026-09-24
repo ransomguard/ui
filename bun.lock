@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "frontend",
+      "name": "ransom0-ui",
       "dependencies": {
         "@base-ui/react": "^1.8.0",
         "@dnd-kit/core": "^6.3.1",
