@@ -1,7 +1,7 @@
 import type { BrowserWindow } from "electron";
 import { Menu, shell, app, dialog, clipboard } from "electron";
 
-import { locales } from "../locales";
+import { locales } from "~/locales";
 
 
 

@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { __dirname } from "../config";
+import { __dirname } from "~/config";
 
 
 

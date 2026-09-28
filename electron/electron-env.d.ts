@@ -38,7 +38,7 @@ interface Window {
 
 		onLanguageChanged(callback: OnLanguageChangedCallback): Unsubscribe;
 
-		getMainChartData(): Promise<import("./services/chart").AreaChartDataItem[]>;
-		getBlockedIpData(): Promise<import("./services/ip-block").BlockedIpItem[]>;
+		getMainChartData(): Promise<import("~/services/chart").AreaChartDataItem[]>;
+		getBlockedIpData(): Promise<import("~/services/ip-block").BlockedIpItem[]>;
 	};
 }

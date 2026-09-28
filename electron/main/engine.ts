@@ -1,7 +1,7 @@
 import net from "node:net";
 import type { BrowserWindow } from "electron";
 
-import { PIPE_NAME } from "../config";
+import { PIPE_NAME } from "~/config";
 
 
 

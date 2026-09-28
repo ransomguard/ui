@@ -1,7 +1,7 @@
 import net from "node:net";
 import fs from "node:fs";
 
-import { PIPE_NAME } from "../electron/config";
+import { PIPE_NAME } from "~/config";
 
 
 
