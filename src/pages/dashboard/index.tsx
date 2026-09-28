@@ -166,7 +166,9 @@ export default function Dashboard() {
 		<div className="flex flex-col gap-6 min-w-0">
 			{/* 엔진 상태 안내 배너 */}
 			<Suspense fallback={<EngineStatusFallback/>}>
-				<EngineStatus/>
+				<EngineStatus
+					activeToHidden
+				/>
 			</Suspense>
 
 			{/* 수치 카드 섹션 */}

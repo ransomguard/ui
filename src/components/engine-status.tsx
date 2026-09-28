@@ -27,15 +27,19 @@ import { Button } from "@/components/ui/button";
 
 
 export interface EngineStatusProps {
-	size?: "default" | "sm"
+	size?: "default" | "sm";
+	activeToHidden?: boolean;
 }
 
 export default function EngineStatus({
+	activeToHidden,
 	size = "default",
 }: EngineStatusProps) {
 	const { t } = useTranslation();
 	const isActive = useIsEngineActive();
 	const [isTurnOffAlertOpen, setIsTurnOffAlertOpen] = useState(false);
+
+	if (isActive && activeToHidden) return null;
 
 	const Icon = isActive ? ShieldCheck : ShieldAlert;
 	const vaiant = isActive ? "default" : "destructive";
