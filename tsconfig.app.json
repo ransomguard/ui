@@ -30,7 +30,8 @@
 		/* Custom */
 		"noUncheckedIndexedAccess": true,
 		"paths": {
-			"@/*": ["./src/*"]
+			"@/*": ["./src/*"],
+			"~/*": ["./electron/*"]
 		}
 	},
 	"include": [

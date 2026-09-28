@@ -1,5 +1,5 @@
-export type { AreaChartDataItem } from "../../electron/services/chart";
-export type { BlockedIpItem } from "../../electron/services/ip-block";
+export type { AreaChartDataItem } from "~/services/chart";
+export type { BlockedIpItem } from "~/services/ip-block";
 
 
 
