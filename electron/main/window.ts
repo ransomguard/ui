@@ -4,10 +4,51 @@ import path from "node:path";
 import { VITE_DEV_SERVER_URL, RENDERER_DIST } from "./env";
 
 import { __dirname, windowOptions } from "~/config";
+import { store } from "~/store";
 
 
 
 let win: BrowserWindow | null;
+
+function setupWindowStateListener(window: BrowserWindow) {
+	const saveState = () => {
+		if (window.isDestroyed()) return;
+
+		const isMaximized = window.isMaximized();
+		const isMinimized = window.isMinimized();
+
+		if (!isMaximized && !isMinimized) {
+			const bounds = window.getBounds();
+			store.set("windowState", {
+				width: bounds.width,
+				height: bounds.height,
+				x: bounds.x,
+				y: bounds.y,
+				isMaximized: false,
+			});
+		} else if (isMaximized) {
+			store.set("windowState.isMaximized", true);
+		}
+	};
+
+	let timeoutId: NodeJS.Timeout;
+	const debouncedSave = () => {
+		clearTimeout(timeoutId);
+		timeoutId = setTimeout(saveState, 200);
+	};
+
+	window.on("resize", debouncedSave);
+	window.on("move", debouncedSave);
+	window.on("maximize", saveState);
+	window.on("unmaximize", saveState);
+
+	// 이전 실행 시 최대화 상태였다면 앱 열 때 최대화 상태 적용
+	if (store.get("windowState.isMaximized")) {
+		window.maximize();
+	}
+}
+
+
 
 export function createWindow() {
 	win = new BrowserWindow({
@@ -19,6 +60,8 @@ export function createWindow() {
 
 		...windowOptions,
 	});
+
+	setupWindowStateListener(win);
 
 	if (VITE_DEV_SERVER_URL) {
 		win.loadURL(VITE_DEV_SERVER_URL);

@@ -2,6 +2,7 @@ import type { BrowserWindow } from "electron";
 import { Menu, shell, app, dialog, clipboard } from "electron";
 
 import { locales } from "~/locales";
+import { store } from "~/store";
 
 
 
@@ -47,6 +48,7 @@ export function setApplicationMenu(localeCode: string, win: BrowserWindow) {
 					type: "radio",
 					checked: isKo,
 					click: () => {
+						store.set("language", "ko");
 						setApplicationMenu("ko", win);
 						win.webContents.send("language-changed", "ko");
 					},
@@ -56,6 +58,7 @@ export function setApplicationMenu(localeCode: string, win: BrowserWindow) {
 					type: "radio",
 					checked: !isKo,
 					click: () => {
+						store.set("language", "en");
 						setApplicationMenu("en", win);
 						win.webContents.send("language-changed", "en");
 					},
