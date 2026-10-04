@@ -29,8 +29,17 @@ type Unsubscribe = () => void;
 
 type OnLanguageChangedCallback = (newLang: string) => void;
 
+type EngineEventType = import("~/services/ipc-receiver").EngineEventType;
+type IncomingIPCMessage = import("~/services/ipc-receiver").IncomingIPCMessage;
+type ExtractIncomingIPCMessage<
+	T extends EngineEventType = EngineEventType,
+	M extends IncomingIPCMessage = IncomingIPCMessage,
+> = import("~/services/ipc-receiver").ExtractIncomingIPCMessage<T, M>;
+type OnSecurityLogsUpdatedCallback = (messages: IncomingIPCMessage[]) => void;
+
 interface Window {
 	electronAPI: {
 		onLanguageChanged(callback: OnLanguageChangedCallback): Unsubscribe;
+		onSecurityLogsUpdated(callback: OnSecurityLogsUpdatedCallback): Unsubscribe;
 	};
 }

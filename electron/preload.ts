@@ -18,7 +18,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	onLanguageChanged(callback: OnLanguageChangedCallback) {
 		return generateSubscription(
 			"language-changed",
-			(newLang: string) => callback(newLang),
+			callback,
+		);
+	},
+
+	onSecurityLogsUpdated(callback: OnSecurityLogsUpdatedCallback) {
+		return generateSubscription(
+			"security-logs-updated",
+			callback,
 		);
 	},
 });

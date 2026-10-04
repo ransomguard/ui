@@ -5,6 +5,7 @@ import { store } from "~/store";
 import { createWindow } from "./window";
 import { setApplicationMenu } from "./menu";
 import { registerIpcHandlers } from "./ipc";
+import { registerExternalIpcHandlers } from "./ipc-receiver";
 
 export * from "./env";
 
@@ -16,6 +17,7 @@ app.whenReady().then(() => {
 	const systemLocale = storedLang ?? app.getLocale();
 
 	registerIpcHandlers();
+	registerExternalIpcHandlers();
 	setApplicationMenu(systemLocale);
 
 	createWindow();
