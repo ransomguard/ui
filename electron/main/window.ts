@@ -1,10 +1,10 @@
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
 
-import { VITE_DEV_SERVER_URL, RENDERER_DIST } from "./env";
-
 import { __dirname, windowOptions } from "~/config";
 import { store } from "~/store";
+
+import { VITE_DEV_SERVER_URL, RENDERER_DIST } from "./env";
 
 
 

@@ -30,6 +30,9 @@ type Unsubscribe = () => void;
 type OnEngineStatusChangedCallback = (isActive: boolean) => void;
 type OnLanguageChangedCallback = (newLang: string) => void;
 
+type AreaChartDataItem = import("~/services/chart").AreaChartDataItem;
+type BlockedIpItem = import("~/services/ip-block").BlockedIpItem;
+
 interface Window {
 	electronAPI: {
 		onEngineStatusChanged(callback: OnEngineStatusChangedCallback): Unsubscribe;
@@ -38,7 +41,7 @@ interface Window {
 
 		onLanguageChanged(callback: OnLanguageChangedCallback): Unsubscribe;
 
-		getMainChartData(): Promise<import("~/services/chart").AreaChartDataItem[]>;
-		getBlockedIpData(): Promise<import("~/services/ip-block").BlockedIpItem[]>;
+		getMainChartData(): Promise<AreaChartDataItem[]>;
+		getBlockedIpData(): Promise<BlockedIpItem[]>;
 	};
 }
