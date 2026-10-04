@@ -1,12 +1,12 @@
-import type { BrowserWindow } from "electron";
 import { Menu, shell, app, dialog, clipboard } from "electron";
 
 import { locales } from "~/locales";
 import { store } from "~/store";
+import { getWindow } from "~/main/window";
 
 
 
-export function setApplicationMenu(localeCode: string, win: BrowserWindow) {
+export function setApplicationMenu(localeCode: string) {
 	const localeKey = localeCode.startsWith("ko") ? "ko" : "en";
 	const isKo = localeKey === "ko";
 	const i18n = (isKo ? locales.ko : locales.en)!.menu;
@@ -49,8 +49,8 @@ export function setApplicationMenu(localeCode: string, win: BrowserWindow) {
 					checked: isKo,
 					click: () => {
 						store.set("language", "ko");
-						setApplicationMenu("ko", win);
-						win.webContents.send("language-changed", "ko");
+						setApplicationMenu("ko");
+						getWindow()?.webContents.send("language-changed", "ko");
 					},
 				},
 				{
@@ -59,8 +59,8 @@ export function setApplicationMenu(localeCode: string, win: BrowserWindow) {
 					checked: !isKo,
 					click: () => {
 						store.set("language", "en");
-						setApplicationMenu("en", win);
-						win.webContents.send("language-changed", "en");
+						setApplicationMenu("en");
+						getWindow()?.webContents.send("language-changed", "en");
 					},
 				},
 			],
@@ -88,6 +88,8 @@ export function setApplicationMenu(localeCode: string, win: BrowserWindow) {
 						];
 						const detailText = detailLines.join("\n");
 
+						const win = getWindow();
+						if (!win) return;
 						const { response } = await dialog.showMessageBox(win, {
 							type: "none",
 							title: i18n.aboutData.title,
@@ -110,7 +112,7 @@ export function setApplicationMenu(localeCode: string, win: BrowserWindow) {
 	const menu = Menu.buildFromTemplate(template);
 	Menu.setApplicationMenu(menu);
 
-	win.webContents.on("did-finish-load", () => {
-		win.webContents.send("language-changed", localeKey);
+	getWindow()?.webContents.on("did-finish-load", () => {
+		getWindow()?.webContents.send("language-changed", localeKey);
 	});
 }

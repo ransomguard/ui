@@ -8,7 +8,13 @@ import { VITE_DEV_SERVER_URL, RENDERER_DIST } from "./env";
 
 
 
-let win: BrowserWindow | null;
+/**
+ * Safely retrieves the current BrowserWindow instance if it exists and is not destroyed.
+ */
+export function getWindow() {
+    const windows = BrowserWindow.getAllWindows();
+    return windows.length > 0 ? windows[0] : null;
+}
 
 function setupWindowStateListener(window: BrowserWindow) {
 	const saveState = () => {
@@ -51,7 +57,7 @@ function setupWindowStateListener(window: BrowserWindow) {
 
 
 export function createWindow() {
-	win = new BrowserWindow({
+	const win = new BrowserWindow({
 		icon: path.join(process.env.VITE_PUBLIC, "logo.png"),
 		webPreferences: {
 			preload: path.join(__dirname, "preload.mjs"),
@@ -69,8 +75,6 @@ export function createWindow() {
 		// win.loadFile("dist/index.html");
 		win.loadFile(path.join(RENDERER_DIST, "index.html"));
 	}
-
-	return win;
 }
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -79,7 +83,6 @@ export function createWindow() {
 app.on("window-all-closed", () => {
 	if (process.platform !== "darwin") {
 		app.quit();
-		win = null;
 	}
 });
 

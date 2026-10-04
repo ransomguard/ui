@@ -13,9 +13,10 @@ export * from "./env";
 const storedLang = store.get("language");
 
 app.whenReady().then(() => {
-	registerIpcHandlers();
-	const win = createWindow();
-
 	const systemLocale = storedLang ?? app.getLocale();
-	setApplicationMenu(systemLocale, win);
+
+	registerIpcHandlers();
+	setApplicationMenu(systemLocale);
+
+	createWindow();
 });
