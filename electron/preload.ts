@@ -15,34 +15,10 @@ const generateSubscription = <T>(eventName: string, callback: (data: T) => void)
 
 
 contextBridge.exposeInMainWorld("electronAPI", {
-	onEngineStatusChanged(callback: OnEngineStatusChangedCallback) {
-		return generateSubscription(
-			"engine-status-changed",
-			(isActive: boolean) => callback(isActive),
-		);
-	},
-	startEngine() {
-		return ipcRenderer.invoke("start-engine");
-	},
-	stopEngine() {
-		return ipcRenderer.invoke("stop-engine");
-	},
-
-
-
 	onLanguageChanged(callback: OnLanguageChangedCallback) {
 		return generateSubscription(
 			"language-changed",
 			(newLang: string) => callback(newLang),
 		);
-	},
-
-
-
-	getMainChartData() {
-		return ipcRenderer.invoke("get-main-chart-data");
-	},
-	getBlockedIpData() {
-		return ipcRenderer.invoke("get-blocked-ip-data");
 	},
 });

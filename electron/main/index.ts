@@ -4,7 +4,6 @@ import { store } from "~/store";
 
 import { createWindow } from "./window";
 import { setApplicationMenu } from "./menu";
-import { connectToEngine } from "./engine";
 import { registerIpcHandlers } from "./ipc";
 
 export * from "./env";
@@ -19,5 +18,4 @@ app.whenReady().then(() => {
 
 	const systemLocale = storedLang ?? app.getLocale();
 	setApplicationMenu(systemLocale, win);
-	connectToEngine(win);
 });

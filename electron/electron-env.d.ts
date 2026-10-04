@@ -27,21 +27,10 @@ declare namespace NodeJS {
 
 type Unsubscribe = () => void;
 
-type OnEngineStatusChangedCallback = (isActive: boolean) => void;
 type OnLanguageChangedCallback = (newLang: string) => void;
-
-type AreaChartDataItem = import("~/services/chart").AreaChartDataItem;
-type BlockedIpItem = import("~/services/ip-block").BlockedIpItem;
 
 interface Window {
 	electronAPI: {
-		onEngineStatusChanged(callback: OnEngineStatusChangedCallback): Unsubscribe;
-		startEngine(): Promise<void>;
-		stopEngine(): Promise<void>;
-
 		onLanguageChanged(callback: OnLanguageChangedCallback): Unsubscribe;
-
-		getMainChartData(): Promise<AreaChartDataItem[]>;
-		getBlockedIpData(): Promise<BlockedIpItem[]>;
 	};
 }
