@@ -17,9 +17,15 @@ const generateSubscription = <T>(eventName: string, callback: (data: T) => void)
 contextBridge.exposeInMainWorld("electronAPI", {
 	onLanguageChanged(callback: OnLanguageChangedCallback) {
 		return generateSubscription(
-			"language-changed",
+			"language:changed",
 			callback,
 		);
+	},
+	setLanguage(lang: string) {
+		return ipcRenderer.invoke("language:set", lang);
+	},
+	getLanguage() {
+		return ipcRenderer.invoke("language:get");
 	},
 
 	onSecurityLogsUpdated(callback: OnSecurityLogsUpdatedCallback) {

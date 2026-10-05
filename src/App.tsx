@@ -15,6 +15,10 @@ function App() {
 	const { i18n } = useTranslation();
 
 	useEffect(() => {
+		window.electronAPI.getLanguage().then(lang => {
+			i18n.changeLanguage(lang);
+		});
+
 		const unsub = window.electronAPI.onLanguageChanged(lang => {
 			i18n.changeLanguage(lang);
 		});

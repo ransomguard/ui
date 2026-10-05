@@ -45,6 +45,9 @@ type ActionAndLoggingResult = Awaited<ReturnType<typeof import("~/main/firewall-
 interface Window {
 	electronAPI: {
 		onLanguageChanged(callback: OnLanguageChangedCallback): Unsubscribe;
+		setLanguage(lang: string): Promise<void>;
+		getLanguage(): Promise<string>;
+
 		onSecurityLogsUpdated(callback: OnSecurityLogsUpdatedCallback): Unsubscribe;
 
 		getBlockedIPs(): Promise<FetchIPsResult>;

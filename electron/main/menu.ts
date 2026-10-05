@@ -1,10 +1,13 @@
-import { Menu, shell, app, dialog, clipboard } from "electron";
+import { Menu, shell, app, ipcMain, dialog, clipboard } from "electron";
 
 import { locales } from "~/locales";
 import { store } from "~/store";
 import { getWindow } from "~/main/window";
 
 
+
+ipcMain.handle("language:set", (_, lang: string) => setApplicationMenu(lang));
+ipcMain.handle("language:get", () => store.get("language") ?? app.getLocale());
 
 export function setApplicationMenu(localeCode: string) {
 	const localeKey = localeCode.startsWith("ko") ? "ko" : "en";
@@ -50,7 +53,7 @@ export function setApplicationMenu(localeCode: string) {
 					click: () => {
 						store.set("language", "ko");
 						setApplicationMenu("ko");
-						getWindow()?.webContents.send("language-changed", "ko");
+						getWindow()?.webContents.send("language:changed", "ko");
 					},
 				},
 				{
@@ -60,7 +63,7 @@ export function setApplicationMenu(localeCode: string) {
 					click: () => {
 						store.set("language", "en");
 						setApplicationMenu("en");
-						getWindow()?.webContents.send("language-changed", "en");
+						getWindow()?.webContents.send("language:changed", "en");
 					},
 				},
 			],
@@ -111,8 +114,4 @@ export function setApplicationMenu(localeCode: string) {
 
 	const menu = Menu.buildFromTemplate(template);
 	Menu.setApplicationMenu(menu);
-
-	getWindow()?.webContents.on("did-finish-load", () => {
-		getWindow()?.webContents.send("language-changed", localeKey);
-	});
 }
