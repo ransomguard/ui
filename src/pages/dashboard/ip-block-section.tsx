@@ -1,90 +1,151 @@
 import { useState } from "react";
-import { Plus, ShieldAlert, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { useTranslation } from "react-i18next";
+import {
+	ShieldAlert,
+	RefreshCw,
+	Activity,
+	Shield,
+} from "lucide-react";
 
-import * as api from "@/lib/api";
-import * as random from "@/lib/random";
-import type { FlattenedKeys } from "@/locales";
-
-import { toast } from "@/components/ui/toast";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-	Dialog,
-	DialogTrigger,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	DialogDescription,
-	DialogFooter,
-	DialogClose,
-} from "@/components/ui/dialog";
-import {
-	AlertDialog,
-	AlertDialogContent,
-	AlertDialogHeader,
-	AlertDialogTitle,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogCancel,
-	AlertDialogAction,
-} from "@/components/ui/alert-dialog";
-import {
-	Field,
-	FieldLabel,
-} from "@/components/ui/field";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, type DataTableFeatures } from "@/components/data-table";
 import { I18n } from "@/components/i18n";
 
 
 
-const columnHelper = createColumnHelper<DataTableFeatures, api.BlockedIpItem>();
+export type DashboardEventCategory = "threat" | "recovery" | "telemetry" | "firewall";
 
-const ipBlockColumns: ColumnDef<DataTableFeatures, api.BlockedIpItem>[] = columnHelper.columns([
+export interface DashboardSummaryEventItem {
+	id: string;
+	category: DashboardEventCategory;
+	action: string;
+	target: string;
+	summary: string;
+	timestamp: number;
+	createdAt: string;
+}
+
+const CATEGORY_ROUTES: Record<DashboardEventCategory, string> = {
+	threat: "/alerts",
+	recovery: "/alerts",
+	telemetry: "/telemetry",
+	firewall: "/access-control",
+};
+
+const columnHelper = createColumnHelper<DataTableFeatures, DashboardSummaryEventItem>();
+
+const summaryColumns: ColumnDef<DataTableFeatures, DashboardSummaryEventItem>[] = columnHelper.columns([
 	{
-		accessorKey: "ipAddress",
-		header: () =>  <I18n i18nKey={"ipBlock.columns.ipAddress"}/>,
+		accessorKey: "category",
+		meta: {
+			className: "w-28",
+		},
+		header: () => <I18n i18nKey="recentEvents.columns.category"/>,
+		cell: ({ row }) => {
+			const { category } = row.original;
+
+			if (category === "threat") {
+				return (
+					<Badge variant="destructive" className="gap-1">
+						<ShieldAlert className="size-3"/>
+						<I18n i18nKey="recentEvents.categories.threat"/>
+					</Badge>
+				);
+			}
+
+			if (category === "recovery") {
+				return (
+					<Badge variant="default" className="gap-1 bg-emerald-600 hover:bg-emerald-700">
+						<RefreshCw className="size-3"/>
+						<I18n i18nKey="recentEvents.categories.recovery"/>
+					</Badge>
+				);
+			}
+
+			if (category === "telemetry") {
+				return (
+					<Badge variant="secondary" className="gap-1">
+						<Activity className="size-3"/>
+						<I18n i18nKey="recentEvents.categories.telemetry"/>
+					</Badge>
+				);
+			}
+
+			return (
+				<Badge variant="outline" className="gap-1">
+					<Shield className="size-3"/>
+					<I18n i18nKey="recentEvents.categories.firewall"/>
+				</Badge>
+			);
+		},
+	},
+	{
+		accessorKey: "action",
+		meta: {
+			className: "w-40",
+		},
+		header: () => <I18n i18nKey="recentEvents.columns.action"/>,
+		cell: ({ row }) => {
+			const { category, action } = row.original;
+			const variant =
+				category === "threat" || action === "BLOCK_ADD" || action === "RESTORE_FAILED"
+					? "destructive"
+					: category === "recovery"
+						? "default"
+						: "outline";
+
+			return (
+				<Badge variant={variant} className="font-mono text-[11px]">
+					{action}
+				</Badge>
+			);
+		},
+	},
+	{
+		accessorKey: "target",
+		meta: {
+			className: "max-w-48 truncate",
+		},
+		header: () => <I18n i18nKey="recentEvents.columns.target"/>,
 		cell: ({ row }) => (
-			<span className="font-mono font-medium">{row.original.ipAddress}</span>
+			<span className="font-mono text-xs font-medium truncate block">
+				{row.original.target}
+			</span>
 		),
 	},
 	{
-		accessorKey: "type",
+		accessorKey: "summary",
 		meta: {
-			className: "text-center",
+			className: "w-full max-w-md truncate",
 		},
-		header: () =>  <I18n i18nKey={"ipBlock.columns.blockType"}/>,
+		header: () => <I18n i18nKey="recentEvents.columns.summary"/>,
+		filterFn: (row, _columnId, filterValue) => {
+			const query = String(filterValue ?? "").toLowerCase().trim();
+			if (!query) return true;
+			return (
+				row.original.target.toLowerCase().includes(query) ||
+				row.original.summary.toLowerCase().includes(query) ||
+				row.original.action.toLowerCase().includes(query)
+			);
+		},
 		cell: ({ row }) => (
-			<I18n
-				prefix="ipBlock.type"
-				i18nKey={row.original.type === "manual" ? "manual" : "auto"}
-				render={<Badge
-					variant={row.original.type === "manual" ? "secondary" : "destructive"}
-				/>}
-			/>
+			<span className="text-foreground/90 truncate block">
+				{row.original.summary}
+			</span>
 		),
 	},
 	{
-		accessorKey: "reason",
+		accessorKey: "createdAt",
 		meta: {
-			className: "w-full max-w-xs truncate",
+			className: "text-right whitespace-nowrap",
 		},
-		header: () => <I18n i18nKey={"ipBlock.columns.reason"}/>,
+		header: () => <I18n i18nKey="recentEvents.columns.timestamp"/>,
 		cell: ({ row }) => (
-			<span className="text-foreground/90">{row.original.reason}</span>
-		),
-	},
-	{
-		accessorKey: "blockedAt",
-		meta: {
-			className: "text-right",
-		},
-		header: () => <I18n i18nKey={"ipBlock.columns.blockedAt"}/>,
-		cell: ({ row }) => (
-			<div className="text-muted-foreground font-mono">
-				{row.original.blockedAt}
+			<div className="text-muted-foreground font-mono text-xs">
+				{row.original.createdAt}
 			</div>
 		),
 	},
@@ -92,206 +153,67 @@ const ipBlockColumns: ColumnDef<DataTableFeatures, api.BlockedIpItem>[] = column
 
 
 
-const IPV4_REG = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.){3}(25[0-5]|(2[0-4]|1\d|[1-9]|)\d)$/;
-const validateIp = (ip: string) => IPV4_REG.test(ip.trim());
-
-export interface IpBlockSectionProps {
-	data: api.BlockedIpItem[];
-	addItem: (value: api.BlockedIpItem | null) => void;
-	removeItem: (value: api.BlockedIpItem | null) => void;
+export interface RecentEventsSectionProps {
+	data: DashboardSummaryEventItem[];
 	isLoading?: boolean;
 }
 
-export default function IpBlockSection({
+export default function RecentEventsSection({
 	data,
-	addItem,
-	removeItem,
 	isLoading,
-}: IpBlockSectionProps) {
+}: RecentEventsSectionProps) {
 	const { t } = useTranslation();
+	const navigate = useNavigate();
 
-	const [selectedRows, setSelectedRows] = useState<api.BlockedIpItem[]>([]);
-	const [isUnblockAlertOpen, setIsUnblockAlertOpen] = useState(false);
+	const [activeTab, setActiveTab] = useState<"all" | DashboardEventCategory>("all");
 
-	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-	const [newIp, setNewIp] = useState("");
-	const [newReason, setNewReason] = useState("");
+	const filteredData = activeTab === "all"
+		? data
+		: data.filter((item) => item.category === activeTab);
 
-	const handleAddIp = () => {
-		const trimmedIp = newIp.trim();
-		let errorKey: FlattenedKeys<"ipBlock.errors"> | null = null;
-		if (!trimmedIp) {
-			errorKey = "emptyIp";
-		} else if (!validateIp(trimmedIp)) {
-			errorKey = "invalidIp";
-		} else if (data.some((item) => item.ipAddress === trimmedIp)) {
-			errorKey = "duplicateIp";
-		}
-
-		if (errorKey) {
-			toast.add({
-				type: "error",
-				title: t($ => $.ipBlock.errors.title),
-				description: t($ => $.ipBlock.errors[errorKey]),
-			});
-			return;
-		}
-
-		const now = new Date();
-		const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
-
-		const newItem: api.BlockedIpItem = {
-			id: random.string(),
-			ipAddress: trimmedIp,
-			reason: newReason.trim() || "Manual block by administrator",
-			type: "manual",
-			blockedAt: formattedDate,
-		};
-
-		addItem(newItem);
-		toast.add({
-			type: "success",
-			title: t($ => $.ipBlock.successes.title, {
-				action: t($ => $.ipBlock.addBlock).toLowerCase(),
-			}),
-			description: t($ => $.ipBlock.successes.added, { ip: trimmedIp }),
-		});
-
-		setNewIp("");
-		setNewReason("");
-		setIsAddDialogOpen(false);
-	};
-
-	const handleBulkUnblock = () => {
-		const count = selectedRows.length;
-		if (count === 0) return;
-		for (const item of selectedRows) {
-			removeItem(item);
-		}
-		toast.add({
-			type: "success",
-			title: t($ => $.ipBlock.successes.title, {
-				action: t($ => $.ipBlock.unblock).toLowerCase(),
-			}),
-			description: t($ => $.ipBlock.successes.removed, { count }),
-		});
-		setSelectedRows([]);
+	const counts = {
+		all: data.length,
+		threat: data.filter((i) => i.category === "threat").length,
+		recovery: data.filter((i) => i.category === "recovery").length,
+		telemetry: data.filter((i) => i.category === "telemetry").length,
+		firewall: data.filter((i) => i.category === "firewall").length,
 	};
 
 	return (
 		<DataTable
-			heading={t($ => $.ipBlock.heading)}
-			columns={ipBlockColumns}
-			data={data}
+			heading={t(($) => $.recentEvents.heading)}
+			columns={summaryColumns}
+			data={filteredData}
 			isLoading={isLoading}
-			filterPlaceholder={t($ => $.ipBlock.searchPlaceholder)}
-			onRowSelectionChange={(rows) => setSelectedRows(rows)}
-			enableRowSelection
+			filterPlaceholder={t(($) => $.recentEvents.searchPlaceholder)}
+			filterColumnKey="summary"
+			onRowClick={(row) => navigate(CATEGORY_ROUTES[row.category])}
 			enableSearch
 			enablePagination
 			enableRowNumber
 		>
-			<AlertDialog open={isUnblockAlertOpen} onOpenChange={setIsUnblockAlertOpen}>
-				<Button
-					variant="destructive"
-					size="icon-lg"
-					disabled={selectedRows.length === 0}
-					onClick={() => setIsUnblockAlertOpen(true)}
-					className="disabled:hidden"
-				>
-					<Trash2/>
-					<span className="sr-only">{t($ => $.ipBlock.unblock)}</span>
-				</Button>
-
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>
-							{t($ => $.ipBlock.confirmUnblock.title)}
-						</AlertDialogTitle>
-						<AlertDialogDescription>
-							{t($ => $.ipBlock.confirmUnblock.description, { count: selectedRows.length })}
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>
-							{t($ => $.ipBlock.cancel)}
-						</AlertDialogCancel>
-						<AlertDialogAction
-							variant="destructive"
-							onClick={() => {
-								handleBulkUnblock();
-								setIsUnblockAlertOpen(false);
-							}}
-						>
-							{t($ => $.ipBlock.confirmUnblock.action)}
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-
-			<Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-				<DialogTrigger
-					render={
-						<Button size="lg">
-							<Plus/>
-							<span>{t($ => $.ipBlock.addBlockedIp)}</span>
-						</Button>
-					}
-				/>
-
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2">
-							<ShieldAlert className="size-5 text-destructive"/>
-							<span>{t($ => $.ipBlock.dialogTitle)}</span>
-						</DialogTitle>
-						<DialogDescription>
-							{t($ => $.ipBlock.dialogDescription)}
-						</DialogDescription>
-					</DialogHeader>
-
-					<div className="flex flex-col gap-4 py-2">
-						<Field>
-							<FieldLabel htmlFor="ip-address" className="gap-1.5">
-								{t($ => $.ipBlock.columns.ipAddress)}
-								<span className="text-destructive">*</span>
-							</FieldLabel>
-							<Input
-								id="ip-address"
-								placeholder="e.g. 192.168.1.100"
-								value={newIp}
-								onChange={(e) => setNewIp(e.target.value)}
-								className="font-mono"
-							/>
-						</Field>
-
-						<Field>
-							<FieldLabel htmlFor="block-reason" className="gap-1.5">
-								{t($ => $.ipBlock.columns.reason)}
-							</FieldLabel>
-							<Input
-								id="block-reason"
-								placeholder={`e.g. ${t($ => $.ipBlock.defaultReason)}`}
-								value={newReason}
-								onChange={(e) => setNewReason(e.target.value)}
-							/>
-						</Field>
-					</div>
-
-					<DialogFooter className="gap-2">
-						<DialogClose
-							render={
-								<Button type="button" variant="outline">
-									{t($ => $.ipBlock.cancel)}
-								</Button>
-							}
-						/>
-						<Button type="button" onClick={handleAddIp}>
-							{t($ => $.ipBlock.addBlock)}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+			<Tabs
+				value={activeTab}
+				onValueChange={(val) => setActiveTab((val as "all" | DashboardEventCategory) ?? "all")}
+			>
+				<TabsList>
+					<TabsTrigger value="all">
+						{t(($) => $.recentEvents.tabs.all)} ({counts.all})
+					</TabsTrigger>
+					<TabsTrigger value="threat">
+						{t(($) => $.recentEvents.tabs.threat)} ({counts.threat})
+					</TabsTrigger>
+					<TabsTrigger value="recovery">
+						{t(($) => $.recentEvents.tabs.recovery)} ({counts.recovery})
+					</TabsTrigger>
+					<TabsTrigger value="telemetry">
+						{t(($) => $.recentEvents.tabs.telemetry)} ({counts.telemetry})
+					</TabsTrigger>
+					<TabsTrigger value="firewall">
+						{t(($) => $.recentEvents.tabs.firewall)} ({counts.firewall})
+					</TabsTrigger>
+				</TabsList>
+			</Tabs>
 		</DataTable>
 	);
 }

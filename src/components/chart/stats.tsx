@@ -36,7 +36,7 @@ export function MetricCard({
 		<Card
 			size="sm"
 			className={cn(
-				"ring-(--color)/30 text-(--color)",
+				"ring-(--color)/15 text-(--color)",
 				className,
 			)}
 			style={{

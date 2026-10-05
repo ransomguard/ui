@@ -109,13 +109,28 @@ export interface FileEventData {
 }
 
 export interface SystemStatusData {
-	engineProcessId: number;     // 엔진 pid 값, 0은 아직 미등록 상태 또는 엔진이 죽었다는 의미
-	engineVersion: string;       // 현재 엔진 버전
-	fastPathMode: number;        // 0(OFF), 1(AUDIT), 2(BLOCK)
+	/**
+	 * 엔진 pid 값, 0은 아직 미등록 상태 또는 엔진이 죽었다는 의미
+	 */
+	engineProcessId: number;
+
+	/**
+	 * 현재 엔진 버전
+	 */
+	engineVersion: string;
+
+	/**
+	 * 0(OFF), 1(AUDIT), 2(BLOCK)
+	 */
+	fastPathMode: number;
 	selfProtectEnabled: boolean;
 	queueDepth: number;
 	eventsGenerated: number;
-	eventsDropped: number;       // 0보다 크면 큐 과부하 (로그 유실)
+
+	/**
+	 * 0보다 크면 큐 과부하 (로그 유실)
+	 */
+	eventsDropped: number;
 	processesBlocked: number;
 	processesTerminated: number;
 }

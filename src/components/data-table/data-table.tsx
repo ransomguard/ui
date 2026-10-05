@@ -147,6 +147,7 @@ export interface DataTableProps<TData extends RowData & { id: string }> extends 
 	skeletonRowCount?: number;
 
 	onRowSelectionChange?: (selectedRows: TData[], selectedRowIds: RowSelectionState) => void;
+	onRowClick?: (row: TData) => void;
 }
 
 export function DataTable<TData extends RowData & { id: string }>({
@@ -169,6 +170,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 	isLoading,
 	skeletonRowCount = 5,
 	onRowSelectionChange,
+	onRowClick,
 	id: _id,
 	className,
 	children,
@@ -524,7 +526,11 @@ export function DataTable<TData extends RowData & { id: string }>({
 									<TableRow
 										key={row.id}
 										data-state={row.getIsSelected() ? "selected" : undefined}
-										className="h-12"
+										onClick={() => onRowClick?.(row.original)}
+										className={cn(
+											"h-12",
+											onRowClick && "cursor-pointer hover:bg-muted/60",
+										)}
 									>
 										{row.getVisibleCells().map((cell) => (
 											<TableCell

@@ -34,7 +34,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			callback,
 		);
 	},
+	getEngineStatus() {
+		return ipcRenderer.invoke("initial:get-engine-status");
+	},
 
+	getAccessControlLogs(...args: unknown[]) {
+		return ipcRenderer.invoke("firewall:fetch-logs", ...args);
+	},
 	getBlockedIPs(...args: unknown[]) {
 		return ipcRenderer.invoke("firewall:block-list", ...args);
 	},

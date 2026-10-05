@@ -1,7 +1,5 @@
 import { useTranslation } from "react-i18next";
 
-import type * as api from "@/lib/api";
-
 import {
 	Select,
 	SelectContent,
@@ -17,8 +15,14 @@ import type { TimeRangeItem } from "./common";
 
 
 
+export interface AreaChartDataItem extends Record<string, unknown> {
+	date: string;
+	desktop: number;
+	mobile: number;
+}
+
 export interface MainChartSectionProps<T extends TimeRangeItem> {
-	data: api.AreaChartDataItem[];
+	data: AreaChartDataItem[];
 	timeRange: T;
 	timeRangeItems: T[];
 	onTimeRangeChange: (value: T | null) => void;
@@ -34,7 +38,7 @@ export default function MainChartSection<T extends TimeRangeItem>({
 }: MainChartSectionProps<T>) {
 	const { t, i18n: { language } } = useTranslation();
 
-	const getLabel = (item: T) => t($ => $.timeRange[item.label]);
+	const getLabel = (item: T) => t($ => $.timeRange[item.label], { days: item.value });
 
 	const chartConfig = {
 		visitors: {
@@ -81,7 +85,7 @@ export default function MainChartSection<T extends TimeRangeItem>({
 					className="hidden w-40 rounded-lg sm:ml-auto sm:flex"
 					aria-label="Select a value"
 				>
-					<SelectValue placeholder={t($ => $.timeRange.last90Days)}/>
+					<SelectValue placeholder={getLabel(timeRange)}/>
 				</SelectTrigger>
 				<SelectContent className="rounded-xl">
 					<SelectGroup>

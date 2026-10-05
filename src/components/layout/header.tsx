@@ -3,6 +3,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 import { SidebarTrigger } from "@/components/layout/sidebar";
 import { ModeToggle } from "@/components/mode-toggle";
+import EngineStatus from "@/components/engine-status";
 
 
 
@@ -29,7 +30,10 @@ export function Header({
 				{isMobile && <SidebarTrigger/>}
 				<h1 className="text-lg font-semibold">{heading}</h1>
 			</div>
-			<ModeToggle/>
+			<div className="flex items-center gap-4">
+				<EngineStatus size="sm"/>
+				<ModeToggle/>
+			</div>
 		</header>
 	);
 }

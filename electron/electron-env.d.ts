@@ -36,11 +36,13 @@ type ExtractIncomingIPCMessage<
 	M extends IncomingIPCMessage = IncomingIPCMessage,
 > = import("~/services/ipc-receiver").ExtractIncomingIPCMessage<T, M>;
 type OnSecurityLogsUpdatedCallback = (messages: IncomingIPCMessage[]) => void;
+type GetLastEngineStatusData = import("~/main/ipc-receiver").GetLastEngineStatusData;
 
 type FirewallRequest = import("~/services/firewall-tool").FirewallRequest;
 type IncomingFWMessage = import("~/services/firewall-tool").IncomingFWMessage;
+type FetchLogsResult = Awaited<ReturnType<typeof import("~/main/firewall-tool").fetchLogs>>;
 type FetchIPsResult = Awaited<ReturnType<typeof import("~/main/firewall-tool").fetchIPs>>;
-type ActionAndLoggingResult = Awaited<ReturnType<typeof import("~/main/firewall-tool").actionAndLogging>>;
+type AccessControlLogItem = import("~/main/firewall-tool").AccessControlLogItem;
 
 interface Window {
 	electronAPI: {
@@ -49,12 +51,14 @@ interface Window {
 		getLanguage(): Promise<string>;
 
 		onSecurityLogsUpdated(callback: OnSecurityLogsUpdatedCallback): Unsubscribe;
+		getEngineStatus(): Promise<GetLastEngineStatusData>;
 
+		getAccessControlLogs(): Promise<FetchLogsResult>;
 		getBlockedIPs(): Promise<FetchIPsResult>;
 		getWhitelistedIPs(): Promise<FetchIPsResult>;
-		addBlockedIPs(ips: string[], reason: string): Promise<ActionAndLoggingResult>;
-		removeBlockedIPs(ips: string[], reason: string): Promise<ActionAndLoggingResult>;
-		addWhitelistedIPs(ips: string[], reason: string): Promise<ActionAndLoggingResult>;
-		removeWhitelistedIPs(ips: string[], reason: string): Promise<ActionAndLoggingResult>;
+		addBlockedIPs(ips: string[], reason: string): Promise<AccessControlLogItem[]>;
+		removeBlockedIPs(ips: string[], reason: string): Promise<AccessControlLogItem[]>;
+		addWhitelistedIPs(ips: string[], reason: string): Promise<AccessControlLogItem[]>;
+		removeWhitelistedIPs(ips: string[], reason: string): Promise<AccessControlLogItem[]>;
 	};
 }

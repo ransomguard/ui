@@ -9,15 +9,27 @@ export interface TimeRangeItem {
 
 export const timeRangeItems: [TimeRangeItem, ...TimeRangeItem[]] = [
 	{
-		label: "last90Days",
+		label: "lastDays",
 		value: 90,
 	},
 	{
-		label: "last30Days",
+		label: "lastDays",
+		value: 60,
+	},
+	{
+		label: "lastDays",
 		value: 30,
 	},
 	{
-		label: "last7Days",
+		label: "lastDays",
+		value: 15,
+	},
+	{
+		label: "lastDays",
 		value: 7,
+	},
+	{
+		label: "lastDay",
+		value: 1,
 	},
 ];
