@@ -28,4 +28,23 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			callback,
 		);
 	},
+
+	getBlockedIPs(...args: unknown[]) {
+		return ipcRenderer.invoke("firewall:block-list", ...args);
+	},
+	addBlockedIPs(...args: unknown[]) {
+		return ipcRenderer.invoke("firewall:block-add", ...args);
+	},
+	removeBlockedIPs(...args: unknown[]) {
+		return ipcRenderer.invoke("firewall:block-remove", ...args);
+	},
+	getWhitelistedIPs(...args: unknown[]) {
+		return ipcRenderer.invoke("firewall:whitelist-list", ...args);
+	},
+	addWhitelistedIPs(...args: unknown[]) {
+		return ipcRenderer.invoke("firewall:whitelist-add", ...args);
+	},
+	removeWhitelistedIPs(...args: unknown[]) {
+		return ipcRenderer.invoke("firewall:whitelist-remove", ...args);
+	},
 });

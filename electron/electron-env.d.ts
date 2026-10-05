@@ -37,9 +37,21 @@ type ExtractIncomingIPCMessage<
 > = import("~/services/ipc-receiver").ExtractIncomingIPCMessage<T, M>;
 type OnSecurityLogsUpdatedCallback = (messages: IncomingIPCMessage[]) => void;
 
+type FirewallRequest = import("~/services/firewall-tool").FirewallRequest;
+type IncomingFWMessage = import("~/services/firewall-tool").IncomingFWMessage;
+type FetchIPsResult = Awaited<ReturnType<typeof import("~/main/firewall-tool").fetchIPs>>;
+type ActionAndLoggingResult = Awaited<ReturnType<typeof import("~/main/firewall-tool").actionAndLogging>>;
+
 interface Window {
 	electronAPI: {
 		onLanguageChanged(callback: OnLanguageChangedCallback): Unsubscribe;
 		onSecurityLogsUpdated(callback: OnSecurityLogsUpdatedCallback): Unsubscribe;
+
+		getBlockedIPs(): Promise<FetchIPsResult>;
+		getWhitelistedIPs(): Promise<FetchIPsResult>;
+		addBlockedIPs(ips: string[], reason: string): Promise<ActionAndLoggingResult>;
+		removeBlockedIPs(ips: string[], reason: string): Promise<ActionAndLoggingResult>;
+		addWhitelistedIPs(ips: string[], reason: string): Promise<ActionAndLoggingResult>;
+		removeWhitelistedIPs(ips: string[], reason: string): Promise<ActionAndLoggingResult>;
 	};
 }

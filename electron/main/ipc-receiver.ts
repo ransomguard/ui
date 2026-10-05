@@ -1,6 +1,7 @@
 import { app } from "electron";
 
 import { externalIPCReceiver, isValidIPCMessage } from "~/services/ipc-receiver";
+// import { sendToFirewallTool } from "~/services/firewall-tool";
 
 import { getWindow } from "~/main/window";
 import {
@@ -33,9 +34,12 @@ export function registerExternalIpcHandlers() {
 					data: item,
 				});
 
-				if (item.type === "PROCESS_BLOCKED") {
-					// FirewallTool을 앱으로 전환 및 named pipe를 통해 차단 요청
-				}
+				// 커널 v0.5.0 기준 미니필터 기반 차단이라 ip를 탐지하지 못함?
+				// 네트워크 기반 차단 로직이 없음? 그럼 ip 차단 자동화는 어떻게?
+				// if (item.type === "NETWORK_BLOCKED") {
+				// 	await sendToFirewallTool("BLOCK_ADD", [
+				// 	]);
+				// }
 			} else {
 				invalidItems.push({
 					source: "IPC_RECEIVER",

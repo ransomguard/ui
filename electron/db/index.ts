@@ -28,7 +28,11 @@ export type Select<T extends keyof Table> = Table[T] extends { $inferSelect: inf
 
 let sqlite: BetterSqlite3.Database | null = null;
 let db: BetterSQLite3Database | null = null;
+export const safeGetDB = () => {
+	return db;
+};
 export const getDB = () => {
+	const db = safeGetDB();
 	if (!db) {
 		throw new Error("Database is not initialized. Call initDatabase() first.");
 	}
