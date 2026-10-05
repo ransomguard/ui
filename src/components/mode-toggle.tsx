@@ -22,7 +22,7 @@ function ModeItem({
 	return (
 		<DropdownMenuRadioItem
 			value={value}
-			className="capitalize font-mono"
+			className="capitalize font-mono cursor-pointer"
 		>{value}</DropdownMenuRadioItem>
 	);
 }
@@ -39,6 +39,7 @@ export function ModeToggle(props: ModeToggleProps) {
 		<DropdownMenu modal={false}>
 			<DropdownMenuTrigger
 				render={<Button variant="ghost" size="icon" {...props}/>}
+				className="cursor-pointer"
 			>
 				<Sun className="scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90"/>
 				<Moon className="absolute scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0"/>
