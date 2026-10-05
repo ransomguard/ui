@@ -69,10 +69,10 @@ class ExternalIPCReceiver {
 		});
 	}
 
-	startConsumer(onBatchProcess: (batch: unknown[]) => void, intervalMs = INTERVAL_MS) {
+	startConsumer(onBatchProcess: (batch: unknown[]) => unknown, intervalMs = INTERVAL_MS) {
 		if (this.#consumerInterval) return;
 
-		this.#consumerInterval = setInterval(() => {
+		this.#consumerInterval = setInterval(async () => {
 			if (this.#isProcessing || this.#queue.length === 0) return;
 			this.#isProcessing = true;
 
@@ -88,7 +88,7 @@ class ExternalIPCReceiver {
 				}
 
 				if (batch.length > 0) {
-					onBatchProcess(batch);
+					await onBatchProcess(batch);
 				}
 			} catch (error) {
 				console.error("[IPC] Error processing batch:", error);

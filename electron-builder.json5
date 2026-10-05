@@ -12,6 +12,12 @@
 		"dist",
 		"dist-electron"
 	],
+	"extraResources": [
+		{
+			"from": "electron/db/migrations",
+			"to": "migrations"
+		},
+	],
 	"mac": {
 		"category": "public.app-category.utilities",
 		"target": [

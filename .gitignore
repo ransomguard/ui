@@ -24,3 +24,8 @@ release
 *.njsproj
 *.sln
 *.sw?
+
+
+
+# db
+db.sqlite
