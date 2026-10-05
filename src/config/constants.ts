@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderLock, ShieldAlert, Settings } from "lucide-react";
+import { LayoutDashboard, ShieldAlert, ListClock, ShieldX } from "lucide-react";
 
 import type { SidebarNavGroup } from "@/components/layout/sidebar";
 
@@ -13,20 +13,25 @@ export const NAV_ITEMS: SidebarNavGroup[] = [
 				icon: LayoutDashboard,
 			},
 			{
-				href: "/folders",
-				label: "protectedFolders",
-				icon: FolderLock,
-			},
-			{
-				href: "/threats",
-				label: "threats",
+				href: "/alerts",
+				label: "alerts",
 				icon: ShieldAlert,
 			},
 			{
-				href: "/settings",
-				label: "settings",
-				icon: Settings,
+				href: "/telemetry",
+				label: "telemetry",
+				icon: ListClock,
 			},
+			{
+				href: "/access-control",
+				label: "accessControl",
+				icon: ShieldX,
+			},
+			// {
+			// 	href: "/settings",
+			// 	label: "settings",
+			// 	icon: Settings,
+			// },
 		],
 	},
 ];

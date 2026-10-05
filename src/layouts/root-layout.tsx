@@ -34,7 +34,6 @@ export default function RootLayout() {
 				navGroups={constants.NAV_ITEMS}
 				openText={t($ => $.sidebar.open)}
 				closeText={t($ => $.sidebar.close)}
-				loginText={t($ => $.sidebar.login)}
 			/>
 			<div
 				className="flex-1 min-w-0 flex flex-col"

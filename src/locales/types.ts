@@ -2,20 +2,15 @@ export interface AppTranslations {
 	sidebar: {
 		open: string;
 		close: string;
-		login: string;
-		logout: string;
-		userMenu: {
-			profile: string;
-			settings: string;
-		};
 	};
 
 	nav: {
 		notFound: string;
 		dashboard: string;
-		protectedFolders: string;
-		threats: string;
-		settings: string;
+		alerts: string;
+		telemetry: string;
+		accessControl: string;
+		// settings: string;
 	};
 
 	engine: {

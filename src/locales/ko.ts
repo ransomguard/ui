@@ -4,20 +4,15 @@ export const ko: AppTranslations = {
 	sidebar: {
 		open: "열기",
 		close: "닫기",
-		login: "로그인",
-		logout: "로그아웃",
-		userMenu: {
-			profile: "프로필",
-			settings: "환경 설정",
-		},
 	},
 
 	nav: {
 		notFound: "페이지를 찾을 수 없음",
 		dashboard: "대시보드",
-		protectedFolders: "보호 폴더",
-		threats: "차단 내역",
-		settings: "환경 설정"
+		alerts: "위협 및 복구",
+		telemetry: "이벤트 로그",
+		accessControl: "접근 및 예외 관리",
+		// settings: "환경 설정",
 	},
 
 	engine: {
