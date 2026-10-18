@@ -1,5 +1,6 @@
-import os from "node:os";
 import net from "node:net";
+
+import { getPipeName } from "~/config";
 
 
 
@@ -11,11 +12,7 @@ export { isValidIPCMessage } from "./guard";
 const MAX_BATCH_SIZE = 500;
 const INTERVAL_MS = 500; // Queue consumer interval in milliseconds
 
-const PIPE_NAME = (
-	process.platform === "win32"
-		? "\\\\.\\pipe\\Ransom0UI"
-		: `${os.tmpdir()}/Ransom0UI.sock` // for development on non-Windows platforms
-);
+export const PIPE_NAME = getPipeName("Ransom0UI");
 
 
 
@@ -25,7 +22,7 @@ class ExternalIPCReceiver {
 	#consumerInterval: NodeJS.Timeout | null = null;
 	#isProcessing = false;
 
-	startListening() {
+	startListening(pipeName = PIPE_NAME) {
 		if (this.#server) return;
 
 		this.#server = net.createServer((socket) => {
@@ -64,8 +61,8 @@ class ExternalIPCReceiver {
 			console.error("[IPC Server] Failed to start server:", err);
 		});
 
-		this.#server.listen(PIPE_NAME, () => {
-			console.log(`[IPC Server] Listening on: ${PIPE_NAME}`);
+		this.#server.listen(pipeName, () => {
+			console.log(`[IPC Server] Listening on: ${pipeName}`);
 		});
 	}
 

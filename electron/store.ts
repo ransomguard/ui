@@ -1,3 +1,4 @@
+import os from "node:os";
 import Store from "electron-store";
 
 
@@ -23,6 +24,7 @@ export interface WindowState {
 
 
 export const store = new Store<StoreData>({
+	cwd: process.versions.electron ? undefined : os.tmpdir(),
 	schema: {
 		language: {
 			type: "string",

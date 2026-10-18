@@ -30,9 +30,8 @@ export const windowOptions: BrowserWindowConstructorOptions = {
 
 
 
-export const ENGINE_BASE_NAME = "Ransom0Engine";
-export const PIPE_NAME = (
+export const getPipeName = (baseName: string) => (
 	process.platform === "win32"
-		? `\\\\.\\pipe\\${ENGINE_BASE_NAME}`
-		: path.join(os.tmpdir(), `${ENGINE_BASE_NAME}.sock`)
+		? `\\\\.\\pipe\\${baseName}`
+		: path.join(os.tmpdir(), `${baseName}.sock`) // for development on non-Windows platforms
 );

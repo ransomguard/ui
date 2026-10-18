@@ -1,5 +1,6 @@
-import os from "node:os";
 import net from "node:net";
+
+import { getPipeName } from "~/config";
 
 
 
@@ -8,11 +9,7 @@ export { isValidFirewallMessage } from "./guard";
 
 
 
-const PIPE_NAME = (
-	process.platform === "win32"
-		? "\\\\.\\pipe\\Ransom0Firewall"
-		: `${os.tmpdir()}/Ransom0Firewall.sock`
-);
+export const PIPE_NAME = getPipeName("Ransom0Firewall");
 
 
 
@@ -22,13 +19,16 @@ export interface FirewallRequest {
 	ips?: string[];
 }
 
-export function sendToFirewallTool({
-    target,
-    action,
-    ips = [],
-}: FirewallRequest): Promise<unknown> {
-    return new Promise((resolve, reject) => {
-        const client = net.createConnection(PIPE_NAME);
+export function sendToFirewallTool(
+	{
+		target,
+		action,
+		ips = [],
+	}: FirewallRequest,
+	pipeName = PIPE_NAME,
+): Promise<unknown> {
+	return new Promise((resolve, reject) => {
+		const client = net.createConnection(pipeName);
         client.setTimeout(3000);
 
         client.on("connect", () => {
