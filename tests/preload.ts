@@ -13,10 +13,7 @@ import {
 	type FirewallRequest,
 	type IncomingFWMessage,
 } from "~/services/firewall-tool";
-import {
-	notifyImportantEvents,
-	type TrayNotificationPayload,
-} from "~/main/tray";
+import * as tray from "~/main/tray";
 import {
 	useStatusStore,
 	useMetricStore,
@@ -27,12 +24,6 @@ import {
 import { FW_TEST_PIPE_NAME, IPC_TEST_PIPE_NAME } from "./common";
 
 
-
-// IPC 수신기를 통해 들어온 유효 메시지 기록
-export const receivedIpcMessages: IncomingIPCMessage[] = [];
-
-// IPC 수신기를 통해 발생한 트레이 알림 기록
-export const receivedTrayNotifications: TrayNotificationPayload[] = [];
 
 // 가짜 FirewallTool 파이프 서버가 유지할 인메모리 상태
 const mockBlockedIps = new Set<string>([
@@ -186,7 +177,6 @@ export function ensureTestPipeServers(): Promise<void> {
 			for (const item of batch) {
 				if (isValidIPCMessage(item)) {
 					validMessages.push(item);
-					receivedIpcMessages.push(item);
 				}
 			}
 
@@ -195,11 +185,7 @@ export function ensureTestPipeServers(): Promise<void> {
 				useMetricStore.getState().addMetrics(validMessages);
 				useAlertStore.getState().addAlerts(validMessages);
 				useTelemetryStore.getState().addEvents(validMessages);
-
-				const notification = notifyImportantEvents(validMessages);
-				if (notification) {
-					receivedTrayNotifications.push(notification);
-				}
+				tray.notifyImportantEvents(validMessages);
 			}
 		}, 50);
 
