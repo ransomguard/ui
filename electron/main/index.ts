@@ -1,6 +1,6 @@
 import { app } from "electron";
 
-import { store } from "~/store";
+import { language } from "~/store";
 import { initDatabase } from "~/db";
 
 import { createWindow } from "./window";
@@ -13,10 +13,8 @@ export * from "./env";
 
 
 
-const storedLang = store.get("language");
-
 app.whenReady().then(() => {
-	const systemLocale = storedLang ?? app.getLocale();
+	const systemLocale = language.get();
 
 	initDatabase();
 	registerIpcHandlers();

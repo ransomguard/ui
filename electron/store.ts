@@ -1,4 +1,5 @@
 import os from "node:os";
+import { app } from "electron";
 import Store from "electron-store";
 
 
@@ -22,6 +23,11 @@ export interface WindowState {
 }
 
 
+
+export const language = {
+	set: (lang: string) => store.set("language", lang),
+	get: () => store.get("language") ?? app.getLocale(),
+};
 
 export const store = new Store<StoreData>({
 	cwd: process.versions.electron ? undefined : os.tmpdir(),

@@ -1,7 +1,7 @@
 import { Menu, shell, app, ipcMain, dialog, clipboard } from "electron";
 
 import { locales } from "~/locales";
-import { store } from "~/store";
+import { language } from "~/store";
 import { getWindow } from "~/main/window";
 
 import { updateTrayMenu } from "./tray";
@@ -9,11 +9,11 @@ import { updateTrayMenu } from "./tray";
 
 
 ipcMain.handle("language:set", (_, lang: string) => {
-	store.set("language", lang);
+	language.set(lang);
 	setApplicationMenu(lang);
 	updateTrayMenu(lang);
 });
-ipcMain.handle("language:get", () => store.get("language") ?? app.getLocale());
+ipcMain.handle("language:get", () => language.get());
 
 export function setApplicationMenu(localeCode: string) {
 	const localeKey = localeCode.startsWith("ko") ? "ko" : "en";
@@ -57,7 +57,7 @@ export function setApplicationMenu(localeCode: string) {
 					type: "radio",
 					checked: isKo,
 					click: () => {
-						store.set("language", "ko");
+						language.set("ko");
 						setApplicationMenu("ko");
 						updateTrayMenu("ko");
 						getWindow().webContents.send("language:changed", "ko");
@@ -68,7 +68,7 @@ export function setApplicationMenu(localeCode: string) {
 					type: "radio",
 					checked: !isKo,
 					click: () => {
-						store.set("language", "en");
+						language.set("en");
 						setApplicationMenu("en");
 						updateTrayMenu("en");
 						getWindow().webContents.send("language:changed", "en");
