@@ -168,6 +168,7 @@ export interface AppTranslations {
 		tabs: {
 			blockedIps: string;
 			whitelistedIps: string;
+			blockedProcesses: string;
 			accessLogs: string;
 		};
 		dialog: {
@@ -206,6 +207,18 @@ export interface AppTranslations {
 				actions: string;
 			};
 			removeAction: string;
+		};
+		blockedProcessesTable: {
+			heading: string;
+			searchPlaceholder: string;
+			columns: {
+				processId: string;
+				processName: string;
+				imagePath: string;
+				reason: string;
+				source: string;
+				blockedAt: string;
+			};
 		};
 		logsTable: {
 			heading: string;

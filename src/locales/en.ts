@@ -180,11 +180,12 @@ export const en: AppTranslations = {
 
 	accessControl: {
 		heading: "Access & Policy Control",
-		description: "Manage firewall blocked/whitelisted IP lists and review policy change logs.",
+		description: "Manage firewall blocked/whitelisted IP lists, view blocked processes, and review policy change logs.",
 		addPolicy: "Add Policy / IP",
 		tabs: {
 			blockedIps: "Blocked IPs ({{ count }})",
 			whitelistedIps: "Whitelisted IPs ({{ count }})",
+			blockedProcesses: "Blocked Processes ({{ count }})",
 			accessLogs: "Access Control Logs ({{ count }})",
 		},
 		dialog: {
@@ -223,6 +224,18 @@ export const en: AppTranslations = {
 				actions: "Actions",
 			},
 			removeAction: "Remove",
+		},
+		blockedProcessesTable: {
+			heading: "Blocked Process List",
+			searchPlaceholder: "Search process name, PID, path, or reason...",
+			columns: {
+				processId: "PID",
+				processName: "Process Name",
+				imagePath: "Target Image / File Path",
+				reason: "Reason / Matched Rule",
+				source: "Source",
+				blockedAt: "Blocked At",
+			},
 		},
 		logsTable: {
 			heading: "Firewall Access Control Change Logs",

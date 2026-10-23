@@ -7,6 +7,7 @@ import {
 	MoreHorizontal,
 	ShieldX,
 	ShieldCheck,
+	ShieldAlert,
 	History,
 	CheckCircle2,
 	XCircle,
@@ -46,7 +47,7 @@ import {
 import { Field, FieldLabel } from "@/components/ui/field";
 import { toast } from "@/components/ui/toast";
 import { I18n } from "@/components/i18n";
-import { useAccessControlStore } from "@/store";
+import { useAccessControlStore, useAlertStore } from "@/store";
 
 
 
@@ -69,6 +70,17 @@ export interface WhitelistedIpRecord {
 	addedAt: string;
 }
 
+export interface BlockedProcessRecord {
+	id: string;
+	processId: number | string;
+	processName: string;
+	imagePath: string;
+	reason: string;
+	source: string;
+	blockedAt: string;
+	timestamp: number;
+}
+
 export interface AccessControlLogRecord {
 	id: string;
 	target: "block" | "whitelist";
@@ -80,6 +92,75 @@ export interface AccessControlLogRecord {
 	performedAt: string;
 	timestamp: number;
 }
+
+
+
+const blockedProcessesColumnHelper = createColumnHelper<DataTableFeatures, BlockedProcessRecord>();
+const blockedProcessesColumns: ColumnDef<DataTableFeatures, BlockedProcessRecord>[] = blockedProcessesColumnHelper.columns([
+	{
+		accessorKey: "processId",
+		header: () => <I18n i18nKey="accessControl.blockedProcessesTable.columns.processId"/>,
+		cell: ({ row }) => (
+			<span className="font-mono text-xs font-medium">
+				{row.original.processId}
+			</span>
+		),
+	},
+	{
+		accessorKey: "processName",
+		header: () => <I18n i18nKey="accessControl.blockedProcessesTable.columns.processName"/>,
+		filterFn: (row, _columnId, filterValue) => {
+			const q = String(filterValue ?? "").toLowerCase().trim();
+			if (!q) return true;
+			return (
+				String(row.original.processId).toLowerCase().includes(q) ||
+				row.original.processName.toLowerCase().includes(q) ||
+				row.original.imagePath.toLowerCase().includes(q) ||
+				row.original.reason.toLowerCase().includes(q) ||
+				row.original.source.toLowerCase().includes(q)
+			);
+		},
+		cell: ({ row }) => (
+			<span className="font-mono font-bold text-destructive">
+				{row.original.processName}
+			</span>
+		),
+	},
+	{
+		accessorKey: "imagePath",
+		header: () => <I18n i18nKey="accessControl.blockedProcessesTable.columns.imagePath"/>,
+		cell: ({ row }) => (
+			<span className="font-mono text-xs text-muted-foreground truncate max-w-md block" title={row.original.imagePath}>
+				{row.original.imagePath}
+			</span>
+		),
+	},
+	{
+		accessorKey: "reason",
+		header: () => <I18n i18nKey="accessControl.blockedProcessesTable.columns.reason"/>,
+		cell: ({ row }) => (
+			<span className="text-foreground/90">{row.original.reason}</span>
+		),
+	},
+	{
+		accessorKey: "source",
+		header: () => <I18n i18nKey="accessControl.blockedProcessesTable.columns.source"/>,
+		cell: ({ row }) => (
+			<Badge variant="outline" className="text-[11px]">
+				{row.original.source}
+			</Badge>
+		),
+	},
+	{
+		accessorKey: "blockedAt",
+		header: () => <I18n i18nKey="accessControl.blockedProcessesTable.columns.blockedAt"/>,
+		cell: ({ row }) => (
+			<span className="font-mono text-xs text-muted-foreground whitespace-nowrap">
+				{row.original.blockedAt}
+			</span>
+		),
+	},
+]);
 
 
 
@@ -204,6 +285,8 @@ export default function AccessControlPage() {
 	const addWhitelist = useAccessControlStore((state) => state.addWhitelist);
 	const removeWhitelist = useAccessControlStore((state) => state.removeWhitelist);
 
+	const rawAlerts = useAlertStore((state) => state.alerts);
+
 	useEffect(() => {
 		fetchRules();
 	}, [fetchRules]);
@@ -255,6 +338,65 @@ export default function AccessControlPage() {
 			addedAt: matchedLog?.performedAt ? new Date(matchedLog.performedAt).toLocaleString() : "-",
 		};
 	});
+
+	const blockedProcessesData: BlockedProcessRecord[] = rawAlerts
+		.flatMap((item, idx): BlockedProcessRecord[] => {
+			const timestamp = item.timestamp;
+			const blockedAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
+
+			if (item.type === "PROCESS_BLOCKED") {
+				const procData = item.data;
+				const imagePath = procData.imagePath || procData.commandLine || "-";
+				const processName = procData.imagePath
+					? procData.imagePath.split(/[/\\]/).pop() || procData.imagePath
+					: procData.commandLine
+						? procData.commandLine.split(/\s+/)[0] || "-"
+						: "-";
+				const reason = procData.matchedRuleId
+					? t(($) => $.alerts.defaults.ruleId, { id: procData.matchedRuleId })
+					: t(($) => $.alerts.defaults.ruleBlocked);
+
+				return [
+					{
+						id: `blocked-proc-${timestamp}-${idx}`,
+						processId: procData.processId ?? "-",
+						processName,
+						imagePath,
+						reason,
+						source: t(($) => $.alerts.sources.kernelDriver),
+						blockedAt,
+						timestamp,
+					},
+				];
+			}
+
+			if (
+				item.type === "ALERT" &&
+				(item.data.action === "BLOCKED" || item.data.action === "QUARANTINED")
+			) {
+				const alertData = item.data;
+				const imagePath = alertData.filePath || "-";
+				const processName =
+					alertData.processName ||
+					(alertData.filePath ? alertData.filePath.split(/[/\\]/).pop() || alertData.filePath : "-");
+
+				return [
+					{
+						id: `blocked-alert-${timestamp}-${idx}`,
+						processId: alertData.processId ?? "-",
+						processName,
+						imagePath,
+						reason: alertData.ruleName || alertData.action,
+						source: t(($) => $.alerts.sources.correlationEngine),
+						blockedAt,
+						timestamp,
+					},
+				];
+			}
+
+			return [];
+		})
+		.sort((a, b) => b.timestamp - a.timestamp);
 
 	const accessLogsData: AccessControlLogRecord[] = storeLogs
 		.flatMap((log, idx) => {
@@ -434,6 +576,7 @@ export default function AccessControlPage() {
 	]);
 
 	const isWhitelistDialog = activeTab === "whitelisted-ips";
+	const canAddPolicy = activeTab === "blocked-ips" || activeTab === "whitelisted-ips";
 
 	return (
 		<div className="flex flex-col gap-6 min-w-0">
@@ -448,8 +591,8 @@ export default function AccessControlPage() {
 					</p>
 				</div>
 
-				{/* 신규 정책 등록 Dialog 모달 */}
-				{activeTab !== "access-logs" && (
+				{/* 신규 정책 등록 Dialog 모달 (IP 차단 / 허용 탭에서만 표시) */}
+				{canAddPolicy && (
 					<Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
 						<DialogTrigger render={<Button size="sm" className="gap-1.5 cursor-pointer"/>}>
 							<Plus className="size-4"/>
@@ -539,6 +682,10 @@ export default function AccessControlPage() {
 						<ShieldCheck className="text-emerald-600"/>
 						<span>{t(($) => $.accessControl.tabs.whitelistedIps, { count: whitelistedIpsData.length })}</span>
 					</TabsTrigger>
+					<TabsTrigger value="blocked-processes">
+						<ShieldAlert className="text-destructive"/>
+						<span>{t(($) => $.accessControl.tabs.blockedProcesses, { count: blockedProcessesData.length })}</span>
+					</TabsTrigger>
 					<TabsTrigger value="access-logs">
 						<History className="text-muted-foreground"/>
 						<span>{t(($) => $.accessControl.tabs.accessLogs, { count: accessLogsData.length })}</span>
@@ -575,7 +722,21 @@ export default function AccessControlPage() {
 					/>
 				</TabsContent>
 
-				{/* 탭 3: 접근 제어 로그 */}
+				{/* 탭 3: 프로세스 차단 목록 (읽기 전용) */}
+				<TabsContent value="blocked-processes">
+					<DataTable
+						heading={t(($) => $.accessControl.blockedProcessesTable.heading)}
+						columns={blockedProcessesColumns}
+						data={blockedProcessesData}
+						enableSearch={true}
+						enablePagination={true}
+						enableRowNumber={true}
+						filterPlaceholder={t(($) => $.accessControl.blockedProcessesTable.searchPlaceholder)}
+						filterColumnKey="processName"
+					/>
+				</TabsContent>
+
+				{/* 탭 4: 접근 제어 로그 */}
 				<TabsContent value="access-logs">
 					<DataTable
 						heading={t(($) => $.accessControl.logsTable.heading)}

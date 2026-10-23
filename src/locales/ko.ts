@@ -180,11 +180,12 @@ export const ko: AppTranslations = {
 
 	accessControl: {
 		heading: "접근 및 정책 제어 (Access Control)",
-		description: "방화벽 차단/허용 IP 목록을 관리하고 정책 변경 이력 로그를 확인합니다.",
+		description: "방화벽 차단/허용 IP 및 차단된 프로세스 목록을 조회하고 정책 변경 이력 로그를 확인합니다.",
 		addPolicy: "신규 정책/IP 추가",
 		tabs: {
 			blockedIps: "방화벽 차단 IP ({{ count }})",
 			whitelistedIps: "방화벽 허용 IP ({{ count }})",
+			blockedProcesses: "프로세스 차단 목록 ({{ count }})",
 			accessLogs: "접근 제어 로그 ({{ count }})",
 		},
 		dialog: {
@@ -223,6 +224,18 @@ export const ko: AppTranslations = {
 				actions: "관리",
 			},
 			removeAction: "허용 삭제",
+		},
+		blockedProcessesTable: {
+			heading: "차단된 프로세스 목록",
+			searchPlaceholder: "프로세스명, PID, 경로 또는 차단 사유 검색...",
+			columns: {
+				processId: "PID",
+				processName: "프로세스명",
+				imagePath: "대상 이미지 / 파일 경로",
+				reason: "차단 사유 / 탐지 룰",
+				source: "탐지 엔진",
+				blockedAt: "차단 일시",
+			},
 		},
 		logsTable: {
 			heading: "방화벽 접근 제어 변경 이력 로그",
