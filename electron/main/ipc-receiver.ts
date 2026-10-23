@@ -37,10 +37,11 @@ export function registerExternalIpcHandlers() {
 		const invalidItems: Insert<"systemErrors">[] = [];
 		for (const item of batch) {
 			if (isValidIPCMessage(item)) {
+				validIMessages.push(item);
+
 				if (item.type === "SYSTEM_STATUS") {
 					lastEngineStatus = item;
 				} else {
-					validIMessages.push(item);
 					validItems.push({
 						type: item.type,
 						sequenceNumber: item.sequenceNumber,

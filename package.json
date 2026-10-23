@@ -13,6 +13,7 @@
 	"main": "dist-electron/index.js",
 	"scripts": {
 		"dev": "vite",
+		"mock:ipc": "bun scripts/mock-ipc-sender.ts",
 		"test": "bun test",
 		"build": "tsc -b && vite build && electron-builder",
 		"lint": "bun run lint:eslint",
