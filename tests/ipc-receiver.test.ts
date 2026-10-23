@@ -13,7 +13,11 @@ import {
 } from "@/store";
 
 import { IPC_TEST_PIPE_NAME } from "./common";
-import { ensureTestPipeServers, receivedIpcMessages } from "./preload";
+import {
+	ensureTestPipeServers,
+	receivedIpcMessages,
+	receivedTrayNotifications,
+} from "./preload";
 
 
 
@@ -309,5 +313,131 @@ describe("External IPC Receiver (IPC_TEST_PIPE_NAME)", () => {
 		expect(telemetryState.events.some((e) => e.type === "FILE_WRITE")).toBe(true);
 		expect(telemetryState.events.some((e) => e.type === "FILE_RENAME")).toBe(true);
 		expect(telemetryState.events.some((e) => e.type === "PROCESS_TERMINATE")).toBe(true);
+	});
+
+	test("엔진으로부터 IPC 파이프(IPC_TEST_PIPE_NAME)로 데이터 수신 시 중요 이벤트만 트레이 알림이 발생하는지 검증", async () => {
+		await ensureTestPipeServers();
+		receivedTrayNotifications.length = 0;
+
+		const now = Date.now();
+
+		// 1. 일반 이벤트(PROCESS_CREATE, FILE_WRITE, SYSTEM_STATUS, BACKUP_CREATED 등)만 전송 시 알림 미발생 검증
+		const nonImportantMessages: IncomingIPCMessage[] = [
+			{
+				type: "PROCESS_CREATE",
+				timestamp: now,
+				sequenceNumber: 2001,
+				data: {
+					processId: 8001,
+					parentProcessId: 1000,
+					creatorProcessId: 1000,
+					flags: 0,
+					processCreateTime: now,
+					imagePath: "C:\\Windows\\System32\\notepad.exe",
+					commandLine: "notepad.exe",
+				},
+			},
+			{
+				type: "FILE_WRITE",
+				timestamp: now + 10,
+				sequenceNumber: 2002,
+				data: {
+					processId: 8001,
+					operationType: 1,
+					flags: 0,
+					filePath: "C:\\Users\\Admin\\Desktop\\memo.txt",
+				},
+			},
+			{
+				type: "VSS_STATUS",
+				timestamp: now + 20,
+				sequenceNumber: null,
+				data: {
+					action: "BACKUP_CREATED",
+					targetPath: "C:\\Users\\Admin\\Documents",
+					message: "정기 스냅샷 생성 완료",
+					snapshotId: "VSS-SNAP-01",
+				},
+			},
+			{
+				type: "ALERT",
+				timestamp: now + 30,
+				sequenceNumber: null,
+				data: {
+					processId: 8001,
+					processName: "notepad.exe",
+					action: "ALLOWED",
+					eventId: "EVT-ALLOW-01",
+					threatScore: 5,
+					ruleName: "Normal.FileWrite",
+				},
+			},
+		];
+
+		await sendMessagesToTestPipe(nonImportantMessages);
+		await new Promise((r) => setTimeout(r, 150));
+
+		expect(receivedTrayNotifications.length).toBe(0);
+
+		// 2. 중요 이벤트(PROCESS_BLOCKED)를 IPC 파이프로 전송 시 트레이 알림 발생 검증
+		await sendMessagesToTestPipe([
+			{
+				type: "PROCESS_BLOCKED",
+				timestamp: now + 100,
+				sequenceNumber: 2003,
+				data: {
+					processId: 9120,
+					parentProcessId: 4000,
+					creatorProcessId: 4000,
+					flags: 1,
+					processCreateTime: now + 100,
+					matchedRuleId: 305,
+					imagePath: "C:\\Temp\\ransom_cryptor.exe",
+					commandLine: "ransom_cryptor.exe",
+				},
+			},
+		]);
+		await new Promise((r) => setTimeout(r, 150));
+
+		expect(receivedTrayNotifications.length).toBe(1);
+		expect(receivedTrayNotifications[0]?.iconType).toBe("error");
+		expect(receivedTrayNotifications[0]?.content).toContain("ransom_cryptor.exe");
+		expect(receivedTrayNotifications[0]?.content).toContain("9120");
+
+		// 3. 중요 이벤트(ALERT - BLOCKED 및 VSS_STATUS - RESTORE_COMPLETED) 동시 수신 시 위협 우선 알림 및 추가 건수 합산 검증
+		await sendMessagesToTestPipe([
+			{
+				type: "ALERT",
+				timestamp: now + 200,
+				sequenceNumber: null,
+				data: {
+					processId: 9500,
+					processName: "blackcat_payload.exe",
+					action: "BLOCKED",
+					eventId: "EVT-BLOCK-99",
+					threatScore: 98,
+					ruleName: "Ransom.BlackCat.Encryption",
+					filePath: "C:\\Users\\Admin\\Documents\\secret.pdf",
+				},
+			},
+			{
+				type: "VSS_STATUS",
+				timestamp: now + 210,
+				sequenceNumber: null,
+				data: {
+					action: "RESTORE_COMPLETED",
+					targetPath: "C:\\Users\\Admin\\Documents\\secret.pdf",
+					message: "원본 파일 자동 복구 완료",
+					snapshotId: "VSS-SNAP-02",
+				},
+			},
+		]);
+		await new Promise((r) => setTimeout(r, 150));
+
+		expect(receivedTrayNotifications.length).toBe(2);
+		expect(receivedTrayNotifications[1]?.iconType).toBe("error");
+		expect(receivedTrayNotifications[1]?.count).toBe(2);
+		expect(receivedTrayNotifications[1]?.content).toContain("blackcat_payload.exe");
+		expect(receivedTrayNotifications[1]?.content).toContain("Ransom.BlackCat.Encryption");
 	});
 });

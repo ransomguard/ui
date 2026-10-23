@@ -1,9 +1,11 @@
 import path from "node:path";
-import { Menu, Tray, Notification } from "electron";
+import electron from "electron";
 
 import { locales } from "~/locales";
 import { language } from "~/store";
 import { getWindow } from "~/main/window";
+
+const { Menu, Tray, Notification } = electron;
 
 
 
@@ -29,7 +31,7 @@ function getTrayI18n(localeCode: string) {
 
 
 
-let tray: Tray | null = null;
+let tray: electron.Tray | null = null;
 
 export function createTray(localeCode: string) {
 	tray = new Tray(getTrayIconPath());
@@ -202,7 +204,7 @@ export function notifyImportantEvents(
 			title: payload.title,
 			content: payload.content,
 		});
-	} else if (Notification.isSupported()) {
+	} else if (Notification?.isSupported()) {
 		const notification = new Notification({
 			title: payload.title,
 			body: payload.content,

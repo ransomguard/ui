@@ -1,10 +1,12 @@
-import { app, BrowserWindow } from "electron";
+import electron from "electron";
 import path from "node:path";
 
 import { __dirname, windowOptions } from "~/config";
 import { store } from "~/store";
 
 import { VITE_DEV_SERVER_URL, RENDERER_DIST } from "./env";
+
+const { app, BrowserWindow } = electron;
 
 
 
@@ -16,10 +18,10 @@ export function getWindow() {
 	if (windows.length) {
 		return windows[0]!;
 	}
-    return createWindow();
+	return createWindow();
 }
 
-function setupWindowStateListener(window: BrowserWindow) {
+function setupWindowStateListener(window: electron.BrowserWindow) {
 	const saveState = () => {
 		if (window.isDestroyed()) return;
 
@@ -86,14 +88,14 @@ export function createWindow() {
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
-app.on("window-all-closed", () => {
+app?.on("window-all-closed", () => {
 	// tray를 사용하기 때문에 앱을 직접 종료하기 전까지는 창을 닫아도 종료되지 않도록 함
 	// if (process.platform !== "darwin") {
 	// 	app.quit();
 	// }
 });
 
-app.on("activate", () => {
+app?.on("activate", () => {
 	// On OS X it's common to re-create a window in the app when the
 	// dock icon is clicked and there are no other windows open.
 	if (BrowserWindow.getAllWindows().length === 0) {
