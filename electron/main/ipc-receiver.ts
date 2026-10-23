@@ -11,6 +11,7 @@ import {
 } from "~/db";
 
 import { checkUnreadThreats, getRecentSecurityLogs } from "./queries";
+import { notifyImportantEvents } from "./tray";
 
 
 
@@ -64,7 +65,10 @@ export function registerExternalIpcHandlers() {
 			}
 		}
 
-		getWindow().webContents.send("security-logs-updated", validIMessages);
+		if (validIMessages.length > 0) {
+			getWindow().webContents.send("security-logs-updated", validIMessages);
+			notifyImportantEvents(validIMessages);
+		}
 
 		try {
 			if (validItems.length > 0) {

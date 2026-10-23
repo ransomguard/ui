@@ -5,12 +5,29 @@ export interface AboutDetailData {
 	close: string;
 }
 
+export interface TrayNotificationTranslations {
+	processBlockedTitle: string;
+	processBlockedBody: string;
+	ruleId: string;
+	ruleBlocked: string;
+	vssAttemptTitle: string;
+	vssAttemptBody: string;
+	alertBlockedTitle: string;
+	alertQuarantinedTitle: string;
+	alertBody: string;
+	restoreCompletedTitle: string;
+	restoreFailedTitle: string;
+	restoreBody: string;
+	moreEvents: string;
+}
+
 
 
 export interface MenuTranslations {
 	tray: {
 		open: string;
 		quit: string;
+		notifications: TrayNotificationTranslations;
 	};
 	menu: {
 		language: string;

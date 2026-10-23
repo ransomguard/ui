@@ -6,6 +6,21 @@ export const en: MenuTranslations = {
 	tray: {
 		open: "Open",
 		quit: "Quit",
+		notifications: {
+			processBlockedTitle: "Threat Process Blocked",
+			processBlockedBody: "Process: {{target}} (PID: {{pid}})\nReason: {{reason}}",
+			ruleId: "Rule #{{id}}",
+			ruleBlocked: "Kernel rule-based block",
+			vssAttemptTitle: "VSS Shadow Copy Tamper Attempt",
+			vssAttemptBody: "PID: {{pid}}\nCommand: {{action}}",
+			alertBlockedTitle: "Ransomware Threat Blocked",
+			alertQuarantinedTitle: "Threat Process Quarantined",
+			alertBody: "Process: {{processName}} (PID: {{pid}})\nRule: {{ruleName}} (Threat Score: {{score}})",
+			restoreCompletedTitle: "Automatic File Restore Completed",
+			restoreFailedTitle: "Automatic File Restore Failed",
+			restoreBody: "Target: {{targetPath}}\n{{message}}",
+			moreEvents: "\n(+{{count}} more critical security events)",
+		},
 	},
 	menu: {
 		language: "Language",
