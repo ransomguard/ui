@@ -4,9 +4,15 @@ import { locales } from "~/locales";
 import { store } from "~/store";
 import { getWindow } from "~/main/window";
 
+import { updateTrayMenu } from "./tray";
 
 
-ipcMain.handle("language:set", (_, lang: string) => setApplicationMenu(lang));
+
+ipcMain.handle("language:set", (_, lang: string) => {
+	store.set("language", lang);
+	setApplicationMenu(lang);
+	updateTrayMenu(lang);
+});
 ipcMain.handle("language:get", () => store.get("language") ?? app.getLocale());
 
 export function setApplicationMenu(localeCode: string) {
@@ -53,7 +59,8 @@ export function setApplicationMenu(localeCode: string) {
 					click: () => {
 						store.set("language", "ko");
 						setApplicationMenu("ko");
-						getWindow()?.webContents.send("language:changed", "ko");
+						updateTrayMenu("ko");
+						getWindow().webContents.send("language:changed", "ko");
 					},
 				},
 				{
@@ -63,7 +70,8 @@ export function setApplicationMenu(localeCode: string) {
 					click: () => {
 						store.set("language", "en");
 						setApplicationMenu("en");
-						getWindow()?.webContents.send("language:changed", "en");
+						updateTrayMenu("en");
+						getWindow().webContents.send("language:changed", "en");
 					},
 				},
 			],
@@ -92,17 +100,16 @@ export function setApplicationMenu(localeCode: string) {
 						const detailText = detailLines.join("\n");
 
 						const win = getWindow();
-						if (!win) return;
 						const { response } = await dialog.showMessageBox(win, {
 							type: "none",
 							title: i18n.aboutData.title,
-                            message: i18n.aboutData.message,
-                            detail: detailText,
-                            buttons: [i18n.close, i18n.aboutData.copy], 
-                            defaultId: 0,
-                            cancelId: 0,
+							message: i18n.aboutData.message,
+							detail: detailText,
+							buttons: [i18n.close, i18n.aboutData.copy],
+							defaultId: 0,
+							cancelId: 0,
 						});
-						
+
 						if (response === 1) {
 							clipboard.writeText(detailText);
 						}

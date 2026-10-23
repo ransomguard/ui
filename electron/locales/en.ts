@@ -3,6 +3,10 @@ import type { MenuTranslations } from "./types";
 
 
 export const en: MenuTranslations = {
+	tray: {
+		open: "Open",
+		quit: "Quit",
+	},
 	menu: {
 		language: "Language",
 		korean: "한국어 (Korean)",

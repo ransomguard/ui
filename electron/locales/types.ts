@@ -8,6 +8,10 @@ export interface AboutDetailData {
 
 
 export interface MenuTranslations {
+	tray: {
+		open: string;
+		quit: string;
+	};
 	menu: {
 		language: string;
 		english: string;

@@ -5,6 +5,7 @@ import { initDatabase } from "~/db";
 
 import { createWindow } from "./window";
 import { setApplicationMenu } from "./menu";
+import { createTray } from "./tray";
 import { registerIpcHandlers } from "./ipc";
 import { registerExternalIpcHandlers } from "./ipc-receiver";
 
@@ -23,4 +24,5 @@ app.whenReady().then(() => {
 	setApplicationMenu(systemLocale);
 
 	createWindow();
+	createTray(systemLocale);
 });

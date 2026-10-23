@@ -9,11 +9,14 @@ import { VITE_DEV_SERVER_URL, RENDERER_DIST } from "./env";
 
 
 /**
- * Safely retrieves the current BrowserWindow instance if it exists and is not destroyed.
+ * - 현재 열려있는 BrowserWindow를 반환하거나, 없으면 새로 생성하여 반환
  */
 export function getWindow() {
-    const windows = BrowserWindow.getAllWindows();
-    return windows.length > 0 ? windows[0] : null;
+	const windows = BrowserWindow.getAllWindows().filter(win => !win.isDestroyed());
+	if (windows.length) {
+		return windows[0]!;
+	}
+    return createWindow();
 }
 
 function setupWindowStateListener(window: BrowserWindow) {
@@ -47,6 +50,7 @@ function setupWindowStateListener(window: BrowserWindow) {
 	window.on("move", debouncedSave);
 	window.on("maximize", saveState);
 	window.on("unmaximize", saveState);
+	window.on("close", saveState);
 
 	// 이전 실행 시 최대화 상태였다면 앱 열 때 최대화 상태 적용
 	if (store.get("windowState.isMaximized")) {
@@ -75,15 +79,18 @@ export function createWindow() {
 		// win.loadFile("dist/index.html");
 		win.loadFile(path.join(RENDERER_DIST, "index.html"));
 	}
+
+	return win;
 }
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on("window-all-closed", () => {
-	if (process.platform !== "darwin") {
-		app.quit();
-	}
+	// tray를 사용하기 때문에 앱을 직접 종료하기 전까지는 창을 닫아도 종료되지 않도록 함
+	// if (process.platform !== "darwin") {
+	// 	app.quit();
+	// }
 });
 
 app.on("activate", () => {

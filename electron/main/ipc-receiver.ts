@@ -64,7 +64,7 @@ export function registerExternalIpcHandlers() {
 			}
 		}
 
-		getWindow()?.webContents.send("security-logs-updated", validIMessages);
+		getWindow().webContents.send("security-logs-updated", validIMessages);
 
 		try {
 			if (validItems.length > 0) {
