@@ -78,7 +78,7 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 		set(prev => ({
 			blockedIps: failedLog
 				? prev.blockedIps
-				: logs.map(x => x.ip).filter((x): x is string => x !== undefined),
+				: Array.from(new Set([...prev.blockedIps, ...ips])),
 			logs: [...logs, ...prev.logs],
 			error: failedLog ? (failedLog.errorMessage ?? null) : null,
 		}));
@@ -95,7 +95,7 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 		set(prev => ({
 			blockedIps: failedLog
 				? prev.blockedIps
-				: logs.map(x => x.ip).filter((x): x is string => x !== undefined),
+				: prev.blockedIps.filter(ip => !ips.includes(ip)),
 			logs: [...logs, ...prev.logs],
 			error: failedLog ? (failedLog.errorMessage ?? null) : null,
 		}));
@@ -112,7 +112,7 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 		set(prev => ({
 			whitelistIps: failedLog
 				? prev.whitelistIps
-				: logs.map(x => x.ip).filter((x): x is string => x !== undefined),
+				: Array.from(new Set([...prev.whitelistIps, ...ips])),
 			logs: [...logs, ...prev.logs],
 			error: failedLog ? (failedLog.errorMessage ?? null) : null,
 		}));
@@ -129,7 +129,7 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 		set(prev => ({
 			whitelistIps: failedLog
 				? prev.whitelistIps
-				: logs.map(x => x.ip).filter((x): x is string => x !== undefined),
+				: prev.whitelistIps.filter(ip => !ips.includes(ip)),
 			logs: [...logs, ...prev.logs],
 			error: failedLog ? (failedLog.errorMessage ?? null) : null,
 		}));

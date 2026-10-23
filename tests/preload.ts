@@ -110,7 +110,7 @@ async function invokeFakeFirewallAction(
 
 	const id = ++logIdCounter;
 	const performedAt = Date.now();
-	const items: AccessControlLogItem[] = (response.success ? response.ips : [undefined]).map((ip) => ({
+	const items: AccessControlLogItem[] = (response.success ? ips : [undefined]).map((ip) => ({
 		id,
 		target,
 		action,

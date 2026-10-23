@@ -17,7 +17,7 @@ export interface AccessControlLogItem extends Omit<Select<"accessControlLogs">, 
 
 export async function fetchLogs(): Promise<AccessControlLogItem[]> {
 	const rows = await getRecentAccessControlLogs(100);
-	return rows.flatMap(({ ips, ...row }) => (ips ?? [undefined]).map(ip => ({
+	return rows.flatMap(({ ips, ...row }) => (ips && ips.length > 0 ? ips : [undefined]).map(ip => ({
 		...row,
 		ip,
 	})));
@@ -88,12 +88,12 @@ export async function actionAndLogging(
 
 	const rows = await db.insert(table.accessControlLogs).values({
 		target, action, reason, success,
-		ips: success ? response.ips : null,
+		ips: success ? ips : null,
 		errorMessage: message,
 	}).returning();
 
 	// ips가 null이면 에러가 발생했다는 의미이므로 ip 없이 에러 로그를 넘김
-	return rows.flatMap(({ ips, ...row }) => (ips ?? [undefined]).map(ip => ({
+	return rows.flatMap(({ ips, ...row }) => (ips && ips.length > 0 ? ips : [undefined]).map(ip => ({
 		...row,
 		ip,
 	})));

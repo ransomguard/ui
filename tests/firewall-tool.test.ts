@@ -106,11 +106,30 @@ describe("FirewallTool Test Pipe Server (FW_TEST_PIPE_NAME)", () => {
 			),
 		).toBe(true);
 
-		// 4. 실패 응답(0.0.0.0) 시 기존 목록이 유지되고 에러 메시지 및 실패 로그가 기록되는지 확인
+		// 4. 차단 해제(unblockIp) 시 목록에서 제거되고 remove 로그가 기록되는지 확인
+		await store.unblockIp(["198.51.100.88"], "사용자 수동 차단 해제");
+		expect(useAccessControlStore.getState().blockedIps).not.toContain("198.51.100.88");
+		expect(
+			useAccessControlStore.getState().logs.some(
+				(log) => log.target === "block" && log.action === "remove" && log.ip === "198.51.100.88" && log.success,
+			),
+		).toBe(true);
+
+		// 5. 화이트리스트 해제(removeWhitelist) 시 목록에서 제거되고 remove 로그가 기록되는지 확인
+		await store.removeWhitelist(["10.10.0.50"], "사용자 수동 예외 해제");
+		expect(useAccessControlStore.getState().whitelistIps).not.toContain("10.10.0.50");
+		expect(
+			useAccessControlStore.getState().logs.some(
+				(log) => log.target === "whitelist" && log.action === "remove" && log.ip === "10.10.0.50" && log.success,
+			),
+		).toBe(true);
+
+		// 6. 실패 응답(0.0.0.0) 시 기존 목록이 유지되고 에러 메시지 및 실패 로그가 기록되는지 확인
+		await store.blockIp(["198.51.100.99"], "유지 확인용 차단 IP");
 		expect(store.blockIp(["0.0.0.0"], "잘못된 예약 주소 차단 시도")).rejects.toThrow("0.0.0.0");
 		await store.blockIp(["0.0.0.0"], "잘못된 예약 주소 차단 시도").catch(() => {});
 
-		expect(useAccessControlStore.getState().blockedIps).toContain("198.51.100.88");
+		expect(useAccessControlStore.getState().blockedIps).toContain("198.51.100.99");
 		expect(useAccessControlStore.getState().error).toContain("0.0.0.0");
 		expect(
 			useAccessControlStore.getState().logs.some(
