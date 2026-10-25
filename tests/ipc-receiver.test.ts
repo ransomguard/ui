@@ -1,6 +1,10 @@
 import { describe, test, expect, spyOn } from "bun:test";
 
 import {
+	createMockEngineMessages,
+	sendMessagesToPipe,
+} from "#/mock-ipc-sender";
+import {
 	isValidIPCMessage,
 	type IncomingIPCMessage,
 } from "~/services/ipc-receiver";
@@ -12,10 +16,6 @@ import {
 	useTelemetryStore,
 } from "@/store";
 
-import {
-	createMockEngineMessages,
-	sendMessagesToPipe,
-} from "../scripts/mock-ipc-sender";
 import { IPC_TEST_PIPE_NAME } from "./common";
 import { ensureTestPipeServers } from "./preload";
 

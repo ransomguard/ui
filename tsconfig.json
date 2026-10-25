@@ -7,7 +7,8 @@
 	"compilerOptions": {
 		"paths": {
 			"@/*": ["./src/*"],
-			"~/*": ["./electron/*"]
+			"~/*": ["./electron/*"],
+			"#/*": ["./scripts/*"]
 		}
 	}
 }

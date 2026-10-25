@@ -40,6 +40,7 @@ export default defineConfig({
 		alias: {
 			"@": path.resolve(import.meta.dirname, "./src"),
 			"~": path.resolve(import.meta.dirname, "./electron"),
+			"#": path.resolve(import.meta.dirname, "./scripts"),
 		},
 	},
 });

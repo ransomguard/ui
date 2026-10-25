@@ -32,7 +32,8 @@
 		"noUncheckedIndexedAccess": true,
 		"paths": {
 			"@/*": ["./src/*"],
-			"~/*": ["./electron/*"]
+			"~/*": ["./electron/*"],
+			"#/*": ["./scripts/*"]
 		}
 	},
 	"include": [
