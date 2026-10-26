@@ -47,7 +47,7 @@ import {
 import { Field, FieldLabel } from "@/components/ui/field";
 import { toast } from "@/components/ui/toast";
 import { I18n } from "@/components/i18n";
-import { useAccessControlStore, useAlertStore } from "@/store";
+import { useAccessControlStore, useAlertStore, useMetricStore } from "@/store";
 
 
 
@@ -278,14 +278,22 @@ export default function AccessControlPage() {
 	const storeBlockedIps = useAccessControlStore((state) => state.blockedIps);
 	const storeWhitelist = useAccessControlStore((state) => state.whitelistIps);
 	const storeLogs = useAccessControlStore((state) => state.logs);
+	const storeHasMoreLogs = useAccessControlStore((state) => state.hasMoreLogs);
+	const storeIsLoadingMoreLogs = useAccessControlStore((state) => state.isLoadingMoreLogs);
 	const storeIsLoading = useAccessControlStore((state) => state.isLoading);
 	const fetchRules = useAccessControlStore((state) => state.fetchRules);
+	const fetchMoreLogs = useAccessControlStore((state) => state.fetchMoreLogs);
 	const blockIp = useAccessControlStore((state) => state.blockIp);
 	const unblockIp = useAccessControlStore((state) => state.unblockIp);
 	const addWhitelist = useAccessControlStore((state) => state.addWhitelist);
 	const removeWhitelist = useAccessControlStore((state) => state.removeWhitelist);
 
 	const rawAlerts = useAlertStore((state) => state.alerts);
+	const hasMoreAlerts = useAlertStore((state) => state.hasMore);
+	const isLoadingMoreAlerts = useAlertStore((state) => state.isLoadingMore);
+	const fetchMoreAlerts = useAlertStore((state) => state.fetchMoreAlerts);
+
+	const totalCounts = useMetricStore((state) => state.totalCounts);
 
 	useEffect(() => {
 		fetchRules();
@@ -684,11 +692,19 @@ export default function AccessControlPage() {
 					</TabsTrigger>
 					<TabsTrigger value="blocked-processes">
 						<ShieldAlert className="text-destructive"/>
-						<span>{t(($) => $.accessControl.tabs.blockedProcesses, { count: blockedProcessesData.length })}</span>
+						<span>
+							{t(($) => $.accessControl.tabs.blockedProcesses, {
+								count: Math.max(totalCounts.blockedProcesses, blockedProcessesData.length),
+							})}
+						</span>
 					</TabsTrigger>
 					<TabsTrigger value="access-logs">
 						<History className="text-muted-foreground"/>
-						<span>{t(($) => $.accessControl.tabs.accessLogs, { count: accessLogsData.length })}</span>
+						<span>
+							{t(($) => $.accessControl.tabs.accessLogs, {
+								count: Math.max(totalCounts.accessControlLogs, accessLogsData.length),
+							})}
+						</span>
 					</TabsTrigger>
 				</TabsList>
 
@@ -700,7 +716,6 @@ export default function AccessControlPage() {
 						data={blockedIpsData}
 						isLoading={storeIsLoading}
 						enableSearch={true}
-						enablePagination={true}
 						enableRowNumber={true}
 						filterPlaceholder={t(($) => $.accessControl.blockedTable.searchPlaceholder)}
 						filterColumnKey="ipAddress"
@@ -715,7 +730,6 @@ export default function AccessControlPage() {
 						data={whitelistedIpsData}
 						isLoading={storeIsLoading}
 						enableSearch={true}
-						enablePagination={true}
 						enableRowNumber={true}
 						filterPlaceholder={t(($) => $.accessControl.whitelistTable.searchPlaceholder)}
 						filterColumnKey="ipAddress"
@@ -729,8 +743,10 @@ export default function AccessControlPage() {
 						columns={blockedProcessesColumns}
 						data={blockedProcessesData}
 						enableSearch={true}
-						enablePagination={true}
 						enableRowNumber={true}
+						hasMore={hasMoreAlerts}
+						isLoadingMore={isLoadingMoreAlerts}
+						onLoadMore={fetchMoreAlerts}
 						filterPlaceholder={t(($) => $.accessControl.blockedProcessesTable.searchPlaceholder)}
 						filterColumnKey="processName"
 					/>
@@ -744,8 +760,10 @@ export default function AccessControlPage() {
 						data={accessLogsData}
 						isLoading={storeIsLoading}
 						enableSearch={true}
-						enablePagination={true}
 						enableRowNumber={true}
+						hasMore={storeHasMoreLogs}
+						isLoadingMore={storeIsLoadingMoreLogs}
+						onLoadMore={fetchMoreLogs}
 						filterPlaceholder={t(($) => $.accessControl.logsTable.searchPlaceholder)}
 						filterColumnKey="ipAddress"
 					/>

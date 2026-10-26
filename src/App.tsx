@@ -51,8 +51,8 @@ function App() {
 	useEffect(() => {
 		window.electronAPI.getEngineStatus().then((data) => {
 			initStatus(data);
+			initMetrics(data.recentSecurityLogs ?? [], data.dailyStats ?? [], data.totalCounts);
 			if (data.recentSecurityLogs && data.recentSecurityLogs.length > 0) {
-				initMetrics(data.recentSecurityLogs);
 				initAlerts(data.recentSecurityLogs);
 				initTelemetryEvents(data.recentSecurityLogs);
 			}

@@ -1,4 +1,4 @@
-import { useId, useState, useEffect } from "react";
+import { useId, useState, useEffect, useRef } from "react";
 import {
 	DndContext,
 	KeyboardSensor,
@@ -72,6 +72,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { features, type DataTableFeatures } from "./data-table-features";
@@ -139,6 +140,10 @@ export interface DataTableProps<TData extends RowData & { id: string }> extends 
 	defaultPageSize?: number;
 	pageSizeOptions?: number[];
 
+	hasMore?: boolean;
+	isLoadingMore?: boolean;
+	onLoadMore?: () => void;
+
 	filterPlaceholder?: string;
 	filterColumnKey?: string;
 
@@ -164,6 +169,9 @@ export function DataTable<TData extends RowData & { id: string }>({
 	enablePagination,
 	defaultPageSize = 10,
 	pageSizeOptions = [5, 10, 20, 30, 50],
+	hasMore,
+	isLoadingMore,
+	onLoadMore,
 	filterPlaceholder,
 	filterColumnKey,
 	maxHeight = "600px",
@@ -182,6 +190,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 	const id = _id ?? `data-table-${localId}`;
 	const searchId = `${id}-search`;
 
+	const sentinelRef = useRef<HTMLTableRowElement | null>(null);
 	const [prevData, setPrevData] = useState<TData[]>(data);
 	const [tableData, setTableData] = useState<TData[]>(data);
 	const [sorting, setSorting] = useState<SortingState>([]);
@@ -243,11 +252,16 @@ export function DataTable<TData extends RowData & { id: string }>({
 		systemColumns.push({
 			id: "rowNumber",
 			header: () => "#",
-			cell: ({ row }) => (
-				<div className="text-xs text-muted-foreground tabular-nums">
-					{row.index + 1}
-				</div>
-			),
+			cell: ({ row, table }) => {
+				const idx = enablePagination
+					? row.index
+					: table.getSortedRowModel().rows.findIndex((r) => r.id === row.id);
+				return (
+					<div className="text-xs text-muted-foreground tabular-nums">
+						{(idx !== -1 ? idx : row.index) + 1}
+					</div>
+				);
+			},
 			meta: {
 				className: "w-12 px-2 text-center",
 			},
@@ -330,6 +344,47 @@ export function DataTable<TData extends RowData & { id: string }>({
 		}
 	};
 
+	const displayedRows = enablePagination
+		? table.getRowModel().rows
+		: table.getSortedRowModel().rows;
+	const canShowMore = !enablePagination && Boolean(hasMore);
+
+	useEffect(() => {
+		if (enablePagination || isLoading) return;
+		const el = sentinelRef.current;
+		if (!el || !canShowMore) return;
+
+		const scrollParent = (
+			el.closest("[data-slot=\"scroll-area-viewport\"]") ??
+			el.closest("[data-slot=\"table-container\"]")
+		) as Element | null;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				const entry = entries[0];
+				if (!entry?.isIntersecting) return;
+
+				if (hasMore && !isLoadingMore) {
+					onLoadMore?.();
+				}
+			},
+			{
+				root: scrollParent,
+				rootMargin: "160px",
+			},
+		);
+
+		observer.observe(el);
+		return () => observer.disconnect();
+	}, [
+		enablePagination,
+		isLoading,
+		canShowMore,
+		displayedRows.length,
+		hasMore,
+		isLoadingMore,
+		onLoadMore,
+	]);
+
 	return (
 		<div
 			id={id}
@@ -407,11 +462,12 @@ export function DataTable<TData extends RowData & { id: string }>({
 			)}
 
 			{/* 테이블 뷰 (드래그 정렬 지원) */}
-			<div
+			<ScrollArea
 				className={cn(
 					"overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs",
-					"**:data-[slot=table-container]:overflow-auto",
-					"**:data-[slot=table-container]:max-h-(--table-max-height)",
+					"**:data-[slot=table-container]:overflow-visible",
+					"**:data-[slot=scroll-area-viewport]:max-h-(--table-max-height)",
+					"**:data-[slot=table-head]:last:pr-4 **:data-[slot=table-cell]:last:pr-4",
 				)}
 				style={{
 					"--table-max-height": maxHeight,
@@ -457,11 +513,11 @@ export function DataTable<TData extends RowData & { id: string }>({
 									))
 								) : (
 									<SortableContext
-										items={table.getRowModel().rows.map((row) => row.id)}
+										items={displayedRows.map((row) => row.id)}
 										strategy={verticalListSortingStrategy}
 									>
-										{table.getRowModel().rows?.length ? (
-											table.getRowModel().rows.map((row) => (
+										{displayedRows.length ? (
+											displayedRows.map((row) => (
 												<SortableTableRow
 													key={row.id}
 													id={row.id}
@@ -521,27 +577,40 @@ export function DataTable<TData extends RowData & { id: string }>({
 										))}
 									</TableRow>
 								))
-							) : table.getRowModel().rows?.length ? (
-								table.getRowModel().rows.map((row) => (
-									<TableRow
-										key={row.id}
-										data-state={row.getIsSelected() ? "selected" : undefined}
-										onClick={() => onRowClick?.(row.original)}
-										className={cn(
-											"h-12",
-											onRowClick && "cursor-pointer hover:bg-muted/60",
-										)}
-									>
-										{row.getVisibleCells().map((cell) => (
-											<TableCell
-												key={cell.id}
-												className={cell.column.columnDef.meta?.className}
-											>
-												<table.FlexRender cell={cell}/>
+							) : displayedRows.length ? (
+								<>
+									{displayedRows.map((row) => (
+										<TableRow
+											key={row.id}
+											data-state={row.getIsSelected() ? "selected" : undefined}
+											onClick={() => onRowClick?.(row.original)}
+											className={cn(
+												"h-12",
+												onRowClick && "cursor-pointer hover:bg-muted/60",
+											)}
+										>
+											{row.getVisibleCells().map((cell) => (
+												<TableCell
+													key={cell.id}
+													className={cell.column.columnDef.meta?.className}
+												>
+													<table.FlexRender cell={cell}/>
+												</TableCell>
+											))}
+										</TableRow>
+									))}
+									{canShowMore && (
+										<TableRow ref={sentinelRef} className="h-12">
+											<TableCell colSpan={resolvedColumns.length} className="py-2 text-center">
+												{isLoadingMore ? (
+													<Skeleton className="h-6 w-32 mx-auto"/>
+												) : (
+													<div className="h-4 w-full"/>
+												)}
 											</TableCell>
-										))}
-									</TableRow>
-								))
+										</TableRow>
+									)}
+								</>
 							) : (
 								<TableRow>
 									<TableCell colSpan={resolvedColumns.length} className="h-24 text-center text-muted-foreground">
@@ -552,7 +621,8 @@ export function DataTable<TData extends RowData & { id: string }>({
 						</TableBody>
 					</Table>
 				)}
-			</div>
+				<ScrollBar orientation="horizontal"/>
+			</ScrollArea>
 
 			{/* 하단 페이지네이션 */}
 			{enablePagination && (

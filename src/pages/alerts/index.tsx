@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	ShieldAlert,
@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 import type { FlattenedKeys } from "@/locales";
-import { useAlertStore } from "@/store";
+import { useAlertStore, useMetricStore } from "@/store";
 
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from "@/components/ui/select";
@@ -21,6 +21,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 
@@ -62,8 +63,35 @@ export interface FormattedAlert {
 export default function AlertsPage() {
 	const { t } = useTranslation();
 	const rawAlerts = useAlertStore((state) => state.alerts);
+	const hasMore = useAlertStore((state) => state.hasMore);
+	const isLoadingMore = useAlertStore((state) => state.isLoadingMore);
+	const fetchMoreAlerts = useAlertStore((state) => state.fetchMoreAlerts);
+	const totalCounts = useMetricStore((state) => state.totalCounts);
+
 	const [filterItem, setFilterItem] = useState<AlertFilterItem>(alertFilterItems[0]);
 	const [searchQuery, setSearchQuery] = useState("");
+	const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+	useEffect(() => {
+		const el = sentinelRef.current;
+		if (!el || !hasMore || isLoadingMore) return;
+
+		const scrollParent = el.closest("[data-slot=\"scroll-area-viewport\"]") as Element | null;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0]?.isIntersecting) {
+					fetchMoreAlerts();
+				}
+			},
+			{
+				root: scrollParent,
+				rootMargin: "160px",
+			},
+		);
+
+		observer.observe(el);
+		return () => observer.disconnect();
+	}, [hasMore, isLoadingMore, fetchMoreAlerts, rawAlerts.length]);
 
 	const getFilterLabel = (item: AlertFilterItem) => t(($) => $.alerts.filters[item.label]);
 
@@ -162,8 +190,8 @@ export default function AlertsPage() {
 		return true;
 	});
 
-	const threatCount = formattedAlerts.filter((l) => l.isThreat).length;
-	const recoveryCount = formattedAlerts.filter((l) => l.isRecovery).length;
+	const threatCount = Math.max(totalCounts.threat, formattedAlerts.filter((l) => l.isThreat).length);
+	const recoveryCount = Math.max(totalCounts.recovery, formattedAlerts.filter((l) => l.isRecovery).length);
 
 	return (
 		<div className="flex flex-col gap-6 min-w-0">
@@ -339,6 +367,15 @@ export default function AlertsPage() {
 								</CardContent>
 							</Card>
 						))}
+						{hasMore && (
+							<div ref={sentinelRef} className="py-2 text-center">
+								{isLoadingMore ? (
+									<Skeleton className="h-24 w-full rounded-xl"/>
+								) : (
+									<div className="h-4 w-full"/>
+								)}
+							</div>
+						)}
 					</div>
 				</ScrollArea>
 			)}

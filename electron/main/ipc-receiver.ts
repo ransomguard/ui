@@ -10,18 +10,35 @@ import {
 	type Insert,
 } from "~/db";
 
-import { checkUnreadThreats, getRecentSecurityLogs } from "./queries";
+import { checkUnreadThreats, fetchSecurityLogs, getDashboardStatsAndCounts } from "./queries";
 import { notifyImportantEvents } from "./tray";
 
 
 
 let lastEngineStatus: ExtractIncomingIPCMessage<"SYSTEM_STATUS"> | undefined = undefined;
 export type GetLastEngineStatusData = Awaited<ReturnType<typeof getLastEngineStatus>>;
-export const getLastEngineStatus = async () => ({
-	lastEngineStatus,
-	hasUnreadThreats: await checkUnreadThreats(),
-	recentSecurityLogs: await getRecentSecurityLogs(90),
-});
+export const getLastEngineStatus = async () => {
+	const [hasUnreadThreats, alertLogs, telemetryLogs, statsAndCounts] = await Promise.all([
+		checkUnreadThreats(),
+		fetchSecurityLogs({
+			types: ["PROCESS_BLOCKED", "VSS_ATTEMPT", "ALERT", "VSS_STATUS"],
+			limit: 10,
+		}),
+		fetchSecurityLogs({
+			types: ["PROCESS_CREATE", "PROCESS_TERMINATE", "FILE_WRITE", "FILE_RENAME"],
+			limit: 10,
+		}),
+		getDashboardStatsAndCounts(90),
+	]);
+
+	return {
+		lastEngineStatus,
+		hasUnreadThreats,
+		recentSecurityLogs: [...alertLogs, ...telemetryLogs],
+		dailyStats: statsAndCounts.dailyStats,
+		totalCounts: statsAndCounts.totalCounts,
+	};
+};
 
 app.on("before-quit", () => {
 	externalIPCReceiver.stopAll();

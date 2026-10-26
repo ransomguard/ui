@@ -155,12 +155,20 @@ const summaryColumns: ColumnDef<DataTableFeatures, DashboardSummaryEventItem>[] 
 
 export interface RecentEventsSectionProps {
 	data: DashboardSummaryEventItem[];
+	totalCounts?: Record<"all" | DashboardEventCategory, number>;
 	isLoading?: boolean;
+	hasMoreByTab?: Record<"all" | DashboardEventCategory, boolean>;
+	isLoadingMore?: boolean;
+	onLoadMore?: (category: "all" | DashboardEventCategory) => void;
 }
 
 export default function RecentEventsSection({
 	data,
+	totalCounts,
 	isLoading,
+	hasMoreByTab,
+	isLoadingMore,
+	onLoadMore,
 }: RecentEventsSectionProps) {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
@@ -171,7 +179,7 @@ export default function RecentEventsSection({
 		? data
 		: data.filter((item) => item.category === activeTab);
 
-	const counts = {
+	const counts = totalCounts ?? {
 		all: data.length,
 		threat: data.filter((i) => i.category === "threat").length,
 		recovery: data.filter((i) => i.category === "recovery").length,
@@ -185,11 +193,13 @@ export default function RecentEventsSection({
 			columns={summaryColumns}
 			data={filteredData}
 			isLoading={isLoading}
+			hasMore={hasMoreByTab?.[activeTab]}
+			isLoadingMore={isLoadingMore}
+			onLoadMore={() => onLoadMore?.(activeTab)}
 			filterPlaceholder={t(($) => $.recentEvents.searchPlaceholder)}
 			filterColumnKey="summary"
 			onRowClick={(row) => navigate(CATEGORY_ROUTES[row.category])}
 			enableSearch
-			enablePagination
 			enableRowNumber
 		>
 			<Tabs

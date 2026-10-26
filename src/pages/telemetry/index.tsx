@@ -111,6 +111,10 @@ const columns: ColumnDef<DataTableFeatures, TelemetryRow>[] = columnHelper.colum
 export default function TelemetryPage() {
 	const { t } = useTranslation();
 	const events = useTelemetryStore((state) => state.events);
+	const hasMore = useTelemetryStore((state) => state.hasMore);
+	const isLoadingMore = useTelemetryStore((state) => state.isLoadingMore);
+	const fetchMoreEvents = useTelemetryStore((state) => state.fetchMoreEvents);
+
 	const [selectedLog, setSelectedLog] = useState<TelemetryRow | null>(null);
 	const [isSheetOpen, setIsSheetOpen] = useState(false);
 
@@ -124,7 +128,7 @@ export default function TelemetryPage() {
 		const processName = rawPath ? rawPath.split(/[/\\]/).pop() || rawPath : "-";
 
 		return {
-			id: `telemetry-${timestamp}-${idx}`,
+			id: `telemetry-${timestamp}-${item.sequenceNumber ?? idx}`,
 			createdAt,
 			action: item.type,
 			processId,
@@ -164,8 +168,10 @@ export default function TelemetryPage() {
 				enableSearch={true}
 				filterPlaceholder={t(($) => $.telemetry.searchPlaceholder)}
 				filterColumnKey="processName"
-				enablePagination={true}
 				defaultPageSize={20}
+				hasMore={hasMore}
+				isLoadingMore={isLoadingMore}
+				onLoadMore={fetchMoreEvents}
 				maxHeight="calc(100vh - 18rem)"
 				onRowClick={(row) => handleRowClick(row)}
 			/>

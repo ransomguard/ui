@@ -1,17 +1,24 @@
 import { create } from "zustand";
 
 import { toast } from "@/components/ui/toast";
+import { useMetricStore } from "./use-metrics-store";
 
 
+
+const PAGE_SIZE = 10;
 
 export interface RuleState {
 	blockedIps: string[];
 	whitelistIps: string[];
 	logs: AccessControlLogItem[];
+	hasMoreLogs: boolean;
+	isLoadingMoreLogs: boolean;
+	isInitialized: boolean;
 	isLoading: boolean;
 	error: string | null;
 
-	fetchRules: () => Promise<void>;
+	fetchRules: (force?: boolean) => Promise<void>;
+	fetchMoreLogs: () => Promise<void>;
 	blockIp: (ips: string[], reason: string) => Promise<void>;
 	unblockIp: (ips: string[], reason: string) => Promise<void>;
 	addWhitelist: (ips: string[], reason: string) => Promise<void>;
@@ -20,19 +27,33 @@ export interface RuleState {
 
 
 
+const mergeAccessLogs = (existing: AccessControlLogItem[], incoming: AccessControlLogItem[]) => {
+	const map = new Map<string, AccessControlLogItem>();
+	for (const log of existing) {
+		map.set(`${log.id}-${log.ip ?? ""}`, log);
+	}
+	for (const log of incoming) {
+		map.set(`${log.id}-${log.ip ?? ""}`, log);
+	}
+	return Array.from(map.values()).sort((a, b) => b.performedAt - a.performedAt);
+};
+
 export const useAccessControlStore = create<RuleState>((set, get) => ({
 	blockedIps: [],
 	whitelistIps: [],
 	logs: [],
+	hasMoreLogs: true,
+	isLoadingMoreLogs: false,
+	isInitialized: false,
 	isLoading: false,
 	error: null,
 
-	fetchRules: async () => {
-		if (get().isLoading) return;
+	fetchRules: async (force = false) => {
+		if (get().isLoading || (get().isInitialized && !force)) return;
 		set({ isLoading: true, error: null });
 		try {
 			const [logs, blockedRes, whitelistRes] = await Promise.all([
-				window.electronAPI.getAccessControlLogs(),
+				window.electronAPI.getAccessControlLogs({ limit: PAGE_SIZE }),
 				window.electronAPI.getBlockedIPs(),
 				window.electronAPI.getWhitelistedIPs(),
 			]);
@@ -43,12 +64,14 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 					? whitelistRes?.message
 					: null;
 
-			set({
+			set((prev) => ({
 				blockedIps: blockedRes?.success ? blockedRes.ips : [],
 				whitelistIps: whitelistRes?.success ? whitelistRes.ips : [],
-				logs,
+				logs: mergeAccessLogs(prev.logs, logs),
+				hasMoreLogs: logs.length >= PAGE_SIZE,
+				isInitialized: true,
 				error: errorMsg ?? null,
-			});
+			}));
 
 			if (errorMsg) {
 				toast.add({
@@ -71,9 +94,33 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 		}
 	},
 
+	fetchMoreLogs: async () => {
+		const { logs, hasMoreLogs, isLoadingMoreLogs, isLoading } = get();
+		if (!hasMoreLogs || isLoadingMoreLogs || isLoading) return;
+
+		set({ isLoadingMoreLogs: true });
+		try {
+			const oldestTimestamp = logs.length > 0 ? logs.at(-1)!.performedAt : undefined;
+			const nextLogs = await window.electronAPI.getAccessControlLogs({
+				beforeTimestamp: oldestTimestamp,
+				limit: PAGE_SIZE,
+			});
+
+			set((prev) => ({
+				logs: mergeAccessLogs(prev.logs, nextLogs),
+				hasMoreLogs: nextLogs.length >= PAGE_SIZE,
+			}));
+		} catch (err) {
+			console.error("[useAccessControlStore] fetchMoreLogs failed:", err);
+		} finally {
+			set({ isLoadingMoreLogs: false });
+		}
+	},
+
 	blockIp: async (ips, reason) => {
 		const logs = await window.electronAPI.addBlockedIPs(ips, reason);
 		const failedLog = logs.find(x => !x.success);
+		useMetricStore.getState().incrementAccessLogCount(logs.length);
 
 		set(prev => ({
 			blockedIps: failedLog
@@ -91,6 +138,7 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 	unblockIp: async (ips, reason) => {
 		const logs = await window.electronAPI.removeBlockedIPs(ips, reason);
 		const failedLog = logs.find(x => !x.success);
+		useMetricStore.getState().incrementAccessLogCount(logs.length);
 
 		set(prev => ({
 			blockedIps: failedLog
@@ -108,6 +156,7 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 	addWhitelist: async (ips, reason) => {
 		const logs = await window.electronAPI.addWhitelistedIPs(ips, reason);
 		const failedLog = logs.find(x => !x.success);
+		useMetricStore.getState().incrementAccessLogCount(logs.length);
 
 		set(prev => ({
 			whitelistIps: failedLog
@@ -125,6 +174,7 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 	removeWhitelist: async (ips, reason) => {
 		const logs = await window.electronAPI.removeWhitelistedIPs(ips, reason);
 		const failedLog = logs.find(x => !x.success);
+		useMetricStore.getState().incrementAccessLogCount(logs.length);
 
 		set(prev => ({
 			whitelistIps: failedLog

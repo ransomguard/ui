@@ -137,7 +137,16 @@ globalWithWindow.window.electronAPI = {
 		lastEngineStatus: undefined,
 		hasUnreadThreats: false,
 		recentSecurityLogs: [],
+		dailyStats: [],
+		totalCounts: {
+			threat: 0,
+			recovery: 0,
+			telemetry: 0,
+			blockedProcesses: 0,
+			accessControlLogs: 0,
+		},
 	}),
+	getSecurityLogs: async () => [],
 	getAccessControlLogs: async () => [...mockAccessControlLogs],
 	getBlockedIPs: async () => {
 		const raw = await sendToFirewallTool({ target: "block", action: "list" }, FW_TEST_PIPE_NAME);

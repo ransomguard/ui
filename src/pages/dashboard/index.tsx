@@ -85,17 +85,50 @@ export default function Dashboard() {
 	const storeBlockedIps = useAccessControlStore((state) => state.blockedIps);
 	const storeWhitelistIps = useAccessControlStore((state) => state.whitelistIps);
 	const storeLogs = useAccessControlStore((state) => state.logs);
+	const storeHasMoreLogs = useAccessControlStore((state) => state.hasMoreLogs);
+	const storeIsLoadingMoreLogs = useAccessControlStore((state) => state.isLoadingMoreLogs);
 	const storeIsLoading = useAccessControlStore((state) => state.isLoading);
+	const fetchMoreAccessLogs = useAccessControlStore((state) => state.fetchMoreLogs);
 
 	const metrics = useMetricStore((state) => state.metrics);
+	const dailyStats = useMetricStore((state) => state.dailyStats);
+	const totalCounts = useMetricStore((state) => state.totalCounts);
 	const alerts = useAlertStore((state) => state.alerts);
+	const hasMoreAlerts = useAlertStore((state) => state.hasMore);
+	const isLoadingMoreAlerts = useAlertStore((state) => state.isLoadingMore);
+	const fetchMoreAlerts = useAlertStore((state) => state.fetchMoreAlerts);
+
 	const telemetryEvents = useTelemetryStore((state) => state.events);
+	const hasMoreTelemetry = useTelemetryStore((state) => state.hasMore);
+	const isLoadingMoreTelemetry = useTelemetryStore((state) => state.isLoadingMore);
+	const fetchMoreTelemetry = useTelemetryStore((state) => state.fetchMoreEvents);
 
 	const [timeRange, setTimeRange] = useState<TimeRangeItem>(DEFAULT_TIME_RANGE);
 
 	const updateTimeRange = (value: TimeRangeItem | null) => {
 		setTimeRange(value ?? DEFAULT_TIME_RANGE);
 	};
+
+	const handleLoadMoreSummary = (category: "all" | "threat" | "recovery" | "telemetry" | "firewall") => {
+		if (category === "all" || category === "threat" || category === "recovery") {
+			fetchMoreAlerts();
+		}
+		if (category === "all" || category === "telemetry") {
+			fetchMoreTelemetry();
+		}
+		if (category === "all" || category === "firewall") {
+			fetchMoreAccessLogs();
+		}
+	};
+
+	const hasMoreByTab = {
+		all: hasMoreAlerts || hasMoreTelemetry || storeHasMoreLogs,
+		threat: hasMoreAlerts,
+		recovery: hasMoreAlerts,
+		telemetry: hasMoreTelemetry,
+		firewall: storeHasMoreLogs,
+	};
+	const isLoadingMoreSummary = isLoadingMoreAlerts || isLoadingMoreTelemetry || storeIsLoadingMoreLogs;
 
 	// 1. 위협(threat) 및 복구(recovery) 요약 생성
 	const alertAndRecoverySummaries: DashboardSummaryEventItem[] = alerts.map((item, idx) => {
@@ -257,40 +290,43 @@ export default function Dashboard() {
 		...unloggedWhitelistSummaries,
 	].sort((a, b) => b.timestamp - a.timestamp);
 
-	// 날짜별 차단(desktop) 및 감시(mobile) 이벤트 집계
-	const dailyCounts = new Map<string, { desktop: number; mobile: number }>();
+	const totalThreatCount = Math.max(totalCounts.threat, alertAndRecoverySummaries.filter(i => i.category === "threat").length);
+	const totalRecoveryCount = Math.max(totalCounts.recovery, alertAndRecoverySummaries.filter(i => i.category === "recovery").length);
+	const totalTelemetryCount = Math.max(totalCounts.telemetry, telemetrySummaries.length);
+	const totalFirewallCount = Math.max(totalCounts.accessControlLogs, firewallLogSummaries.length)
+		+ unloggedBlockedSummaries.length
+		+ unloggedWhitelistSummaries.length;
 
-	const addCount = (dateKey: string, type: "desktop" | "mobile", amount = 1) => {
-		const prev = dailyCounts.get(dateKey) ?? { desktop: 0, mobile: 0 };
-		prev[type] += amount;
-		dailyCounts.set(dateKey, prev);
+	const tabTotalCounts = {
+		all: totalThreatCount + totalRecoveryCount + totalTelemetryCount + totalFirewallCount,
+		threat: totalThreatCount,
+		recovery: totalRecoveryCount,
+		telemetry: totalTelemetryCount,
+		firewall: totalFirewallCount,
 	};
 
-	for (const alert of alerts) {
-		const dateKey = toDateKey(alert.timestamp);
-		const isBlocked =
-			alert.type === "PROCESS_BLOCKED" ||
-			alert.type === "VSS_ATTEMPT" ||
-			(alert.type === "ALERT" && alert.data.action !== "ALLOWED");
+	// 날짜별 차단(desktop) 및 감시(mobile) 이벤트 집계 (Electron에서 계산된 일별 통계 사용)
+	const dailyCounts = new Map<string, { desktop: number; mobile: number; blockedCount: number; terminatedCount: number }>();
 
-		addCount(dateKey, isBlocked ? "desktop" : "mobile");
-	}
-
-	for (const event of telemetryEvents) {
-		const dateKey = toDateKey(event.timestamp);
-		addCount(dateKey, "mobile");
+	for (const stat of dailyStats) {
+		dailyCounts.set(stat.date, {
+			desktop: stat.desktop,
+			mobile: stat.mobile,
+			blockedCount: stat.blockedCount,
+			terminatedCount: stat.terminatedCount,
+		});
 	}
 
 	for (const metric of metrics) {
 		if (metric.type === "SYSTEM_STATUS") {
 			const dateKey = toDateKey(metric.timestamp);
 			if (!dailyCounts.has(dateKey)) {
-				addCount(
-					dateKey,
-					"desktop",
-					metric.data.processesBlocked + metric.data.processesTerminated,
-				);
-				addCount(dateKey, "mobile", metric.data.eventsGenerated);
+				dailyCounts.set(dateKey, {
+					desktop: metric.data.processesBlocked + metric.data.processesTerminated,
+					mobile: metric.data.eventsGenerated,
+					blockedCount: metric.data.processesBlocked,
+					terminatedCount: metric.data.processesTerminated,
+				});
 			}
 		}
 	}
@@ -311,22 +347,16 @@ export default function Dashboard() {
 	const filteredChartData = chartItems.slice(-timeRange.value);
 
 	// 선택한 차트 Time Range 범위 내 이벤트 필터링 및 상단 수치 카드 집계
-	const rangeStartDate = new Date();
-	rangeStartDate.setHours(0, 0, 0, 0);
-	rangeStartDate.setDate(rangeStartDate.getDate() - (timeRange.value - 1));
-	const rangeStartTime = rangeStartDate.getTime();
-
-	const logsBlockedCount = alerts.filter(
-		(a) =>
-			a.timestamp >= rangeStartTime &&
-			(a.type === "PROCESS_BLOCKED" ||
-				a.type === "VSS_ATTEMPT" ||
-				(a.type === "ALERT" && a.data.action !== "ALLOWED")),
-	).length;
-
-	const logsTerminatedCount = telemetryEvents.filter(
-		(e) => e.timestamp >= rangeStartTime && e.type === "PROCESS_TERMINATE",
-	).length;
+	const rangeDateKeys = new Set(filteredChartData.map((item) => item.date));
+	let logsBlockedCount = 0;
+	let logsTerminatedCount = 0;
+	for (const dateKey of rangeDateKeys) {
+		const counts = dailyCounts.get(dateKey);
+		if (counts) {
+			logsBlockedCount += counts.blockedCount;
+			logsTerminatedCount += counts.terminatedCount;
+		}
+	}
 
 	const processesBlockedCount = Math.max(logsBlockedCount, sysData?.processesBlocked ?? 0);
 	const processesTerminatedCount = Math.max(logsTerminatedCount, sysData?.processesTerminated ?? 0);
@@ -393,7 +423,11 @@ export default function Dashboard() {
 			<Suspense fallback={<RecentEventsFallback/>}>
 				<RecentEventsSection
 					data={summaryEvents}
+					totalCounts={tabTotalCounts}
 					isLoading={storeIsLoading}
+					hasMoreByTab={hasMoreByTab}
+					isLoadingMore={isLoadingMoreSummary}
+					onLoadMore={handleLoadMoreSummary}
 				/>
 			</Suspense>
 		</div>

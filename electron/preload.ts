@@ -37,6 +37,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	getEngineStatus() {
 		return ipcRenderer.invoke("initial:get-engine-status");
 	},
+	getSecurityLogs(...args: unknown[]) {
+		return ipcRenderer.invoke("security-logs:fetch", ...args);
+	},
 
 	getAccessControlLogs(...args: unknown[]) {
 		return ipcRenderer.invoke("firewall:fetch-logs", ...args);

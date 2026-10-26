@@ -7,7 +7,7 @@ import {
 	type IncomingFWMessage,
 } from "~/services/firewall-tool";
 
-import { getRecentAccessControlLogs } from "./queries";
+import { getRecentAccessControlLogs, type FetchAccessControlLogsOptions } from "./queries";
 
 
 
@@ -15,8 +15,8 @@ export interface AccessControlLogItem extends Omit<Select<"accessControlLogs">, 
 	ip?: string;
 }
 
-export async function fetchLogs(): Promise<AccessControlLogItem[]> {
-	const rows = await getRecentAccessControlLogs(100);
+export async function fetchLogs(options?: FetchAccessControlLogsOptions): Promise<AccessControlLogItem[]> {
+	const rows = await getRecentAccessControlLogs(options ?? { limit: 10 });
 	return rows.flatMap(({ ips, ...row }) => (ips && ips.length > 0 ? ips : [undefined]).map(ip => ({
 		...row,
 		ip,

@@ -37,6 +37,8 @@ type ExtractIncomingIPCMessage<
 > = import("~/services/ipc-receiver").ExtractIncomingIPCMessage<T, M>;
 type OnSecurityLogsUpdatedCallback = (messages: IncomingIPCMessage[]) => void;
 type GetLastEngineStatusData = import("~/main/ipc-receiver").GetLastEngineStatusData;
+type FetchSecurityLogsOptions = import("~/main/queries").FetchSecurityLogsOptions;
+type FetchAccessControlLogsOptions = import("~/main/queries").FetchAccessControlLogsOptions;
 
 type FirewallRequest = import("~/services/firewall-tool").FirewallRequest;
 type IncomingFWMessage = import("~/services/firewall-tool").IncomingFWMessage;
@@ -52,8 +54,9 @@ interface Window {
 
 		onSecurityLogsUpdated(callback: OnSecurityLogsUpdatedCallback): Unsubscribe;
 		getEngineStatus(): Promise<GetLastEngineStatusData>;
+		getSecurityLogs(options?: FetchSecurityLogsOptions): Promise<IncomingIPCMessage[]>;
 
-		getAccessControlLogs(): Promise<FetchLogsResult>;
+		getAccessControlLogs(options?: FetchAccessControlLogsOptions): Promise<FetchLogsResult>;
 		getBlockedIPs(): Promise<FetchIPsResult>;
 		getWhitelistedIPs(): Promise<FetchIPsResult>;
 		addBlockedIPs(ips: string[], reason: string): Promise<AccessControlLogItem[]>;
