@@ -1,4 +1,4 @@
-import { isNull, and, inArray, desc } from "drizzle-orm";
+import { isNull, and, inArray, gte, desc } from "drizzle-orm";
 
 import { getDB, table } from "~/db";
 
@@ -33,13 +33,17 @@ export async function checkUnreadThreats() {
 /**
  * 최근 보안 로그 조회 (초기 캐시 데이터 로드용)
  */
-export async function getRecentSecurityLogs(limit = 100) {
+export async function getRecentSecurityLogs(days = 90) {
 	try {
 		const db = getDB();
+		const startDate = new Date();
+		startDate.setHours(0, 0, 0, 0);
+		startDate.setDate(startDate.getDate() - (days - 1));
+
 		const rows = await db.select()
 			.from(table.securityLogs)
-			.orderBy(desc(table.securityLogs.timestamp))
-			.limit(limit);
+			.where(gte(table.securityLogs.timestamp, startDate.getTime()))
+			.orderBy(desc(table.securityLogs.timestamp));
 		return rows.map((row) => row.data);
 	} catch (error) {
 		console.error("[DB Error] Failed to fetch recent security logs:", error);

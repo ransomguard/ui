@@ -19,7 +19,7 @@ export interface MetricState {
 
 
 const filterItems = (logs: IncomingIPCMessage[]) => logs.filter(x => metricTypesSet.has(x.type as MetricType)) as MetricMessage[];
-const sortItems = (logs: MetricMessage[]) => logs.sort((a, b) => b.timestamp - a.timestamp).slice(0, 200);
+const sortItems = (logs: MetricMessage[]) => logs.sort((a, b) => b.timestamp - a.timestamp);
 
 export const useMetricStore = create<MetricState>((set) => ({
 	metrics: [],

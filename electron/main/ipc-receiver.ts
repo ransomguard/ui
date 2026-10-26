@@ -20,7 +20,7 @@ export type GetLastEngineStatusData = Awaited<ReturnType<typeof getLastEngineSta
 export const getLastEngineStatus = async () => ({
 	lastEngineStatus,
 	hasUnreadThreats: await checkUnreadThreats(),
-	recentSecurityLogs: await getRecentSecurityLogs(100),
+	recentSecurityLogs: await getRecentSecurityLogs(90),
 });
 
 app.on("before-quit", () => {

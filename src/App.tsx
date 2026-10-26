@@ -49,7 +49,6 @@ function App() {
 	}, [i18n]);
 
 	useEffect(() => {
-		window.electronAPI.getEngineStatus().then(initStatus);
 		window.electronAPI.getEngineStatus().then((data) => {
 			initStatus(data);
 			if (data.recentSecurityLogs && data.recentSecurityLogs.length > 0) {

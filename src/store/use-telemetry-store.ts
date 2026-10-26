@@ -21,7 +21,7 @@ export interface TelemetryState {
 
 
 const filterItems = (logs: IncomingIPCMessage[]) => logs.filter(x => telemetryTypesSet.has(x.type as TelemetryType)) as TelemetryMessage[];
-const sortItems = (logs: TelemetryMessage[]) => logs.sort((a, b) => b.timestamp - a.timestamp).slice(0, 200);
+const sortItems = (logs: TelemetryMessage[]) => logs.sort((a, b) => b.timestamp - a.timestamp);
 
 export const useTelemetryStore = create<TelemetryState>((set) => ({
 	events: [],

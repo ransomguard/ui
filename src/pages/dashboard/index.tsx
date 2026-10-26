@@ -310,6 +310,27 @@ export default function Dashboard() {
 
 	const filteredChartData = chartItems.slice(-timeRange.value);
 
+	// 선택한 차트 Time Range 범위 내 이벤트 필터링 및 상단 수치 카드 집계
+	const rangeStartDate = new Date();
+	rangeStartDate.setHours(0, 0, 0, 0);
+	rangeStartDate.setDate(rangeStartDate.getDate() - (timeRange.value - 1));
+	const rangeStartTime = rangeStartDate.getTime();
+
+	const logsBlockedCount = alerts.filter(
+		(a) =>
+			a.timestamp >= rangeStartTime &&
+			(a.type === "PROCESS_BLOCKED" ||
+				a.type === "VSS_ATTEMPT" ||
+				(a.type === "ALERT" && a.data.action !== "ALLOWED")),
+	).length;
+
+	const logsTerminatedCount = telemetryEvents.filter(
+		(e) => e.timestamp >= rangeStartTime && e.type === "PROCESS_TERMINATE",
+	).length;
+
+	const processesBlockedCount = Math.max(logsBlockedCount, sysData?.processesBlocked ?? 0);
+	const processesTerminatedCount = Math.max(logsTerminatedCount, sysData?.processesTerminated ?? 0);
+	const queueDepthCount = sysData?.queueDepth ?? 0;
 	const eventsDroppedCount = sysData?.eventsDropped ?? 0;
 
 	const statsItems: StatsItem[] = [
@@ -317,19 +338,19 @@ export default function Dashboard() {
 			icon: ShieldBan,
 			label: "processesBlocked",
 			description: "processesBlockedDesc",
-			value: (sysData?.processesBlocked ?? 0).toLocaleString(),
+			value: processesBlockedCount.toLocaleString(),
 		},
 		{
 			icon: ZapOff,
 			label: "processesTerminated",
 			description: "processesTerminatedDesc",
-			value: (sysData?.processesTerminated ?? 0).toLocaleString(),
+			value: processesTerminatedCount.toLocaleString(),
 		},
 		{
 			icon: Layers,
 			label: "queueDepth",
 			description: "queueDepthDesc",
-			value: (sysData?.queueDepth ?? 0).toLocaleString(),
+			value: queueDepthCount.toLocaleString(),
 		},
 		{
 			icon: AlertTriangle,

@@ -21,7 +21,7 @@ export interface AlertState {
 
 
 const filterItems = (logs: IncomingIPCMessage[]) => logs.filter(x => alertTypesSet.has(x.type as AlertType)) as AlertMessage[];
-const sortItems = (logs: AlertMessage[]) => logs.sort((a, b) => b.timestamp - a.timestamp).slice(0, 200);
+const sortItems = (logs: AlertMessage[]) => logs.sort((a, b) => b.timestamp - a.timestamp);
 
 export const useAlertStore = create<AlertState>((set) => ({
 	alerts: [],
