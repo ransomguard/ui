@@ -2,7 +2,7 @@ import { Menu, shell, app, ipcMain, dialog, clipboard } from "electron";
 
 import { locales } from "~/locales";
 import { language } from "~/store";
-import { getWindow } from "~/main/window";
+import { getWindow, findWindow } from "~/main/window";
 
 import { updateTrayMenu } from "./tray";
 
@@ -60,7 +60,7 @@ export function setApplicationMenu(localeCode: string) {
 						language.set("ko");
 						setApplicationMenu("ko");
 						updateTrayMenu("ko");
-						getWindow().webContents.send("language:changed", "ko");
+						findWindow()?.webContents.send("language:changed", "ko");
 					},
 				},
 				{
@@ -71,7 +71,7 @@ export function setApplicationMenu(localeCode: string) {
 						language.set("en");
 						setApplicationMenu("en");
 						updateTrayMenu("en");
-						getWindow().webContents.send("language:changed", "en");
+						findWindow()?.webContents.send("language:changed", "en");
 					},
 				},
 			],

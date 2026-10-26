@@ -11,14 +11,18 @@ const { app, BrowserWindow } = electron;
 
 
 /**
+ * 현재 열려있는 BrowserWindow를 반환 (없으면 null 반환, 새로 생성하지 않음)
+ */
+export function findWindow() {
+	const windows = BrowserWindow?.getAllWindows().filter(win => !win.isDestroyed()) ?? [];
+	return windows[0] ?? null;
+}
+
+/**
  * - 현재 열려있는 BrowserWindow를 반환하거나, 없으면 새로 생성하여 반환
  */
 export function getWindow() {
-	const windows = BrowserWindow.getAllWindows().filter(win => !win.isDestroyed());
-	if (windows.length) {
-		return windows[0]!;
-	}
-	return createWindow();
+	return findWindow() ?? createWindow();
 }
 
 function setupWindowStateListener(window: electron.BrowserWindow) {

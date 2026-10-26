@@ -3,7 +3,7 @@ import { app } from "electron";
 import { externalIPCReceiver, isValidIPCMessage } from "~/services/ipc-receiver";
 // import { sendToFirewallTool } from "~/services/firewall-tool";
 
-import { getWindow } from "~/main/window";
+import { findWindow } from "~/main/window";
 import {
 	table,
 	getDB,
@@ -84,7 +84,7 @@ export function registerExternalIpcHandlers() {
 		}
 
 		if (validIMessages.length > 0) {
-			getWindow().webContents.send("security-logs-updated", validIMessages);
+			findWindow()?.webContents.send("security-logs-updated", validIMessages);
 			notifyImportantEvents(validIMessages);
 		}
 

@@ -3,19 +3,22 @@ import electron from "electron";
 
 import { locales } from "~/locales";
 import { language } from "~/store";
-import { getWindow } from "~/main/window";
+import { getWindow, findWindow } from "~/main/window";
 
-const { Menu, Tray, Notification } = electron;
+const { app, Menu, Tray, Notification } = electron;
 
 
 
 function openWindow() {
 	const win = getWindow();
 	if (win.isMinimized()) {
+		win.hide();
 		win.restore();
 	}
 	win.show();
+	win.moveTop();
 	win.focus();
+	app?.focus({ steal: true });
 }
 
 function getTrayIconPath(): string {
@@ -32,6 +35,7 @@ function getTrayI18n(localeCode: string) {
 
 
 let tray: electron.Tray | null = null;
+const activeNotifications = new Set<electron.Notification>();
 
 export function createTray(localeCode: string) {
 	tray = new Tray(getTrayIconPath());
@@ -170,6 +174,12 @@ export function formatImportantEventNotification(
 export function notifyImportantEvents(
 	messages: IncomingIPCMessage[],
 ): TrayNotificationPayload | null {
+	const win = findWindow();
+	const isWindowDisplayed = Boolean(win && win.isVisible() && !win.isMinimized());
+	if (isWindowDisplayed) {
+		return null;
+	}
+
 	const importantMessages = messages.filter(isImportantEvent);
 	if (importantMessages.length === 0) {
 		return null;
@@ -210,7 +220,14 @@ export function notifyImportantEvents(
 			body: payload.content,
 			icon: getTrayIconPath(),
 		});
-		notification.on("click", openWindow);
+		activeNotifications.add(notification);
+		notification.on("click", () => {
+			activeNotifications.delete(notification);
+			openWindow();
+		});
+		notification.on("close", () => {
+			activeNotifications.delete(notification);
+		});
 		notification.show();
 	}
 
