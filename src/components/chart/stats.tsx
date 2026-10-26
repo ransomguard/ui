@@ -47,7 +47,11 @@ export function MetricCard({
 		>
 			<CardHeader>
 				<CardDescription>{label}</CardDescription>
-				<CardTitle className="font-bold">{isLoading || !value ? "-" : value}</CardTitle>
+				<CardTitle
+					className="font-bold text-2xl!"
+				>
+					{isLoading || !value ? "-" : value}
+				</CardTitle>
 				{(Icon || action) && (
 					<CardAction>
 						{action ?? (Icon && <Icon className="size-4 opacity-70"/>)}
