@@ -3,6 +3,7 @@ import type { FlattenedKeys } from "@/locales";
 
 
 export interface TimeRangeItem {
+	default?: boolean;
 	label: FlattenedKeys<"timeRange">;
 	value: number;
 }
@@ -25,6 +26,7 @@ export const timeRangeItems: [TimeRangeItem, ...TimeRangeItem[]] = [
 		value: 15,
 	},
 	{
+		default: true,
 		label: "lastDays",
 		value: 7,
 	},

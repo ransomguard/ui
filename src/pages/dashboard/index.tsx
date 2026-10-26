@@ -75,6 +75,7 @@ function extractBaseName(pathStr?: string | null): string {
 }
 
 const MAX_CHART_DAYS = timeRangeItems[0].value;
+const DEFAULT_TIME_RANGE = timeRangeItems.find(x => x.default) ?? timeRangeItems[0];
 
 export default function Dashboard() {
 	const { t } = useTranslation();
@@ -90,10 +91,10 @@ export default function Dashboard() {
 	const alerts = useAlertStore((state) => state.alerts);
 	const telemetryEvents = useTelemetryStore((state) => state.events);
 
-	const [timeRange, setTimeRange] = useState<TimeRangeItem>(timeRangeItems[0]);
+	const [timeRange, setTimeRange] = useState<TimeRangeItem>(DEFAULT_TIME_RANGE);
 
 	const updateTimeRange = (value: TimeRangeItem | null) => {
-		setTimeRange(value ?? timeRangeItems[0]);
+		setTimeRange(value ?? DEFAULT_TIME_RANGE);
 	};
 
 	// 1. 위협(threat) 및 복구(recovery) 요약 생성
