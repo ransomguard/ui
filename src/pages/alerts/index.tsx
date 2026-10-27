@@ -1,27 +1,32 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import {
 	ShieldAlert,
-	ShieldCheck,
 	RefreshCw,
 	Filter,
 	Clock,
 	FileText,
 	HardDrive,
-	Search,
+	Terminal,
+	Shield,
 } from "lucide-react";
 
 import type { FlattenedKeys } from "@/locales";
 import { useAlertStore, useMetricStore } from "@/store";
 
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+	SheetDescription,
+} from "@/components/ui/sheet";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from "@/components/ui/select";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { DataTable, type DataTableFeatures } from "@/components/data-table";
 import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { I18n } from "@/components/i18n";
 
 
 
@@ -60,6 +65,109 @@ export interface FormattedAlert {
 	isRecovery: boolean;
 }
 
+
+
+const columnHelper = createColumnHelper<DataTableFeatures, FormattedAlert>();
+
+const columns: ColumnDef<DataTableFeatures, FormattedAlert>[] = columnHelper.columns([
+	{
+		accessorKey: "createdAt",
+		header: () => <I18n i18nKey="alerts.columns.createdAt"/>,
+		cell: ({ row }) => (
+			<span className="font-mono text-xs text-muted-foreground whitespace-nowrap">
+				{row.original.createdAt}
+			</span>
+		),
+	},
+	{
+		accessorKey: "action",
+		header: () => <I18n i18nKey="alerts.columns.action"/>,
+		cell: ({ row }) => {
+			const { action, isThreat, isRecovery } = row.original;
+			return (
+				<Badge
+					variant={isThreat ? "destructive" : "default"}
+					className={isRecovery ? "bg-emerald-600 hover:bg-emerald-700 text-[11px] px-2 py-0.5" : "text-[11px] px-2 py-0.5"}
+				>
+					{action}
+				</Badge>
+			);
+		},
+	},
+	{
+		accessorKey: "matchedRule",
+		header: () => <I18n i18nKey="alerts.columns.matchedRule"/>,
+		filterFn: (row, _columnId, filterValue) => {
+			const query = String(filterValue ?? "").toLowerCase().trim();
+			if (!query) return true;
+			return (
+				(row.original.processName?.toLowerCase().includes(query) ?? false) ||
+				(row.original.matchedRule?.toLowerCase().includes(query) ?? false) ||
+				(row.original.imagePath?.toLowerCase().includes(query) ?? false) ||
+				row.original.action.toLowerCase().includes(query) ||
+				row.original.source.toLowerCase().includes(query) ||
+				String(row.original.processId ?? "").includes(query)
+			);
+		},
+		cell: ({ row }) => (
+			<span className="font-medium text-foreground truncate max-w-xs block">
+				{row.original.matchedRule ?? row.original.action}
+			</span>
+		),
+	},
+	{
+		accessorKey: "processName",
+		header: () => <I18n i18nKey="alerts.columns.processName"/>,
+		cell: ({ row }) => {
+			const { processName, processId } = row.original;
+			if (!processName && processId === undefined) {
+				return <span className="text-xs text-muted-foreground">-</span>;
+			}
+			return (
+				<span className="font-mono text-xs font-medium whitespace-nowrap">
+					{processName ?? "-"}
+					{processId !== undefined && (
+						<span className="text-muted-foreground ml-1">({processId})</span>
+					)}
+				</span>
+			);
+		},
+	},
+	{
+		accessorKey: "imagePath",
+		header: () => <I18n i18nKey="alerts.columns.imagePath"/>,
+		cell: ({ row }) => (
+			<span className="font-mono text-xs text-muted-foreground truncate max-w-xs block">
+				{row.original.imagePath ?? "-"}
+			</span>
+		),
+	},
+	{
+		accessorKey: "threatScore",
+		header: () => <I18n i18nKey="alerts.columns.threatScore"/>,
+		cell: ({ row }) => {
+			const { isThreat, threatScore } = row.original;
+			if (!isThreat) {
+				return <span className="font-mono text-xs text-muted-foreground">-</span>;
+			}
+			return (
+				<span className="font-mono text-xs font-bold text-destructive whitespace-nowrap">
+					{threatScore} / 100
+				</span>
+			);
+		},
+	},
+	{
+		accessorKey: "source",
+		header: () => <I18n i18nKey="alerts.columns.source"/>,
+		cell: ({ row }) => (
+			<span className="text-xs text-muted-foreground whitespace-nowrap">
+				{row.original.source}
+			</span>
+		),
+	},
+]);
+
 export default function AlertsPage() {
 	const { t } = useTranslation();
 	const rawAlerts = useAlertStore((state) => state.alerts);
@@ -69,29 +177,8 @@ export default function AlertsPage() {
 	const totalCounts = useMetricStore((state) => state.totalCounts);
 
 	const [filterItem, setFilterItem] = useState<AlertFilterItem>(alertFilterItems[0]);
-	const [searchQuery, setSearchQuery] = useState("");
-	const sentinelRef = useRef<HTMLDivElement | null>(null);
-
-	useEffect(() => {
-		const el = sentinelRef.current;
-		if (!el || !hasMore || isLoadingMore) return;
-
-		const scrollParent = el.closest("[data-slot=\"scroll-area-viewport\"]") as Element | null;
-		const observer = new IntersectionObserver(
-			(entries) => {
-				if (entries[0]?.isIntersecting) {
-					fetchMoreAlerts();
-				}
-			},
-			{
-				root: scrollParent,
-				rootMargin: "160px",
-			},
-		);
-
-		observer.observe(el);
-		return () => observer.disconnect();
-	}, [hasMore, isLoadingMore, fetchMoreAlerts, rawAlerts.length]);
+	const [selectedAlert, setSelectedAlert] = useState<FormattedAlert | null>(null);
+	const [isSheetOpen, setIsSheetOpen] = useState(false);
 
 	const getFilterLabel = (item: AlertFilterItem) => t(($) => $.alerts.filters[item.label]);
 
@@ -173,14 +260,6 @@ export default function AlertsPage() {
 	});
 
 	const filteredLogs = formattedAlerts.filter((log) => {
-		const matchesSearch =
-			!searchQuery ||
-			(log.processName?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-			(log.matchedRule?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-			(log.imagePath?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
-
-		if (!matchesSearch) return false;
-
 		if (filterItem.value === "THREATS") {
 			return log.isThreat;
 		}
@@ -192,6 +271,11 @@ export default function AlertsPage() {
 
 	const threatCount = Math.max(totalCounts.threat, formattedAlerts.filter((l) => l.isThreat).length);
 	const recoveryCount = Math.max(totalCounts.recovery, formattedAlerts.filter((l) => l.isRecovery).length);
+
+	const handleRowClick = (alert: FormattedAlert) => {
+		setSelectedAlert(alert);
+		setIsSheetOpen(true);
+	};
 
 	return (
 		<div className="flex flex-col gap-6 min-w-0">
@@ -217,26 +301,29 @@ export default function AlertsPage() {
 				</div>
 			</div>
 
-			{/* 검색 및 필터 툴바 */}
-			<div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-				<div className="relative w-full sm:w-80">
-					<Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground"/>
-					<Input
-						placeholder={t(($) => $.alerts.searchPlaceholder)}
-						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
-						className="pl-9"
-					/>
-				</div>
-
-				<div className="flex items-center gap-2 w-full sm:w-auto">
+			{/* 위협 및 복구 이벤트 DataTable */}
+			<DataTable
+				heading={t(($) => $.alerts.tableHeading)}
+				columns={columns}
+				data={filteredLogs}
+				enableSearch={true}
+				enableRowNumber={true}
+				filterPlaceholder={t(($) => $.alerts.searchPlaceholder)}
+				filterColumnKey="matchedRule"
+				hasMore={hasMore}
+				isLoadingMore={isLoadingMore}
+				onLoadMore={fetchMoreAlerts}
+				maxHeight="calc(100vh - 18rem)"
+				onRowClick={(row) => handleRowClick(row)}
+			>
+				<div className="flex items-center gap-2">
 					<Filter className="size-4 text-muted-foreground shrink-0"/>
 					<Select
 						value={filterItem}
 						onValueChange={(val) => setFilterItem(val ?? alertFilterItems[0])}
 						itemToStringLabel={getFilterLabel}
 					>
-						<SelectTrigger className="w-full sm:w-44">
+						<SelectTrigger className="w-44">
 							<SelectValue placeholder={getFilterLabel(filterItem)}/>
 						</SelectTrigger>
 						<SelectContent className="rounded-xl">
@@ -254,131 +341,118 @@ export default function AlertsPage() {
 						</SelectContent>
 					</Select>
 				</div>
-			</div>
+			</DataTable>
 
-			{/* 이벤트 Feed (ScrollArea) */}
-			{filteredLogs.length === 0 ? (
-				<Card className="p-8 text-center border-dashed">
-					<ShieldCheck className="size-12 text-emerald-500 mx-auto mb-3"/>
-					<h3 className="text-base font-semibold">
-						{t(($) => $.alerts.empty.title)}
-					</h3>
-					<p className="text-sm text-muted-foreground mt-1">
-						{t(($) => $.alerts.empty.description)}
-					</p>
-				</Card>
-			) : (
-				<ScrollArea className="h-[calc(100vh-16rem)] pr-2">
-					<div className="flex flex-col gap-4">
-						{filteredLogs.map((log) => (
-							<Card
-								key={log.id}
-								className={`transition-all ${
-									log.isThreat
-										? "border-destructive/40 bg-destructive/5 dark:bg-destructive/10"
-										: log.isRecovery
-											? "border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-500/10"
-											: ""
-								}`}
-							>
-								<CardHeader className="pb-3">
-									<div className="flex items-start justify-between gap-3">
-										<div className="flex items-center gap-3">
-											<div
-												className={`flex size-9 shrink-0 items-center justify-center rounded-lg border ${
-													log.isThreat
-														? "border-destructive/40 text-destructive bg-background/80"
-														: "border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-background/80"
-												}`}
-											>
-												{log.isThreat ? (
-													<ShieldAlert className="size-5"/>
-												) : (
-													<RefreshCw className="size-5"/>
-												)}
-											</div>
+			{/* 행 클릭 시 우측에서 슬라이드 오픈되는 검사 패널 Sheet */}
+			<Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+				<SheetContent side="right" className="sm:max-w-md w-full p-6 overflow-y-auto">
+					<SheetHeader className="p-0 pb-4 border-b">
+						<SheetTitle className="flex items-center gap-2 text-base font-bold">
+							{selectedAlert?.isRecovery ? (
+								<RefreshCw className="size-5 text-emerald-600"/>
+							) : (
+								<ShieldAlert className="size-5 text-destructive"/>
+							)}
+							<span>{t(($) => $.alerts.sheet.title)}</span>
+						</SheetTitle>
+						<SheetDescription className="text-xs">
+							{t(($) => $.alerts.sheet.description, {
+								id: selectedAlert?.id ?? "-",
+								source: selectedAlert?.source ?? "-",
+							})}
+						</SheetDescription>
+					</SheetHeader>
 
-											<div>
-												<CardTitle className="text-base font-semibold flex items-center gap-2">
-													<span>{log.matchedRule ?? log.action}</span>
-													{log.processName && (
-														<span className="text-xs font-mono font-normal text-muted-foreground">
-															({log.processName} - PID: {log.processId ?? "-"})
-														</span>
-													)}
-												</CardTitle>
-												<CardDescription className="flex items-center gap-2 text-xs mt-0.5">
-													<Clock className="size-3.5"/>
-													<span>{log.createdAt}</span>
-													<span>•</span>
-													<span>{t(($) => $.alerts.card.source, { source: log.source })}</span>
-												</CardDescription>
-											</div>
-										</div>
+					{selectedAlert && (
+						<div className="space-y-4 py-4 text-xs">
+							{/* 기본 정보 카드 */}
+							<div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border">
+								<div>
+									<span className="text-muted-foreground flex items-center gap-1 mb-1">
+										<Clock className="size-3"/> {t(($) => $.alerts.sheet.createdAt)}
+									</span>
+									<span className="font-mono font-medium">{selectedAlert.createdAt}</span>
+								</div>
 
-										<Badge
-											variant={log.isThreat ? "destructive" : "default"}
-											className={log.isRecovery ? "bg-emerald-600 hover:bg-emerald-700" : ""}
-										>
-											{log.action}
-										</Badge>
-									</div>
-								</CardHeader>
+								<div>
+									<span className="text-muted-foreground flex items-center gap-1 mb-1">
+										<Shield className="size-3"/> {t(($) => $.alerts.sheet.actionResult)}
+									</span>
+									<Badge
+										variant={selectedAlert.isThreat ? "destructive" : "default"}
+										className={selectedAlert.isRecovery ? "bg-emerald-600 hover:bg-emerald-700 text-[10px]" : "text-[10px]"}
+									>
+										{selectedAlert.action}
+									</Badge>
+								</div>
 
-								<CardContent className="space-y-3 pt-0">
-									{/* 위협 스코어 프로그레스 바 */}
-									{log.isThreat && (
-										<div className="space-y-1">
-											<div className="flex justify-between text-xs font-medium">
-												<span className="text-muted-foreground">
-													{t(($) => $.alerts.card.threatScore)}
-												</span>
-												<span className="text-destructive font-mono font-bold">
-													{log.threatScore} / 100
-												</span>
-											</div>
-											<Progress value={log.threatScore} className="h-1.5"/>
-										</div>
-									)}
+								<div>
+									<span className="text-muted-foreground flex items-center gap-1 mb-1">
+										<Terminal className="size-3"/> {t(($) => $.alerts.sheet.processId)}
+									</span>
+									<span className="font-mono font-bold">{selectedAlert.processId ?? "-"}</span>
+								</div>
 
-									{/* 이미지 경로 및 상세 Accordion */}
-									{log.imagePath && (
-										<div className="flex items-center gap-2 text-xs font-mono text-muted-foreground bg-background/60 p-2 rounded-md border">
-											<HardDrive className="size-3.5 shrink-0 text-foreground/70"/>
-											<span className="truncate">{log.imagePath}</span>
-										</div>
-									)}
-
-									<Accordion className="w-full">
-										<AccordionItem value={`item-${log.id}`} className="border-none">
-											<AccordionTrigger className="py-1 text-xs text-muted-foreground hover:no-underline">
-												<span className="flex items-center gap-1.5">
-													<FileText className="size-3.5"/>
-													{t(($) => $.alerts.card.rawJson)}
-												</span>
-											</AccordionTrigger>
-											<AccordionContent className="pt-2">
-												<pre className="p-3 bg-muted/70 rounded-md text-[11px] font-mono overflow-x-auto whitespace-pre-wrap text-foreground/90">
-													{log.details}
-												</pre>
-											</AccordionContent>
-										</AccordionItem>
-									</Accordion>
-								</CardContent>
-							</Card>
-						))}
-						{hasMore && (
-							<div ref={sentinelRef} className="py-2 text-center">
-								{isLoadingMore ? (
-									<Skeleton className="h-24 w-full rounded-xl"/>
-								) : (
-									<div className="h-4 w-full"/>
-								)}
+								<div>
+									<span className="text-muted-foreground flex items-center gap-1 mb-1">
+										<Terminal className="size-3"/> {t(($) => $.alerts.sheet.processName)}
+									</span>
+									<span className="font-medium">{selectedAlert.processName ?? "-"}</span>
+								</div>
 							</div>
-						)}
-					</div>
-				</ScrollArea>
-			)}
+
+							{/* 위협 스코어 프로그레스 바 */}
+							{selectedAlert.isThreat && (
+								<div className="space-y-1.5">
+									<div className="flex justify-between text-xs font-medium">
+										<span className="text-muted-foreground">
+											{t(($) => $.alerts.sheet.threatScore)}
+										</span>
+										<span className="text-destructive font-mono font-bold">
+											{selectedAlert.threatScore} / 100
+										</span>
+									</div>
+									<Progress value={selectedAlert.threatScore} className="h-1.5"/>
+								</div>
+							)}
+
+							{/* 매칭된 룰 / 복구 메시지 */}
+							{selectedAlert.matchedRule && (
+								<div className="space-y-1.5">
+									<label className="text-xs font-semibold text-muted-foreground">
+										{t(($) => $.alerts.sheet.matchedRule)}
+									</label>
+									<div className="p-2 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-md font-mono text-xs font-medium">
+										{selectedAlert.matchedRule}
+									</div>
+								</div>
+							)}
+
+							{/* 대상 경로 */}
+							{selectedAlert.imagePath && (
+								<div className="space-y-1.5">
+									<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+										<HardDrive className="size-3.5"/> {t(($) => $.alerts.sheet.imagePath)}
+									</label>
+									<div className="p-2.5 bg-background border rounded-md font-mono text-[11px] break-all leading-normal">
+										{selectedAlert.imagePath}
+									</div>
+								</div>
+							)}
+
+							{/* RAW JSON Details */}
+							<div className="space-y-1.5">
+								<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+									<FileText className="size-3.5"/> {t(($) => $.alerts.sheet.rawJson)}
+								</label>
+								<pre className="p-3 bg-muted/80 rounded-md font-mono text-[11px] overflow-x-auto whitespace-pre-wrap leading-relaxed text-foreground/90 max-h-80 border">
+									{selectedAlert.details}
+								</pre>
+							</div>
+						</div>
+					)}
+				</SheetContent>
+			</Sheet>
 		</div>
 	);
 }

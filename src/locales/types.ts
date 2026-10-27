@@ -102,6 +102,7 @@ export interface AppTranslations {
 	alerts: {
 		heading: string;
 		description: string;
+		tableHeading: string;
 		threatCount: string;
 		recoveryCount: string;
 		searchPlaceholder: string;
@@ -109,6 +110,27 @@ export interface AppTranslations {
 			all: string;
 			threats: string;
 			recovery: string;
+		};
+		columns: {
+			createdAt: string;
+			action: string;
+			matchedRule: string;
+			processName: string;
+			imagePath: string;
+			threatScore: string;
+			source: string;
+		};
+		sheet: {
+			title: string;
+			description: string;
+			createdAt: string;
+			actionResult: string;
+			processId: string;
+			processName: string;
+			imagePath: string;
+			matchedRule: string;
+			threatScore: string;
+			rawJson: string;
 		};
 		empty: {
 			title: string;

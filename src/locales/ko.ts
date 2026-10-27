@@ -118,7 +118,8 @@ export const ko: AppTranslations = {
 
 	alerts: {
 		heading: "보안 알림 및 복구 내역",
-		description: "커널 차단, 랜섬웨어 탐지 및 VSS 백업 복구 이벤트를 피드로 확인하고 세부 정보를 검토합니다.",
+		description: "커널 차단, 랜섬웨어 탐지 및 VSS 백업 복구 이벤트를 테이블로 확인하고 세부 정보를 검토합니다.",
+		tableHeading: "위협 및 복구 이벤트 목록 (특정 행 클릭 시 세부 검사 가능)",
 		threatCount: "위협 탐지: {{ count }}건",
 		recoveryCount: "자동 복구: {{ count }}건",
 		searchPlaceholder: "프로세스명, 룰, 경로 검색...",
@@ -126,6 +127,27 @@ export const ko: AppTranslations = {
 			all: "전체 이벤트 보기",
 			threats: "위협 탐지/차단 전용",
 			recovery: "복구 내역 전용",
+		},
+		columns: {
+			createdAt: "발생 일시",
+			action: "조치 유형",
+			matchedRule: "탐지 룰 / 내역",
+			processName: "프로세스 (PID)",
+			imagePath: "대상 경로",
+			threatScore: "위협 위험도",
+			source: "탐지 소스",
+		},
+		sheet: {
+			title: "상세 위협 및 복구 메타데이터 검사",
+			description: "이벤트 ID #{{ id }} • {{ source }}",
+			createdAt: "발생 일시",
+			actionResult: "조치 결과",
+			processId: "프로세스 ID (PID)",
+			processName: "프로세스명",
+			imagePath: "대상 경로",
+			matchedRule: "탐지 룰 / 복구 메시지",
+			threatScore: "위협 위험도 (Threat Score)",
+			rawJson: "세부 Raw JSON 데이터",
 		},
 		empty: {
 			title: "감지된 특이 보안 알림이 없습니다",

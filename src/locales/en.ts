@@ -118,7 +118,8 @@ export const en: AppTranslations = {
 
 	alerts: {
 		heading: "Security Alerts & Recovery",
-		description: "Review kernel blocks, ransomware detections, and VSS backup/restore events in a real-time feed.",
+		description: "Review kernel blocks, ransomware detections, and VSS backup/restore events in a table and inspect details.",
+		tableHeading: "Threat & Recovery Event Log (Click any row to inspect details)",
 		threatCount: "Threats: {{ count }}",
 		recoveryCount: "Recovered: {{ count }}",
 		searchPlaceholder: "Search process, rule, or path...",
@@ -126,6 +127,27 @@ export const en: AppTranslations = {
 			all: "View All Events",
 			threats: "Threats & Blocks Only",
 			recovery: "Recovery Events Only",
+		},
+		columns: {
+			createdAt: "Timestamp",
+			action: "Action",
+			matchedRule: "Rule / Message",
+			processName: "Process (PID)",
+			imagePath: "Target Path",
+			threatScore: "Threat Score",
+			source: "Source",
+		},
+		sheet: {
+			title: "Alert & Recovery Metadata Inspection",
+			description: "Event ID #{{ id }} • {{ source }}",
+			createdAt: "Timestamp",
+			actionResult: "Action Result",
+			processId: "Process ID (PID)",
+			processName: "Process Name",
+			imagePath: "Target Path",
+			matchedRule: "Matched Rule / Message",
+			threatScore: "Threat Score",
+			rawJson: "Raw JSON Details",
 		},
 		empty: {
 			title: "No Security Alerts Detected",
