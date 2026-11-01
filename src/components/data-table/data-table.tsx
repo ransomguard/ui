@@ -1,4 +1,4 @@
-import { useId, useState, useEffect, useRef } from "react";
+import { useId, useState, useEffect, useLayoutEffect, useRef } from "react";
 import {
 	DndContext,
 	KeyboardSensor,
@@ -85,9 +85,10 @@ interface SortableTableRowProps {
 	id: string;
 	children: React.ReactNode;
 	isSelected?: boolean;
+	isHighlighted?: boolean;
 }
 
-function SortableTableRow({ id, children, isSelected }: SortableTableRowProps) {
+function SortableTableRow({ id, children, isSelected, isHighlighted }: SortableTableRowProps) {
 	const {
 		attributes,
 		listeners,
@@ -108,9 +109,12 @@ function SortableTableRow({ id, children, isSelected }: SortableTableRowProps) {
 				ref={setNodeRef}
 				style={style}
 				data-state={isSelected ? "selected" : undefined}
+				data-row-id={id}
+				data-highlighted={isHighlighted ? "true" : undefined}
 				data-dragging={isDragging}
 				className={cn(
-					"h-12 relative z-0 data-[dragging=true]:z-20 data-[dragging=true]:bg-muted/80",
+					"h-12 relative z-0 transition-colors duration-500 data-[dragging=true]:z-20 data-[dragging=true]:bg-muted/80",
+					isHighlighted && "bg-primary/20 ring-2 ring-primary ring-inset z-10",
 					isDragging && "shadow-md",
 				)}
 			>
@@ -118,6 +122,26 @@ function SortableTableRow({ id, children, isSelected }: SortableTableRowProps) {
 			</TableRow>
 		</RowDragHandleContext.Provider>
 	);
+}
+
+
+
+function findRowElement(rowId: string): HTMLElement | null {
+	if (typeof window !== "undefined" && typeof window.CSS?.escape === "function") {
+		try {
+			return document.querySelector(`[data-row-id="${window.CSS.escape(rowId)}"]`) as HTMLElement | null;
+		} catch {
+			// CSS.escape 실패 시 속성 순회 fallback
+		}
+	}
+	const rows = document.querySelectorAll<HTMLElement>("[data-row-id]");
+	for (let i = 0; i < rows.length; i++) {
+		const row = rows[i];
+		if (row && row.getAttribute("data-row-id") === rowId) {
+			return row;
+		}
+	}
+	return null;
 }
 
 
@@ -132,6 +156,7 @@ export interface DataTableProps<TData extends RowData & { id: string }> extends 
 	enableRowDrag?: boolean;
 	enableRowSelection?: boolean;
 	enableRowNumber?: boolean;
+	rowNumberOffset?: number;
 	enableColumnVisibility?: boolean;
 	columnVisibilityOptions?: string[];
 	enableSearch?: boolean;
@@ -141,8 +166,17 @@ export interface DataTableProps<TData extends RowData & { id: string }> extends 
 	pageSizeOptions?: number[];
 
 	hasMore?: boolean;
+	hasMoreBottom?: boolean;
+	hasMoreTop?: boolean;
 	isLoadingMore?: boolean;
+	isLoadingMoreBottom?: boolean;
+	isLoadingMoreTop?: boolean;
 	onLoadMore?: () => void;
+	onLoadMoreBottom?: () => void;
+	onLoadMoreTop?: () => void;
+
+	highlightedRowId?: string | null;
+	onHighlightEnd?: () => void;
 
 	filterPlaceholder?: string;
 	filterColumnKey?: string;
@@ -163,6 +197,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 	enableRowDrag,
 	enableRowSelection,
 	enableRowNumber,
+	rowNumberOffset = 0,
 	enableColumnVisibility,
 	columnVisibilityOptions,
 	enableSearch,
@@ -170,8 +205,16 @@ export function DataTable<TData extends RowData & { id: string }>({
 	defaultPageSize = 10,
 	pageSizeOptions = [5, 10, 20, 30, 50],
 	hasMore,
+	hasMoreBottom,
+	hasMoreTop,
 	isLoadingMore,
+	isLoadingMoreBottom,
+	isLoadingMoreTop,
 	onLoadMore,
+	onLoadMoreBottom,
+	onLoadMoreTop,
+	highlightedRowId,
+	onHighlightEnd,
 	filterPlaceholder,
 	filterColumnKey,
 	maxHeight = "600px",
@@ -190,7 +233,21 @@ export function DataTable<TData extends RowData & { id: string }>({
 	const id = _id ?? `data-table-${localId}`;
 	const searchId = `${id}-search`;
 
-	const sentinelRef = useRef<HTMLTableRowElement | null>(null);
+	const topSentinelRef = useRef<HTMLTableRowElement | null>(null);
+	const bottomSentinelRef = useRef<HTMLTableRowElement | null>(null);
+	const prevScrollHeightRef = useRef<number>(0);
+	const isPrependingRef = useRef<boolean>(false);
+	const hasScrolledHighlightRef = useRef<string | null>(null);
+	const highlightAnchorTopRef = useRef<number | null>(null);
+	const isAdjustingScrollRef = useRef<boolean>(false);
+
+	const [prevHighlightedProp, setPrevHighlightedProp] = useState<string | null | undefined>(highlightedRowId);
+	const [activeHighlightId, setActiveHighlightId] = useState<string | null>(highlightedRowId ?? null);
+
+	if (prevHighlightedProp !== highlightedRowId) {
+		setPrevHighlightedProp(highlightedRowId);
+		setActiveHighlightId(highlightedRowId ?? null);
+	}
 	const [prevData, setPrevData] = useState<TData[]>(data);
 	const [tableData, setTableData] = useState<TData[]>(data);
 	const [sorting, setSorting] = useState<SortingState>([]);
@@ -256,9 +313,10 @@ export function DataTable<TData extends RowData & { id: string }>({
 				const idx = enablePagination
 					? row.index
 					: table.getSortedRowModel().rows.findIndex((r) => r.id === row.id);
+				const actualIdx = idx !== -1 ? idx : row.index;
 				return (
 					<div className="text-xs text-muted-foreground tabular-nums">
-						{(idx !== -1 ? idx : row.index) + 1}
+						{actualIdx + 1 + rowNumberOffset}
 					</div>
 				);
 			},
@@ -347,29 +405,41 @@ export function DataTable<TData extends RowData & { id: string }>({
 	const displayedRows = enablePagination
 		? table.getRowModel().rows
 		: table.getSortedRowModel().rows;
-	const canShowMore = !enablePagination && Boolean(hasMore);
 
+	const effectiveHasMoreBottom = hasMoreBottom ?? hasMore;
+	const effectiveIsLoadingMoreBottom = isLoadingMoreBottom ?? isLoadingMore;
+	const effectiveOnLoadMoreBottom = onLoadMoreBottom ?? onLoadMore;
+
+	const canShowMoreTop = !enablePagination && Boolean(hasMoreTop);
+	const canShowMoreBottom = !enablePagination && Boolean(effectiveHasMoreBottom);
+
+	// 상단 센티넬 관찰자 (위쪽 무한스크롤)
 	useEffect(() => {
 		if (enablePagination || isLoading) return;
-		const el = sentinelRef.current;
-		if (!el || !canShowMore) return;
+		const el = topSentinelRef.current;
+		if (!el || !canShowMoreTop) return;
 
 		const scrollParent = (
 			el.closest("[data-slot=\"scroll-area-viewport\"]") ??
 			el.closest("[data-slot=\"table-container\"]")
-		) as Element | null;
+		) as HTMLElement | null;
+
 		const observer = new IntersectionObserver(
 			(entries) => {
 				const entry = entries[0];
 				if (!entry?.isIntersecting) return;
 
-				if (hasMore && !isLoadingMore) {
-					onLoadMore?.();
+				if (hasMoreTop && !isLoadingMoreTop) {
+					if (scrollParent) {
+						prevScrollHeightRef.current = scrollParent.scrollHeight;
+						isPrependingRef.current = true;
+					}
+					onLoadMoreTop?.();
 				}
 			},
 			{
 				root: scrollParent,
-				rootMargin: "160px",
+				rootMargin: "80px",
 			},
 		);
 
@@ -378,12 +448,165 @@ export function DataTable<TData extends RowData & { id: string }>({
 	}, [
 		enablePagination,
 		isLoading,
-		canShowMore,
+		canShowMoreTop,
 		displayedRows.length,
-		hasMore,
-		isLoadingMore,
-		onLoadMore,
+		hasMoreTop,
+		isLoadingMoreTop,
+		onLoadMoreTop,
 	]);
+
+	// 상단에 데이터 추가 시 스크롤 위치 점프 보정
+	useLayoutEffect(() => {
+		if (!isPrependingRef.current) return;
+		const el = topSentinelRef.current;
+		const scrollParent = (
+			el?.closest("[data-slot=\"scroll-area-viewport\"]") ??
+			el?.closest("[data-slot=\"table-container\"]")
+		) as HTMLElement | null;
+
+		if (scrollParent && prevScrollHeightRef.current > 0) {
+			const delta = scrollParent.scrollHeight - prevScrollHeightRef.current;
+			if (delta > 0) {
+				scrollParent.scrollTop += delta;
+			}
+		}
+		isPrependingRef.current = false;
+	}, [tableData]);
+
+	// 하단 센티넬 관찰자 (아래쪽 무한스크롤)
+	useEffect(() => {
+		if (enablePagination || isLoading) return;
+		const el = bottomSentinelRef.current;
+		if (!el || !canShowMoreBottom) return;
+
+		const scrollParent = (
+			el.closest("[data-slot=\"scroll-area-viewport\"]") ??
+			el.closest("[data-slot=\"table-container\"]")
+		) as Element | null;
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				const entry = entries[0];
+				if (!entry?.isIntersecting) return;
+
+				if (effectiveHasMoreBottom && !effectiveIsLoadingMoreBottom) {
+					effectiveOnLoadMoreBottom?.();
+				}
+			},
+			{
+				root: scrollParent,
+				rootMargin: "80px",
+			},
+		);
+
+		observer.observe(el);
+		return () => observer.disconnect();
+	}, [
+		enablePagination,
+		isLoading,
+		canShowMoreBottom,
+		displayedRows.length,
+		effectiveHasMoreBottom,
+		effectiveIsLoadingMoreBottom,
+		effectiveOnLoadMoreBottom,
+	]);
+
+	const onHighlightEndRef = useRef(onHighlightEnd);
+	useEffect(() => {
+		onHighlightEndRef.current = onHighlightEnd;
+	});
+
+	// 사용자가 마우스 휠을 아래로 굴릴 때 바닥에 닿아 있거나 스크롤바가 없는 경우 추가 로드
+	const handleWheel = (e: React.WheelEvent) => {
+		if (e.deltaY > 0 && canShowMoreBottom && !effectiveIsLoadingMoreBottom) {
+			const scrollParent = (
+				bottomSentinelRef.current?.closest("[data-slot=\"scroll-area-viewport\"]") ??
+				bottomSentinelRef.current?.closest("[data-slot=\"table-container\"]")
+			) as HTMLElement | null;
+			if (scrollParent && scrollParent.scrollTop + scrollParent.clientHeight >= scrollParent.scrollHeight - 20) {
+				effectiveOnLoadMoreBottom?.();
+			}
+		}
+	};
+
+	// 하이라이트 행 활성화 시 2.2초 타이머 (화면 행 리렌더링과 독립적으로 1회만 동작)
+	useEffect(() => {
+		if (!activeHighlightId) return;
+
+		const timer = setTimeout(() => {
+			setActiveHighlightId(null);
+			onHighlightEndRef.current?.();
+		}, 2200);
+
+		return () => clearTimeout(timer);
+	}, [activeHighlightId]);
+
+	// 하이라이트 행 자동 스크롤 및 무한스크롤 시 뷰포트 내 상대 위치 고정(Scroll Anchoring)
+	useLayoutEffect(() => {
+		if (!activeHighlightId) {
+			hasScrolledHighlightRef.current = null;
+			highlightAnchorTopRef.current = null;
+			return;
+		}
+
+		const rowEl = findRowElement(activeHighlightId);
+		if (!rowEl) return;
+
+		const scrollParent = (
+			rowEl.closest("[data-slot=\"scroll-area-viewport\"]") ??
+			rowEl.closest("[data-slot=\"table-container\"]")
+		) as HTMLElement | null;
+		if (!scrollParent) return;
+
+		// 최초 1회: 화면 중앙으로 스크롤 이동 및 앵커 좌표 기록
+		if (hasScrolledHighlightRef.current !== activeHighlightId) {
+			rowEl.scrollIntoView({ behavior: "auto", block: "center" });
+			hasScrolledHighlightRef.current = activeHighlightId;
+			highlightAnchorTopRef.current = rowEl.getBoundingClientRect().top;
+			return;
+		}
+
+		// 무한스크롤 등으로 데이터가 위나 아래에 추가되어 행 위치가 밀려난 경우 보정
+		if (highlightAnchorTopRef.current !== null) {
+			const currentTop = rowEl.getBoundingClientRect().top;
+			const delta = currentTop - highlightAnchorTopRef.current;
+			if (Math.abs(delta) > 0.5) {
+				isAdjustingScrollRef.current = true;
+				scrollParent.scrollTop += delta;
+				requestAnimationFrame(() => {
+					isAdjustingScrollRef.current = false;
+				});
+			}
+		} else {
+			highlightAnchorTopRef.current = rowEl.getBoundingClientRect().top;
+		}
+	}, [activeHighlightId, tableData]);
+
+	// 하이라이트 활성 상태에서 사용자가 직접 스크롤할 경우 기준 앵커 좌표 갱신
+	useEffect(() => {
+		if (!activeHighlightId) return;
+
+		const rowEl = findRowElement(activeHighlightId);
+		const scrollParent = (
+			rowEl?.closest("[data-slot=\"scroll-area-viewport\"]") ??
+			rowEl?.closest("[data-slot=\"table-container\"]") ??
+			bottomSentinelRef.current?.closest("[data-slot=\"scroll-area-viewport\"]")
+		) as HTMLElement | null;
+		if (!scrollParent) return;
+
+		const handleScroll = () => {
+			if (isAdjustingScrollRef.current) return;
+			const targetRow = findRowElement(activeHighlightId);
+			if (targetRow) {
+				highlightAnchorTopRef.current = targetRow.getBoundingClientRect().top;
+			}
+		};
+
+		scrollParent.addEventListener("scroll", handleScroll, { passive: true });
+		return () => {
+			scrollParent.removeEventListener("scroll", handleScroll);
+		};
+	}, [activeHighlightId]);
 
 	return (
 		<div
@@ -463,6 +686,7 @@ export function DataTable<TData extends RowData & { id: string }>({
 
 			{/* 테이블 뷰 (드래그 정렬 지원) */}
 			<ScrollArea
+				onWheel={handleWheel}
 				className={cn(
 					"overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs",
 					"**:data-[slot=table-container]:overflow-visible",
@@ -517,22 +741,47 @@ export function DataTable<TData extends RowData & { id: string }>({
 										strategy={verticalListSortingStrategy}
 									>
 										{displayedRows.length ? (
-											displayedRows.map((row) => (
-												<SortableTableRow
-													key={row.id}
-													id={row.id}
-													isSelected={row.getIsSelected()}
-												>
-													{row.getVisibleCells().map((cell) => (
-														<TableCell
-															key={cell.id}
-															className={cell.column.columnDef.meta?.className}
-														>
-															<table.FlexRender cell={cell}/>
+											<>
+												{canShowMoreTop && (
+													<TableRow ref={topSentinelRef} className="h-10">
+														<TableCell colSpan={resolvedColumns.length} className="py-2 text-center">
+															{isLoadingMoreTop ? (
+																<Skeleton className="h-6 w-32 mx-auto"/>
+															) : (
+																<div className="h-4 w-full"/>
+															)}
 														</TableCell>
-													))}
-												</SortableTableRow>
-											))
+													</TableRow>
+												)}
+												{displayedRows.map((row) => (
+													<SortableTableRow
+														key={row.id}
+														id={row.id}
+														isSelected={row.getIsSelected()}
+														isHighlighted={row.id === activeHighlightId}
+													>
+														{row.getVisibleCells().map((cell) => (
+															<TableCell
+																key={cell.id}
+																className={cell.column.columnDef.meta?.className}
+															>
+																<table.FlexRender cell={cell}/>
+															</TableCell>
+														))}
+													</SortableTableRow>
+												))}
+												{canShowMoreBottom && (
+													<TableRow ref={bottomSentinelRef} className="h-12">
+														<TableCell colSpan={resolvedColumns.length} className="py-2 text-center">
+															{effectiveIsLoadingMoreBottom ? (
+																<Skeleton className="h-6 w-32 mx-auto"/>
+															) : (
+																<div className="h-4 w-full"/>
+															)}
+														</TableCell>
+													</TableRow>
+												)}
+											</>
 										) : (
 											<TableRow>
 												<TableCell colSpan={resolvedColumns.length} className="h-24 text-center text-muted-foreground">
@@ -579,13 +828,27 @@ export function DataTable<TData extends RowData & { id: string }>({
 								))
 							) : displayedRows.length ? (
 								<>
+									{canShowMoreTop && (
+										<TableRow ref={topSentinelRef} className="h-10">
+											<TableCell colSpan={resolvedColumns.length} className="py-2 text-center">
+												{isLoadingMoreTop ? (
+													<Skeleton className="h-6 w-32 mx-auto"/>
+												) : (
+													<div className="h-4 w-full"/>
+												)}
+											</TableCell>
+										</TableRow>
+									)}
 									{displayedRows.map((row) => (
 										<TableRow
 											key={row.id}
 											data-state={row.getIsSelected() ? "selected" : undefined}
+											data-row-id={row.id}
+											data-highlighted={row.id === activeHighlightId ? "true" : undefined}
 											onClick={() => onRowClick?.(row.original)}
 											className={cn(
-												"h-12",
+												"h-12 transition-colors duration-500",
+												row.id === activeHighlightId && "bg-primary/20 ring-2 ring-primary ring-inset z-10",
 												onRowClick && "cursor-pointer hover:bg-muted/60",
 											)}
 										>
@@ -599,10 +862,10 @@ export function DataTable<TData extends RowData & { id: string }>({
 											))}
 										</TableRow>
 									))}
-									{canShowMore && (
-										<TableRow ref={sentinelRef} className="h-12">
+									{canShowMoreBottom && (
+										<TableRow ref={bottomSentinelRef} className="h-12">
 											<TableCell colSpan={resolvedColumns.length} className="py-2 text-center">
-												{isLoadingMore ? (
+												{effectiveIsLoadingMoreBottom ? (
 													<Skeleton className="h-6 w-32 mx-auto"/>
 												) : (
 													<div className="h-4 w-full"/>

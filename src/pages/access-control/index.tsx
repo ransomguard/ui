@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import {
@@ -48,6 +49,8 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { toast } from "@/components/ui/toast";
 import { I18n } from "@/components/i18n";
 import { useAccessControlStore, useAlertStore, useMetricStore } from "@/store";
+import { useBidirectionalInfiniteScroll } from "@/hooks/use-bidirectional-infinite-scroll";
+import { useSearchParamTab } from "@/hooks/use-search-param-tab";
 
 
 
@@ -274,15 +277,19 @@ const logsColumns: ColumnDef<DataTableFeatures, AccessControlLogRecord>[] = logs
 
 export default function AccessControlPage() {
 	const { t } = useTranslation();
+	const [searchParams] = useSearchParams();
+	const highlightId = searchParams.get("highlightId");
+	const targetParam = searchParams.get("target");
+	const timestampParam = searchParams.get("timestamp");
+	const targetTimestamp = timestampParam ? Number(timestampParam) : undefined;
+	const targetItemKey = searchParams.get("itemKey") ?? undefined;
 
 	const storeBlockedIps = useAccessControlStore((state) => state.blockedIps);
 	const storeWhitelist = useAccessControlStore((state) => state.whitelistIps);
 	const storeLogs = useAccessControlStore((state) => state.logs);
 	const storeHasMoreLogs = useAccessControlStore((state) => state.hasMoreLogs);
-	const storeIsLoadingMoreLogs = useAccessControlStore((state) => state.isLoadingMoreLogs);
 	const storeIsLoading = useAccessControlStore((state) => state.isLoading);
 	const fetchRules = useAccessControlStore((state) => state.fetchRules);
-	const fetchMoreLogs = useAccessControlStore((state) => state.fetchMoreLogs);
 	const blockIp = useAccessControlStore((state) => state.blockIp);
 	const unblockIp = useAccessControlStore((state) => state.unblockIp);
 	const addWhitelist = useAccessControlStore((state) => state.addWhitelist);
@@ -295,11 +302,85 @@ export default function AccessControlPage() {
 
 	const totalCounts = useMetricStore((state) => state.totalCounts);
 
+	const [activeTab, setActiveTab] = useSearchParamTab<"blocked-ips" | "whitelisted-ips" | "blocked-processes" | "access-logs">({
+		paramName: "tab",
+		defaultTab: "blocked-ips",
+		validTabs: ["blocked-ips", "whitelisted-ips", "blocked-processes", "access-logs"] as const,
+	});
+
+	const ruleHighlightTarget = (activeTab === "blocked-ips" || activeTab === "whitelisted-ips")
+		? (targetParam || highlightId || null)
+		: null;
+
+	const [ruleHighlightedRowId, setRuleHighlightedRowId] = useState<string | null>(ruleHighlightTarget);
+	const [prevRuleTarget, setPrevRuleTarget] = useState(ruleHighlightTarget);
+
+	if (prevRuleTarget !== ruleHighlightTarget) {
+		setPrevRuleTarget(ruleHighlightTarget);
+		setRuleHighlightedRowId(ruleHighlightTarget);
+	}
+
 	useEffect(() => {
 		fetchRules();
 	}, [fetchRules]);
 
-	const [activeTab, setActiveTab] = useState("blocked-ips");
+	// 접근 제어 로그 양방향 무한스크롤 및 캐시-우선 조회 훅
+	const {
+		visibleItems: visibleLogs,
+		hasMoreTop: logsHasMoreTop,
+		hasMoreBottom: logsHasMoreBottom,
+		isLoadingTop: logsIsLoadingTop,
+		isLoadingBottom: logsIsLoadingBottom,
+		loadMore: loadMoreLogs,
+		highlightedRowId: logHighlightedRowId,
+		setHighlightedRowId: setLogHighlightedRowId,
+		topOffset: logsTopOffset,
+	} = useBidirectionalInfiniteScroll<AccessControlLogItem>({
+		cachedItems: storeLogs,
+		pageSize: 15,
+		initialHasMoreBottom: storeHasMoreLogs,
+		targetTimestamp,
+		targetItemKey,
+		getItemTimestamp: (item) => item.performedAt,
+		getItemKey: (item) => String(item.id),
+		getRowId: useCallback(
+			(item: AccessControlLogItem) => {
+				if (targetItemKey && targetItemKey.startsWith(`ac-log-${item.id}`)) {
+					return targetItemKey;
+				}
+				return `ac-log-${item.id}-${item.ip ?? 0}`;
+			},
+			[targetItemKey],
+		),
+		fetchFromElectron: useCallback(
+			async ({ timestamp, direction, limit }) => {
+				const logs = await window.electronAPI.getAccessControlLogs({
+					...(direction === "older" ? { beforeTimestamp: timestamp } : { afterTimestamp: timestamp, direction: "newer" }),
+					limit,
+				});
+				return {
+					items: logs,
+					hasMore: logs.length >= limit,
+				};
+			},
+			[],
+		),
+		fetchAroundFromElectron: useCallback(
+			async ({ targetTimestamp, limit }) => {
+				const res = await window.electronAPI.getAccessControlLogsAround(targetTimestamp, limit);
+				return {
+					items: res.logs,
+					hasMoreTop: res.hasMoreTop,
+					hasMoreBottom: res.hasMoreBottom,
+					topOffset: res.topOffset,
+				};
+			},
+			[],
+		),
+		onItemsFetched: useCallback((items: AccessControlLogItem[]) => {
+			useAccessControlStore.getState().addLogs(items);
+		}, []),
+	});
 
 	// Dialog Inputs
 	const [newBlockedIp, setNewBlockedIp] = useState("");
@@ -322,7 +403,7 @@ export default function AccessControlPage() {
 			.sort((a, b) => b.performedAt - a.performedAt)[0];
 
 		return {
-			id: matchedLog ? `${matchedLog.id}-${ip}` : ip,
+			id: ip,
 			ipAddress: ip,
 			reason: matchedLog?.reason || t(($) => $.accessControl.defaults.manualBlockReason),
 			blockedAt: matchedLog?.performedAt ? new Date(matchedLog.performedAt).toLocaleString() : "-",
@@ -340,7 +421,7 @@ export default function AccessControlPage() {
 			.sort((a, b) => b.performedAt - a.performedAt)[0];
 
 		return {
-			id: matchedLog ? `${matchedLog.id}-${ip}` : ip,
+			id: ip,
 			ipAddress: ip,
 			description: matchedLog?.reason || t(($) => $.accessControl.defaults.manualWhitelistDesc),
 			addedAt: matchedLog?.performedAt ? new Date(matchedLog.performedAt).toLocaleString() : "-",
@@ -406,8 +487,8 @@ export default function AccessControlPage() {
 		})
 		.sort((a, b) => b.timestamp - a.timestamp);
 
-	const accessLogsData: AccessControlLogRecord[] = storeLogs
-		.flatMap((log, idx) => {
+	const accessLogsData: AccessControlLogRecord[] = visibleLogs
+		.flatMap((log) => {
 			const timestamp = log.performedAt;
 			const performedAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
 			const maybeIps = (log as { ips?: string[] | null }).ips;
@@ -418,7 +499,7 @@ export default function AccessControlPage() {
 					: ["-"];
 
 			return ipsList.map((ip, ipIdx) => ({
-				id: `ac-log-${log.id}-${idx}-${ipIdx}`,
+				id: `ac-log-${log.id}-${ip !== "-" ? ip : ipIdx}`,
 				target: log.target,
 				action: log.action,
 				ipAddress: ip,
@@ -717,6 +798,8 @@ export default function AccessControlPage() {
 						isLoading={storeIsLoading}
 						enableSearch={true}
 						enableRowNumber={true}
+						highlightedRowId={activeTab === "blocked-ips" ? ruleHighlightedRowId : null}
+						onHighlightEnd={() => setRuleHighlightedRowId(null)}
 						filterPlaceholder={t(($) => $.accessControl.blockedTable.searchPlaceholder)}
 						filterColumnKey="ipAddress"
 					/>
@@ -731,6 +814,8 @@ export default function AccessControlPage() {
 						isLoading={storeIsLoading}
 						enableSearch={true}
 						enableRowNumber={true}
+						highlightedRowId={activeTab === "whitelisted-ips" ? ruleHighlightedRowId : null}
+						onHighlightEnd={() => setRuleHighlightedRowId(null)}
 						filterPlaceholder={t(($) => $.accessControl.whitelistTable.searchPlaceholder)}
 						filterColumnKey="ipAddress"
 					/>
@@ -761,9 +846,15 @@ export default function AccessControlPage() {
 						isLoading={storeIsLoading}
 						enableSearch={true}
 						enableRowNumber={true}
-						hasMore={storeHasMoreLogs}
-						isLoadingMore={storeIsLoadingMoreLogs}
-						onLoadMore={fetchMoreLogs}
+						rowNumberOffset={logsTopOffset}
+						hasMoreTop={logsHasMoreTop}
+						hasMoreBottom={logsHasMoreBottom}
+						isLoadingMoreTop={logsIsLoadingTop}
+						isLoadingMoreBottom={logsIsLoadingBottom}
+						onLoadMoreTop={() => loadMoreLogs("newer")}
+						onLoadMoreBottom={() => loadMoreLogs("older")}
+						highlightedRowId={activeTab === "access-logs" ? logHighlightedRowId : null}
+						onHighlightEnd={() => setLogHighlightedRowId(null)}
 						filterPlaceholder={t(($) => $.accessControl.logsTable.searchPlaceholder)}
 						filterColumnKey="ipAddress"
 					/>

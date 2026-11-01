@@ -7,7 +7,11 @@ import {
 	type IncomingFWMessage,
 } from "~/services/firewall-tool";
 
-import { getRecentAccessControlLogs, type FetchAccessControlLogsOptions } from "./queries";
+import {
+	getRecentAccessControlLogs,
+	getRecentAccessControlLogsAround,
+	type FetchAccessControlLogsOptions,
+} from "./queries";
 
 
 
@@ -21,6 +25,20 @@ export async function fetchLogs(options?: FetchAccessControlLogsOptions): Promis
 		...row,
 		ip,
 	})));
+}
+
+export async function fetchLogsAround(targetTimestamp: number, limit = 10): Promise<{
+	logs: AccessControlLogItem[];
+	hasMoreTop: boolean;
+	hasMoreBottom: boolean;
+	topOffset: number;
+}> {
+	const { rows, hasMoreTop, hasMoreBottom, topOffset } = await getRecentAccessControlLogsAround(targetTimestamp, limit);
+	const logs = rows.flatMap(({ ips, ...row }) => (ips && ips.length > 0 ? ips : [undefined]).map(ip => ({
+		...row,
+		ip,
+	})));
+	return { logs, hasMoreTop, hasMoreBottom, topOffset };
 }
 
 

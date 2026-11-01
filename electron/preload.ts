@@ -40,12 +40,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	getSecurityLogs(...args: unknown[]) {
 		return ipcRenderer.invoke("security-logs:fetch", ...args);
 	},
+	getSecurityLogsAround(targetTimestamp: number, types?: unknown, limit?: number) {
+		return ipcRenderer.invoke("security-logs:fetch-around", targetTimestamp, types, limit);
+	},
 	acknowledgeThreats(timestamp?: number) {
 		return ipcRenderer.invoke("threats:acknowledge", timestamp);
 	},
 
 	getAccessControlLogs(...args: unknown[]) {
 		return ipcRenderer.invoke("firewall:fetch-logs", ...args);
+	},
+	getAccessControlLogsAround(targetTimestamp: number, limit?: number) {
+		return ipcRenderer.invoke("firewall:fetch-logs-around", targetTimestamp, limit);
 	},
 	getBlockedIPs(...args: unknown[]) {
 		return ipcRenderer.invoke("firewall:block-list", ...args);

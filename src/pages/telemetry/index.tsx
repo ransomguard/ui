@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import {
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { useTelemetryStore, type TelemetryMessage } from "@/store";
+import { useBidirectionalInfiniteScroll } from "@/hooks/use-bidirectional-infinite-scroll";
 
 import {
 	Sheet,
@@ -110,15 +112,79 @@ const columns: ColumnDef<DataTableFeatures, TelemetryRow>[] = columnHelper.colum
 
 export default function TelemetryPage() {
 	const { t } = useTranslation();
+	const [searchParams] = useSearchParams();
+	const timestampParam = searchParams.get("timestamp");
+	const targetTimestamp = timestampParam ? Number(timestampParam) : undefined;
+	const targetItemKey = searchParams.get("itemKey") || searchParams.get("highlightId") || undefined;
+
 	const events = useTelemetryStore((state) => state.events);
-	const hasMore = useTelemetryStore((state) => state.hasMore);
-	const isLoadingMore = useTelemetryStore((state) => state.isLoadingMore);
-	const fetchMoreEvents = useTelemetryStore((state) => state.fetchMoreEvents);
+	const hasMoreTelemetry = useTelemetryStore((state) => state.hasMore);
 
 	const [selectedLog, setSelectedLog] = useState<TelemetryRow | null>(null);
 	const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-	const tableData: TelemetryRow[] = events.map((item, idx) => {
+	const telemetryTypes = useMemo<NonNullable<Parameters<typeof window.electronAPI.getSecurityLogsAround>[1]>>(
+		() => ["PROCESS_CREATE", "PROCESS_TERMINATE", "FILE_WRITE", "FILE_RENAME"],
+		[],
+	);
+
+	const getTelemetryKey = useCallback((item: TelemetryMessage) => {
+		return item.sequenceNumber != null
+			? `${item.type}-${item.timestamp}-${item.sequenceNumber}`
+			: `${item.type}-${item.timestamp}-${JSON.stringify(item.data)}`;
+	}, []);
+
+	const {
+		visibleItems: visibleEvents,
+		hasMoreTop,
+		hasMoreBottom,
+		isLoadingTop,
+		isLoadingBottom,
+		loadMore,
+		highlightedRowId,
+		setHighlightedRowId,
+		topOffset,
+	} = useBidirectionalInfiniteScroll<TelemetryMessage>({
+		cachedItems: events,
+		pageSize: 15,
+		initialHasMoreBottom: hasMoreTelemetry,
+		targetTimestamp,
+		targetItemKey,
+		getItemTimestamp: (item) => item.timestamp,
+		getItemKey: getTelemetryKey,
+		getRowId: getTelemetryKey,
+		fetchFromElectron: useCallback(
+			async ({ timestamp, direction, limit }) => {
+				const logs = await window.electronAPI.getSecurityLogs({
+					types: telemetryTypes,
+					...(direction === "older" ? { beforeTimestamp: timestamp } : { afterTimestamp: timestamp, direction: "newer" }),
+					limit,
+				});
+				return {
+					items: logs as TelemetryMessage[],
+					hasMore: logs.length >= limit,
+				};
+			},
+			[telemetryTypes],
+		),
+		fetchAroundFromElectron: useCallback(
+			async ({ targetTimestamp, limit }) => {
+				const res = await window.electronAPI.getSecurityLogsAround(targetTimestamp, telemetryTypes, limit);
+				return {
+					items: res.logs as TelemetryMessage[],
+					hasMoreTop: res.hasMoreTop,
+					hasMoreBottom: res.hasMoreBottom,
+					topOffset: res.topOffset,
+				};
+			},
+			[telemetryTypes],
+		),
+		onItemsFetched: useCallback((items: TelemetryMessage[]) => {
+			useTelemetryStore.getState().addEvents(items as IncomingIPCMessage[]);
+		}, []),
+	});
+
+	const tableData: TelemetryRow[] = visibleEvents.map((item) => {
 		const data = item.data as unknown as Record<string, unknown>;
 		const timestamp = item.timestamp;
 		const createdAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
@@ -127,8 +193,12 @@ export default function TelemetryPage() {
 		const rawPath = (data.imagePath as string | undefined) || (data.filePath as string | undefined) || "";
 		const processName = rawPath ? rawPath.split(/[/\\]/).pop() || rawPath : "-";
 
+		const itemKey = item.sequenceNumber != null
+			? `${item.type}-${item.timestamp}-${item.sequenceNumber}`
+			: `${item.type}-${item.timestamp}-${JSON.stringify(item.data)}`;
+
 		return {
-			id: `telemetry-${timestamp}-${item.sequenceNumber ?? idx}`,
+			id: itemKey,
 			createdAt,
 			action: item.type,
 			processId,
@@ -166,12 +236,19 @@ export default function TelemetryPage() {
 				columns={columns}
 				data={tableData}
 				enableSearch={true}
+				enableRowNumber={true}
+				rowNumberOffset={topOffset}
 				filterPlaceholder={t(($) => $.telemetry.searchPlaceholder)}
 				filterColumnKey="processName"
 				defaultPageSize={20}
-				hasMore={hasMore}
-				isLoadingMore={isLoadingMore}
-				onLoadMore={fetchMoreEvents}
+				hasMoreTop={hasMoreTop}
+				hasMoreBottom={hasMoreBottom}
+				isLoadingMoreTop={isLoadingTop}
+				isLoadingMoreBottom={isLoadingBottom}
+				onLoadMoreTop={() => loadMore("newer")}
+				onLoadMoreBottom={() => loadMore("older")}
+				highlightedRowId={highlightedRowId}
+				onHighlightEnd={() => setHighlightedRowId(null)}
 				maxHeight="calc(100vh - 18rem)"
 				onRowClick={(row) => handleRowClick(row)}
 			/>

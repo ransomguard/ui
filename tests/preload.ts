@@ -147,8 +147,10 @@ globalWithWindow.window.electronAPI = {
 		},
 	}),
 	getSecurityLogs: async () => [],
+	getSecurityLogsAround: async () => ({ logs: [], hasMoreTop: false, hasMoreBottom: false, topOffset: 0 }),
 	acknowledgeThreats: async () => true,
 	getAccessControlLogs: async () => [...mockAccessControlLogs],
+	getAccessControlLogsAround: async () => ({ logs: [...mockAccessControlLogs], hasMoreTop: false, hasMoreBottom: false, topOffset: 0 }),
 	getBlockedIPs: async () => {
 		const raw = await sendToFirewallTool({ target: "block", action: "list" }, FW_TEST_PIPE_NAME);
 		return isValidFirewallMessage(raw) ? raw : { success: false, message: "Invalid response" };

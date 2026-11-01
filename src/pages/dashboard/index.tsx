@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState, lazy, Suspense, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	ShieldBan,
@@ -109,16 +109,18 @@ export default function Dashboard() {
 		setTimeRange(value ?? DEFAULT_TIME_RANGE);
 	};
 
-	const handleLoadMoreSummary = (category: "all" | "threat" | "recovery" | "telemetry" | "firewall") => {
+	const handleLoadMoreSummary = async (category: "all" | "threat" | "recovery" | "telemetry" | "firewall") => {
+		const tasks: Promise<unknown>[] = [];
 		if (category === "all" || category === "threat" || category === "recovery") {
-			fetchMoreAlerts();
+			tasks.push(fetchMoreAlerts());
 		}
 		if (category === "all" || category === "telemetry") {
-			fetchMoreTelemetry();
+			tasks.push(fetchMoreTelemetry());
 		}
 		if (category === "all" || category === "firewall") {
-			fetchMoreAccessLogs();
+			tasks.push(fetchMoreAccessLogs());
 		}
+		await Promise.all(tasks);
 	};
 
 	const hasMoreByTab = {
@@ -130,180 +132,208 @@ export default function Dashboard() {
 	};
 	const isLoadingMoreSummary = isLoadingMoreAlerts || isLoadingMoreTelemetry || storeIsLoadingMoreLogs;
 
-	// 1. 위협(threat) 및 복구(recovery) 요약 생성
-	const alertAndRecoverySummaries: DashboardSummaryEventItem[] = alerts.map((item, idx) => {
-		const timestamp = item.timestamp;
-		const createdAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
+	// 1. 위협/복구/텔레메트리/방화벽 통합 요약 이벤트 생성 (useMemo 캐싱으로 불필요한 반복 계산 및 프리징 방지)
+	const { summaryEvents, tabTotalCounts } = useMemo(() => {
+		const alertAndRecoverySummaries: DashboardSummaryEventItem[] = alerts.map((item, idx) => {
+			const timestamp = item.timestamp;
+			const createdAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
+			const itemKey = item.sequenceNumber != null
+				? `${item.type}-${item.timestamp}-${item.sequenceNumber}`
+				: `${item.type}-${item.timestamp}-${JSON.stringify(item.data)}`;
 
-		if (item.type === "VSS_STATUS") {
-			return {
-				id: `recovery-${timestamp}-${idx}`,
-				category: "recovery",
-				action: item.data.action,
-				target: extractBaseName(item.data.targetPath),
-				summary: item.data.message,
-				timestamp,
-				createdAt,
-			};
-		}
+			if (item.type === "VSS_STATUS") {
+				return {
+					id: `recovery-${timestamp}-${idx}`,
+					category: "recovery",
+					action: item.data.action,
+					target: extractBaseName(item.data.targetPath),
+					summary: item.data.message,
+					timestamp,
+					createdAt,
+					rawId: item.sequenceNumber,
+					itemKey,
+				};
+			}
 
-		if (item.type === "ALERT") {
+			if (item.type === "ALERT") {
+				return {
+					id: `threat-${timestamp}-${idx}`,
+					category: "threat",
+					action: `ALERT (${item.data.action})`,
+					target: item.data.processName || extractBaseName(item.data.filePath),
+					summary: t(($) => $.recentEvents.threatScoreSummary, {
+						ruleName: item.data.ruleName,
+						score: item.data.threatScore,
+					}),
+					timestamp,
+					createdAt,
+					rawId: item.sequenceNumber,
+					itemKey,
+				};
+			}
+
+			if (item.type === "PROCESS_BLOCKED") {
+				const procName = extractBaseName(item.data.imagePath);
+				return {
+					id: `threat-${timestamp}-${idx}`,
+					category: "threat",
+					action: "PROCESS_BLOCKED",
+					target: procName !== "-" ? procName : `PID ${item.data.processId}`,
+					summary: item.data.matchedRuleId
+						? t(($) => $.recentEvents.ruleSummary, {
+							ruleId: item.data.matchedRuleId,
+							pid: item.data.processId,
+						})
+						: t(($) => $.recentEvents.pidSummary, { pid: item.data.processId }),
+					timestamp,
+					createdAt,
+					rawId: item.sequenceNumber,
+					itemKey,
+				};
+			}
+
+			// VSS_ATTEMPT
 			return {
 				id: `threat-${timestamp}-${idx}`,
 				category: "threat",
-				action: `ALERT (${item.data.action})`,
-				target: item.data.processName || extractBaseName(item.data.filePath),
-				summary: t(($) => $.recentEvents.threatScoreSummary, {
-					ruleName: item.data.ruleName,
-					score: item.data.threatScore,
-				}),
+				action: "VSS_ATTEMPT",
+				target: `PID ${item.data.processId}`,
+				summary: item.data.action,
 				timestamp,
 				createdAt,
+				rawId: item.sequenceNumber,
+				itemKey,
 			};
-		}
+		});
 
-		if (item.type === "PROCESS_BLOCKED") {
-			const procName = extractBaseName(item.data.imagePath);
-			return {
-				id: `threat-${timestamp}-${idx}`,
-				category: "threat",
-				action: "PROCESS_BLOCKED",
-				target: procName !== "-" ? procName : `PID ${item.data.processId}`,
-				summary: item.data.matchedRuleId
-					? t(($) => $.recentEvents.ruleSummary, {
-						ruleId: item.data.matchedRuleId,
+		// 2. 이벤트(telemetry) 요약 생성
+		const telemetrySummaries: DashboardSummaryEventItem[] = telemetryEvents.map((item, idx) => {
+			const timestamp = item.timestamp;
+			const createdAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
+			const itemKey = item.sequenceNumber != null
+				? `${item.type}-${item.timestamp}-${item.sequenceNumber}`
+				: `${item.type}-${item.timestamp}-${JSON.stringify(item.data)}`;
+
+			if (item.type === "PROCESS_CREATE" || item.type === "PROCESS_TERMINATE") {
+				const procName = extractBaseName(item.data.imagePath);
+				return {
+					id: `telemetry-${timestamp}-${idx}`,
+					category: "telemetry",
+					action: item.type,
+					target: procName !== "-" ? procName : `PID ${item.data.processId}`,
+					summary: t(($) => $.recentEvents.pidPpidSummary, {
 						pid: item.data.processId,
-					})
-					: t(($) => $.recentEvents.pidSummary, { pid: item.data.processId }),
-				timestamp,
-				createdAt,
-			};
-		}
+						ppid: item.data.parentProcessId,
+					}),
+					timestamp,
+					createdAt,
+					rawId: item.sequenceNumber,
+					itemKey,
+				};
+			}
 
-		// VSS_ATTEMPT
-		return {
-			id: `threat-${timestamp}-${idx}`,
-			category: "threat",
-			action: "VSS_ATTEMPT",
-			target: `PID ${item.data.processId}`,
-			summary: item.data.action,
-			timestamp,
-			createdAt,
-		};
-	});
+			// FILE_WRITE | FILE_RENAME
+			const fileName = extractBaseName(item.data.filePath);
+			const summary = item.type === "FILE_RENAME" && item.data.newExtension
+				? t(($) => $.recentEvents.pidExtSummary, {
+					pid: item.data.processId,
+					ext: item.data.newExtension,
+				})
+				: t(($) => $.recentEvents.pidSummary, { pid: item.data.processId });
 
-	// 2. 이벤트(telemetry) 요약 생성
-	const telemetrySummaries: DashboardSummaryEventItem[] = telemetryEvents.map((item, idx) => {
-		const timestamp = item.timestamp;
-		const createdAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
-
-		if (item.type === "PROCESS_CREATE" || item.type === "PROCESS_TERMINATE") {
-			const procName = extractBaseName(item.data.imagePath);
 			return {
 				id: `telemetry-${timestamp}-${idx}`,
 				category: "telemetry",
 				action: item.type,
-				target: procName !== "-" ? procName : `PID ${item.data.processId}`,
-				summary: t(($) => $.recentEvents.pidPpidSummary, {
-					pid: item.data.processId,
-					ppid: item.data.parentProcessId,
-				}),
+				target: fileName !== "-" ? fileName : `PID ${item.data.processId}`,
+				summary,
 				timestamp,
 				createdAt,
-			};
-		}
-
-		// FILE_WRITE | FILE_RENAME
-		const fileName = extractBaseName(item.data.filePath);
-		const summary = item.type === "FILE_RENAME" && item.data.newExtension
-			? t(($) => $.recentEvents.pidExtSummary, {
-				pid: item.data.processId,
-				ext: item.data.newExtension,
-			})
-			: t(($) => $.recentEvents.pidSummary, { pid: item.data.processId });
-
-		return {
-			id: `telemetry-${timestamp}-${idx}`,
-			category: "telemetry",
-			action: item.type,
-			target: fileName !== "-" ? fileName : `PID ${item.data.processId}`,
-			summary,
-			timestamp,
-			createdAt,
-		};
-	});
-
-	// 3. 방화벽(firewall) 요약 생성
-	const loggedIps = new Set<string>();
-	const firewallLogSummaries: DashboardSummaryEventItem[] = storeLogs.flatMap((log, idx) => {
-		const timestamp = log.performedAt;
-		const createdAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
-		const actionLabel = `${log.target.toUpperCase()}_${log.action.toUpperCase()}`;
-		const summaryText = log.reason || (log.success ? t(($) => $.recentEvents.defaultReason) : log.errorMessage || "-");
-
-		const maybeIps = (log as { ips?: string[] | null }).ips;
-		const ipsList = log.ip ? [log.ip] : Array.isArray(maybeIps) && maybeIps.length > 0 ? maybeIps : ["-"];
-
-		return ipsList.map((ip, ipIdx) => {
-			if (ip !== "-") loggedIps.add(`${log.target}:${ip}`);
-			return {
-				id: `firewall-${log.id}-${idx}-${ipIdx}`,
-				category: "firewall" as const,
-				action: actionLabel,
-				target: ip,
-				summary: summaryText,
-				timestamp,
-				createdAt,
+				rawId: item.sequenceNumber,
+				itemKey,
 			};
 		});
-	});
 
-	const unloggedBlockedSummaries: DashboardSummaryEventItem[] = storeBlockedIps
-		.filter((ip) => !loggedIps.has(`block:${ip}`))
-		.map((ip) => ({
-			id: `firewall-block-${ip}`,
-			category: "firewall",
-			action: "BLOCK_ADD",
-			target: ip,
-			summary: t(($) => $.recentEvents.defaultReason),
-			timestamp: 0,
-			createdAt: "-",
-		}));
+		// 3. 방화벽(firewall) 요약 생성
+		const loggedIps = new Set<string>();
+		const firewallLogSummaries: DashboardSummaryEventItem[] = storeLogs.flatMap((log, idx) => {
+			const timestamp = log.performedAt;
+			const createdAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
+			const actionLabel = `${log.target.toUpperCase()}_${log.action.toUpperCase()}`;
+			const summaryText = log.reason || (log.success ? t(($) => $.recentEvents.defaultReason) : log.errorMessage || "-");
 
-	const unloggedWhitelistSummaries: DashboardSummaryEventItem[] = storeWhitelistIps
-		.filter((ip) => !loggedIps.has(`whitelist:${ip}`))
-		.map((ip) => ({
-			id: `firewall-whitelist-${ip}`,
-			category: "firewall",
-			action: "WHITELIST_ADD",
-			target: ip,
-			summary: "-",
-			timestamp: 0,
-			createdAt: "-",
-		}));
+			const maybeIps = (log as { ips?: string[] | null }).ips;
+			const ipsList = log.ip ? [log.ip] : Array.isArray(maybeIps) && maybeIps.length > 0 ? maybeIps : ["-"];
 
-	const summaryEvents: DashboardSummaryEventItem[] = [
-		...alertAndRecoverySummaries,
-		...telemetrySummaries,
-		...firewallLogSummaries,
-		...unloggedBlockedSummaries,
-		...unloggedWhitelistSummaries,
-	].sort((a, b) => b.timestamp - a.timestamp);
+			return ipsList.map((ip, ipIdx) => {
+				if (ip !== "-") loggedIps.add(`${log.target}:${ip}`);
+				return {
+					id: `firewall-${log.id}-${idx}-${ipIdx}`,
+					category: "firewall" as const,
+					action: actionLabel,
+					target: ip,
+					summary: summaryText,
+					timestamp,
+					createdAt,
+					rawId: log.id,
+					itemKey: `ac-log-${log.id}-${ip !== "-" ? ip : ipIdx}`,
+				};
+			});
+		});
 
-	const totalThreatCount = Math.max(totalCounts.threat, alertAndRecoverySummaries.filter(i => i.category === "threat").length);
-	const totalRecoveryCount = Math.max(totalCounts.recovery, alertAndRecoverySummaries.filter(i => i.category === "recovery").length);
-	const totalTelemetryCount = Math.max(totalCounts.telemetry, telemetrySummaries.length);
-	const totalFirewallCount = Math.max(totalCounts.accessControlLogs, firewallLogSummaries.length)
-		+ unloggedBlockedSummaries.length
-		+ unloggedWhitelistSummaries.length;
+		const unloggedBlockedSummaries: DashboardSummaryEventItem[] = storeBlockedIps
+			.filter((ip) => !loggedIps.has(`block:${ip}`))
+			.map((ip) => ({
+				id: `firewall-block-${ip}`,
+				category: "firewall",
+				action: "BLOCK_ADD",
+				target: ip,
+				summary: t(($) => $.recentEvents.defaultReason),
+				timestamp: 0,
+				createdAt: "-",
+				rawId: ip,
+				itemKey: `blocked-ip-${ip}`,
+			}));
 
-	const tabTotalCounts = {
-		all: totalThreatCount + totalRecoveryCount + totalTelemetryCount + totalFirewallCount,
-		threat: totalThreatCount,
-		recovery: totalRecoveryCount,
-		telemetry: totalTelemetryCount,
-		firewall: totalFirewallCount,
-	};
+		const unloggedWhitelistSummaries: DashboardSummaryEventItem[] = storeWhitelistIps
+			.filter((ip) => !loggedIps.has(`whitelist:${ip}`))
+			.map((ip) => ({
+				id: `firewall-whitelist-${ip}`,
+				category: "firewall",
+				action: "WHITELIST_ADD",
+				target: ip,
+				summary: "-",
+				timestamp: 0,
+				createdAt: "-",
+				rawId: ip,
+				itemKey: `whitelist-ip-${ip}`,
+			}));
+
+		const summaryEvents: DashboardSummaryEventItem[] = [
+			...alertAndRecoverySummaries,
+			...telemetrySummaries,
+			...firewallLogSummaries,
+			...unloggedBlockedSummaries,
+			...unloggedWhitelistSummaries,
+		].sort((a, b) => b.timestamp - a.timestamp);
+
+		const totalThreatCount = Math.max(totalCounts.threat, alertAndRecoverySummaries.filter(i => i.category === "threat").length);
+		const totalRecoveryCount = Math.max(totalCounts.recovery, alertAndRecoverySummaries.filter(i => i.category === "recovery").length);
+		const totalTelemetryCount = Math.max(totalCounts.telemetry, telemetrySummaries.length);
+		const totalFirewallCount = Math.max(totalCounts.accessControlLogs, firewallLogSummaries.length)
+			+ unloggedBlockedSummaries.length
+			+ unloggedWhitelistSummaries.length;
+
+		const tabTotalCounts = {
+			all: totalThreatCount + totalRecoveryCount + totalTelemetryCount + totalFirewallCount,
+			threat: totalThreatCount,
+			recovery: totalRecoveryCount,
+			telemetry: totalTelemetryCount,
+			firewall: totalFirewallCount,
+		};
+
+		return { summaryEvents, tabTotalCounts };
+	}, [alerts, telemetryEvents, storeLogs, storeBlockedIps, storeWhitelistIps, totalCounts, t]);
 
 	// 날짜별 통합 보안 이벤트 집계 (Electron에서 계산된 일별 통계 사용)
 	const dailyCounts = new Map<string, {

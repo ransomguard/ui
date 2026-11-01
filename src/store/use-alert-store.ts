@@ -16,11 +16,18 @@ const PAGE_SIZE = 10;
 export interface AlertState {
 	alerts: AlertMessage[];
 	hasMore: boolean;
+	hasMoreBottom: boolean;
+	hasMoreTop: boolean;
 	isLoadingMore: boolean;
+	isLoadingMoreBottom: boolean;
+	isLoadingMoreTop: boolean;
 
 	initAlerts: (logs: IncomingIPCMessage[]) => void;
 	addAlerts: (logs: IncomingIPCMessage[]) => void;
 	fetchMoreAlerts: () => Promise<void>;
+	fetchMoreAlertsBottom: () => Promise<void>;
+	fetchMoreAlertsTop: () => Promise<void>;
+	loadAlertsAround: (timestamp: number) => Promise<boolean>;
 }
 
 
@@ -46,12 +53,22 @@ const mergeAndSortItems = (existing: AlertMessage[], incoming: AlertMessage[]) =
 export const useAlertStore = create<AlertState>((set, get) => ({
 	alerts: [],
 	hasMore: true,
+	hasMoreBottom: true,
+	hasMoreTop: false,
 	isLoadingMore: false,
+	isLoadingMoreBottom: false,
+	isLoadingMoreTop: false,
 
 	initAlerts: (logs) => set((state) => {
 		const newItems = filterItems(logs);
 		const alerts = mergeAndSortItems(state.alerts, newItems);
-		return { alerts, hasMore: newItems.length >= PAGE_SIZE };
+		const hasMore = newItems.length >= PAGE_SIZE;
+		return {
+			alerts,
+			hasMore,
+			hasMoreBottom: hasMore,
+			hasMoreTop: false,
+		};
 	}),
 
 	addAlerts: (logs) => set((state) => {
@@ -62,10 +79,14 @@ export const useAlertStore = create<AlertState>((set, get) => ({
 	}),
 
 	fetchMoreAlerts: async () => {
-		const { alerts, hasMore, isLoadingMore } = get();
-		if (!hasMore || isLoadingMore) return;
+		return get().fetchMoreAlertsBottom();
+	},
 
-		set({ isLoadingMore: true });
+	fetchMoreAlertsBottom: async () => {
+		const { alerts, hasMoreBottom, isLoadingMoreBottom } = get();
+		if (!hasMoreBottom || isLoadingMoreBottom) return;
+
+		set({ isLoadingMore: true, isLoadingMoreBottom: true });
 		try {
 			const oldestTimestamp = alerts.length > 0 ? alerts.at(-1)!.timestamp : undefined;
 			const logs = await window.electronAPI.getSecurityLogs({
@@ -75,14 +96,63 @@ export const useAlertStore = create<AlertState>((set, get) => ({
 			});
 
 			const newItems = filterItems(logs);
+			const hasMore = logs.length >= PAGE_SIZE;
 			set((state) => ({
 				alerts: mergeAndSortItems(state.alerts, newItems),
-				hasMore: logs.length >= PAGE_SIZE,
+				hasMore,
+				hasMoreBottom: hasMore,
 			}));
 		} catch (err) {
-			console.error("[useAlertStore] fetchMoreAlerts failed:", err);
+			console.error("[useAlertStore] fetchMoreAlertsBottom failed:", err);
 		} finally {
-			set({ isLoadingMore: false });
+			set({ isLoadingMore: false, isLoadingMoreBottom: false });
+		}
+	},
+
+	fetchMoreAlertsTop: async () => {
+		const { alerts, hasMoreTop, isLoadingMoreTop } = get();
+		if (!hasMoreTop || isLoadingMoreTop || alerts.length === 0) return;
+
+		set({ isLoadingMoreTop: true });
+		try {
+			const newestTimestamp = alerts[0]?.timestamp;
+			if (newestTimestamp === undefined) return;
+			const logs = await window.electronAPI.getSecurityLogs({
+				types: [...alertTypes],
+				afterTimestamp: newestTimestamp,
+				limit: PAGE_SIZE,
+				direction: "newer",
+			});
+
+			const newItems = filterItems(logs);
+			set((state) => ({
+				alerts: mergeAndSortItems(state.alerts, newItems),
+				hasMoreTop: logs.length >= PAGE_SIZE,
+			}));
+		} catch (err) {
+			console.error("[useAlertStore] fetchMoreAlertsTop failed:", err);
+		} finally {
+			set({ isLoadingMoreTop: false });
+		}
+	},
+
+	loadAlertsAround: async (timestamp: number) => {
+		try {
+			const result = await window.electronAPI.getSecurityLogsAround(timestamp, [...alertTypes], PAGE_SIZE);
+			const newItems = filterItems(result.logs);
+			if (newItems.length > 0) {
+				set({
+					alerts: newItems,
+					hasMoreTop: result.hasMoreTop,
+					hasMore: result.hasMoreBottom,
+					hasMoreBottom: result.hasMoreBottom,
+				});
+				return true;
+			}
+			return false;
+		} catch (err) {
+			console.error("[useAlertStore] loadAlertsAround failed:", err);
+			return false;
 		}
 	},
 }));

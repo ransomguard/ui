@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import {
 	ShieldAlert,
 	RefreshCw,
-	Filter,
 	Clock,
 	FileText,
 	HardDrive,
@@ -12,8 +12,9 @@ import {
 	Shield,
 } from "lucide-react";
 
-import type { FlattenedKeys } from "@/locales";
-import { useAlertStore, useMetricStore } from "@/store";
+import { useAlertStore, useMetricStore, type AlertMessage } from "@/store";
+import { useBidirectionalInfiniteScroll } from "@/hooks/use-bidirectional-infinite-scroll";
+import { useSearchParamTab } from "@/hooks/use-search-param-tab";
 
 import {
 	Sheet,
@@ -22,33 +23,13 @@ import {
 	SheetTitle,
 	SheetDescription,
 } from "@/components/ui/sheet";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, type DataTableFeatures } from "@/components/data-table";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { I18n } from "@/components/i18n";
 
 
-
-export interface AlertFilterItem {
-	label: FlattenedKeys<"alerts.filters">;
-	value: "ALL" | "THREATS" | "RECOVERY";
-}
-
-const alertFilterItems: [AlertFilterItem, ...AlertFilterItem[]] = [
-	{
-		label: "all",
-		value: "ALL",
-	},
-	{
-		label: "threats",
-		value: "THREATS",
-	},
-	{
-		label: "recovery",
-		value: "RECOVERY",
-	},
-];
 
 export interface FormattedAlert {
 	id: string;
@@ -170,19 +151,105 @@ const columns: ColumnDef<DataTableFeatures, FormattedAlert>[] = columnHelper.col
 
 export default function AlertsPage() {
 	const { t } = useTranslation();
+	const [searchParams] = useSearchParams();
+	const timestampParam = searchParams.get("timestamp");
+	const targetTimestamp = timestampParam ? Number(timestampParam) : undefined;
+	const targetItemKey = searchParams.get("itemKey") || searchParams.get("highlightId") || undefined;
+
 	const rawAlerts = useAlertStore((state) => state.alerts);
-	const hasMore = useAlertStore((state) => state.hasMore);
-	const isLoadingMore = useAlertStore((state) => state.isLoadingMore);
-	const fetchMoreAlerts = useAlertStore((state) => state.fetchMoreAlerts);
+	const hasMoreAlerts = useAlertStore((state) => state.hasMore);
 	const totalCounts = useMetricStore((state) => state.totalCounts);
 
-	const [filterItem, setFilterItem] = useState<AlertFilterItem>(alertFilterItems[0]);
+	const [activeTab, setActiveTab] = useSearchParamTab<"ALL" | "THREATS" | "RECOVERY">({
+		paramName: "tab",
+		defaultTab: "ALL",
+		validTabs: ["ALL", "THREATS", "RECOVERY"] as const,
+	});
+
 	const [selectedAlert, setSelectedAlert] = useState<FormattedAlert | null>(null);
 	const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-	const getFilterLabel = (item: AlertFilterItem) => t(($) => $.alerts.filters[item.label]);
+	const alertTypes = useMemo<NonNullable<Parameters<typeof window.electronAPI.getSecurityLogsAround>[1]>>(() => {
+		if (activeTab === "THREATS") {
+			return ["ALERT", "PROCESS_BLOCKED", "VSS_ATTEMPT"];
+		}
+		if (activeTab === "RECOVERY") {
+			return ["VSS_STATUS"];
+		}
+		return ["ALERT", "PROCESS_BLOCKED", "VSS_ATTEMPT", "VSS_STATUS"];
+	}, [activeTab]);
 
-	const formattedAlerts: FormattedAlert[] = rawAlerts.map((item, idx) => {
+	// 현재 탭(전체/위협/복구)에 맞게 캐시 항목도 필터링
+	const filteredRawAlerts = useMemo(() => {
+		if (activeTab === "THREATS") {
+			return rawAlerts.filter(
+				(a) => a.type === "ALERT" || a.type === "PROCESS_BLOCKED" || a.type === "VSS_ATTEMPT",
+			);
+		}
+		if (activeTab === "RECOVERY") {
+			return rawAlerts.filter((a) => a.type === "VSS_STATUS");
+		}
+		return rawAlerts;
+	}, [rawAlerts, activeTab]);
+
+	const getAlertKey = useCallback((item: AlertMessage) => {
+		return item.sequenceNumber != null
+			? `${item.type}-${item.timestamp}-${item.sequenceNumber}`
+			: `${item.type}-${item.timestamp}-${JSON.stringify(item.data)}`;
+	}, []);
+
+	const {
+		visibleItems: visibleAlerts,
+		hasMoreTop,
+		hasMoreBottom,
+		isLoadingTop,
+		isLoadingBottom,
+		loadMore,
+		highlightedRowId,
+		setHighlightedRowId,
+		topOffset,
+	} = useBidirectionalInfiniteScroll<AlertMessage>({
+		cachedItems: filteredRawAlerts,
+		pageSize: 15,
+		initialHasMoreBottom: hasMoreAlerts,
+		resetKey: activeTab,
+		targetTimestamp,
+		targetItemKey,
+		getItemTimestamp: (item) => item.timestamp,
+		getItemKey: getAlertKey,
+		getRowId: getAlertKey,
+		fetchFromElectron: useCallback(
+			async ({ timestamp, direction, limit }) => {
+				const logs = await window.electronAPI.getSecurityLogs({
+					types: alertTypes,
+					...(direction === "older" ? { beforeTimestamp: timestamp } : { afterTimestamp: timestamp, direction: "newer" }),
+					limit,
+				});
+				return {
+					items: logs as AlertMessage[],
+					hasMore: logs.length >= limit,
+				};
+			},
+			[alertTypes],
+		),
+		fetchAroundFromElectron: useCallback(
+			async ({ targetTimestamp, limit }) => {
+				const res = await window.electronAPI.getSecurityLogsAround(targetTimestamp, alertTypes, limit);
+				return {
+					items: res.logs as AlertMessage[],
+					hasMoreTop: res.hasMoreTop,
+					hasMoreBottom: res.hasMoreBottom,
+					topOffset: res.topOffset,
+				};
+			},
+			[alertTypes],
+		),
+		onItemsFetched: useCallback((items: AlertMessage[]) => {
+			useAlertStore.getState().addAlerts(items as IncomingIPCMessage[]);
+		}, []),
+	});
+
+	const formattedAlerts: FormattedAlert[] = visibleAlerts.map((item) => {
 		const timestamp = item.timestamp;
 		const createdAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
 
@@ -244,7 +311,7 @@ export default function AlertsPage() {
 			item.type === "VSS_STATUS";
 
 		return {
-			id: `alert-${timestamp}-${idx}`,
+			id: getAlertKey(item),
 			processId,
 			processName,
 			imagePath,
@@ -260,10 +327,10 @@ export default function AlertsPage() {
 	});
 
 	const filteredLogs = formattedAlerts.filter((log) => {
-		if (filterItem.value === "THREATS") {
+		if (activeTab === "THREATS") {
 			return log.isThreat;
 		}
-		if (filterItem.value === "RECOVERY") {
+		if (activeTab === "RECOVERY") {
 			return log.isRecovery;
 		}
 		return true;
@@ -308,39 +375,38 @@ export default function AlertsPage() {
 				data={filteredLogs}
 				enableSearch={true}
 				enableRowNumber={true}
+				rowNumberOffset={topOffset}
 				filterPlaceholder={t(($) => $.alerts.searchPlaceholder)}
 				filterColumnKey="matchedRule"
-				hasMore={hasMore}
-				isLoadingMore={isLoadingMore}
-				onLoadMore={fetchMoreAlerts}
+				hasMoreTop={hasMoreTop}
+				hasMoreBottom={hasMoreBottom}
+				isLoadingMoreTop={isLoadingTop}
+				isLoadingMoreBottom={isLoadingBottom}
+				onLoadMoreTop={() => loadMore("newer")}
+				onLoadMoreBottom={() => loadMore("older")}
+				highlightedRowId={highlightedRowId}
+				onHighlightEnd={() => setHighlightedRowId(null)}
 				maxHeight="calc(100vh - 18rem)"
 				onRowClick={(row) => handleRowClick(row)}
 			>
-				<div className="flex items-center gap-2">
-					<Filter className="size-4 text-muted-foreground shrink-0"/>
-					<Select
-						value={filterItem}
-						onValueChange={(val) => setFilterItem(val ?? alertFilterItems[0])}
-						itemToStringLabel={getFilterLabel}
-					>
-						<SelectTrigger className="w-44">
-							<SelectValue placeholder={getFilterLabel(filterItem)}/>
-						</SelectTrigger>
-						<SelectContent className="rounded-xl">
-							<SelectGroup>
-								{alertFilterItems.map((item) => (
-									<SelectItem
-										key={item.value}
-										value={item}
-										className="rounded-lg"
-									>
-										{getFilterLabel(item)}
-									</SelectItem>
-								))}
-							</SelectGroup>
-						</SelectContent>
-					</Select>
-				</div>
+				<Tabs
+					value={activeTab}
+					onValueChange={(val) => setActiveTab((val as "ALL" | "THREATS" | "RECOVERY") ?? "ALL")}
+				>
+					<TabsList>
+						<TabsTrigger value="ALL">
+							{t(($) => $.alerts.filters.all)}
+						</TabsTrigger>
+						<TabsTrigger value="THREATS" className="gap-1.5">
+							<ShieldAlert className="size-3.5 text-destructive"/>
+							<span>{t(($) => $.alerts.filters.threats)} ({threatCount})</span>
+						</TabsTrigger>
+						<TabsTrigger value="RECOVERY" className="gap-1.5">
+							<RefreshCw className="size-3.5 text-emerald-600"/>
+							<span>{t(($) => $.alerts.filters.recovery)} ({recoveryCount})</span>
+						</TabsTrigger>
+					</TabsList>
+				</Tabs>
 			</DataTable>
 
 			{/* 행 클릭 시 우측에서 슬라이드 오픈되는 검사 패널 Sheet */}

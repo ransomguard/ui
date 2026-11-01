@@ -1,8 +1,9 @@
-import { and, inArray, gte, gt, lt, desc } from "drizzle-orm";
+import { and, inArray, gte, gt, lt, lte, desc, asc, sql } from "drizzle-orm";
 
 import { acknowledgedThreat } from "~/store";
 import { getDB, table } from "~/db";
 import type { SecurityLogType } from "~/db/schema/security-logs";
+import type { IncomingIPCMessage } from "~/services/ipc-receiver";
 
 
 
@@ -11,6 +12,7 @@ export interface FetchSecurityLogsOptions {
 	beforeTimestamp?: number;
 	afterTimestamp?: number;
 	limit?: number;
+	direction?: "older" | "newer";
 }
 
 /**
@@ -87,6 +89,25 @@ export async function fetchSecurityLogs(options?: FetchSecurityLogsOptions) {
 		if (options?.types && options.types.length > 0) {
 			conditions.push(inArray(table.securityLogs.type, options.types));
 		}
+
+		if (options?.direction === "newer") {
+			if (options.afterTimestamp !== undefined) {
+				conditions.push(gt(table.securityLogs.timestamp, options.afterTimestamp));
+			}
+
+			const query = db.select()
+				.from(table.securityLogs)
+				.where(conditions.length > 0 ? and(...conditions) : undefined)
+				.orderBy(asc(table.securityLogs.timestamp), asc(table.securityLogs.id));
+
+			const rows = options?.limit !== undefined
+				? await query.limit(options.limit)
+				: await query;
+
+			rows.reverse();
+			return rows.map((row) => row.data);
+		}
+
 		if (options?.beforeTimestamp !== undefined) {
 			conditions.push(lt(table.securityLogs.timestamp, options.beforeTimestamp));
 		}
@@ -107,6 +128,77 @@ export async function fetchSecurityLogs(options?: FetchSecurityLogsOptions) {
 	} catch (error) {
 		console.error("[DB Error] Failed to fetch security logs:", error);
 		return [];
+	}
+}
+
+/**
+ * 특정 시점 중심 윈도우 페칭 (위쪽 최신 N개 + 타겟 포함 아래쪽 M개)
+ */
+export async function fetchSecurityLogsAround(
+	targetTimestamp: number,
+	types?: SecurityLogType[],
+	limit = 10,
+): Promise<{
+	logs: IncomingIPCMessage[];
+	hasMoreTop: boolean;
+	hasMoreBottom: boolean;
+	topOffset: number;
+}> {
+	try {
+		const db = getDB();
+		const afterCount = Math.max(1, Math.floor(limit * 0.4)); // e.g. 4 for limit 10
+		const beforeCount = Math.max(1, limit - afterCount); // e.g. 6 for limit 10
+
+		const typeCond = types && types.length > 0 ? inArray(table.securityLogs.type, types) : undefined;
+
+		// 1. 위쪽(최신) 데이터 가져오기: afterCount + 1개 가져와서 hasMoreTop 여부 판별
+		const newerConditions = [gt(table.securityLogs.timestamp, targetTimestamp)];
+		if (typeCond) newerConditions.push(typeCond);
+
+		const newerRows = await db.select()
+			.from(table.securityLogs)
+			.where(and(...newerConditions))
+			.orderBy(asc(table.securityLogs.timestamp), asc(table.securityLogs.id))
+			.limit(afterCount + 1);
+
+		const hasMoreTop = newerRows.length > afterCount;
+		if (hasMoreTop) newerRows.pop();
+		newerRows.reverse();
+
+		let totalNewerCount = newerRows.length;
+		if (hasMoreTop) {
+			const countRows = await db
+				.select({ count: sql<number>`count(*)` })
+				.from(table.securityLogs)
+				.where(and(...newerConditions));
+			totalNewerCount = countRows[0]?.count ?? newerRows.length;
+		}
+
+		// 2. 아래쪽(타겟 포함 과거) 데이터 가져오기: beforeCount + 1개 가져와서 hasMoreBottom 여부 판별
+		const olderConditions = [lte(table.securityLogs.timestamp, targetTimestamp)];
+		if (typeCond) olderConditions.push(typeCond);
+
+		const olderRows = await db.select()
+			.from(table.securityLogs)
+			.where(and(...olderConditions))
+			.orderBy(desc(table.securityLogs.timestamp), desc(table.securityLogs.id))
+			.limit(beforeCount + 1);
+
+		const hasMoreBottom = olderRows.length > beforeCount;
+		if (hasMoreBottom) olderRows.pop();
+
+		const combinedRows = [...newerRows, ...olderRows];
+		const topOffset = Math.max(0, totalNewerCount - newerRows.length);
+
+		return {
+			logs: combinedRows.map((r) => r.data),
+			hasMoreTop,
+			hasMoreBottom,
+			topOffset,
+		};
+	} catch (error) {
+		console.error("[DB Error] Failed to fetch security logs around:", error);
+		return { logs: [], hasMoreTop: false, hasMoreBottom: false, topOffset: 0 };
 	}
 }
 
@@ -296,7 +388,9 @@ export async function getRecentSecurityLogs(limit = 10) {
 
 export interface FetchAccessControlLogsOptions {
 	beforeTimestamp?: number;
+	afterTimestamp?: number;
 	limit?: number;
+	direction?: "older" | "newer";
 }
 
 /**
@@ -310,8 +404,30 @@ export async function getRecentAccessControlLogs(options?: number | FetchAccessC
 			: (options ?? { limit: 10 });
 
 		const conditions = [];
+
+		if (opts.direction === "newer") {
+			if (opts.afterTimestamp !== undefined) {
+				conditions.push(gt(table.accessControlLogs.performedAt, opts.afterTimestamp));
+			}
+
+			const query = db.select()
+				.from(table.accessControlLogs)
+				.where(conditions.length > 0 ? and(...conditions) : undefined)
+				.orderBy(asc(table.accessControlLogs.performedAt), asc(table.accessControlLogs.id));
+
+			const rows = opts.limit !== undefined
+				? await query.limit(opts.limit)
+				: await query;
+
+			rows.reverse();
+			return rows;
+		}
+
 		if (opts.beforeTimestamp !== undefined) {
 			conditions.push(lt(table.accessControlLogs.performedAt, opts.beforeTimestamp));
+		}
+		if (opts.afterTimestamp !== undefined) {
+			conditions.push(gte(table.accessControlLogs.performedAt, opts.afterTimestamp));
 		}
 
 		const query = db.select()
@@ -327,5 +443,59 @@ export async function getRecentAccessControlLogs(options?: number | FetchAccessC
 	} catch (error) {
 		console.error("[DB Error] Failed to fetch recent access control logs:", error);
 		return [];
+	}
+}
+
+/**
+ * 특정 시점 중심 접근 제어 로그 윈도우 페칭
+ */
+export async function getRecentAccessControlLogsAround(
+	targetTimestamp: number,
+	limit = 10,
+) {
+	try {
+		const db = getDB();
+		const afterCount = Math.max(1, Math.floor(limit * 0.4));
+		const beforeCount = Math.max(1, limit - afterCount);
+
+		const newerRows = await db.select()
+			.from(table.accessControlLogs)
+			.where(gt(table.accessControlLogs.performedAt, targetTimestamp))
+			.orderBy(asc(table.accessControlLogs.performedAt), asc(table.accessControlLogs.id))
+			.limit(afterCount + 1);
+
+		const hasMoreTop = newerRows.length > afterCount;
+		if (hasMoreTop) newerRows.pop();
+		newerRows.reverse();
+
+		let totalNewerCount = newerRows.length;
+		if (hasMoreTop) {
+			const countRows = await db
+				.select({ count: sql<number>`count(*)` })
+				.from(table.accessControlLogs)
+				.where(gt(table.accessControlLogs.performedAt, targetTimestamp));
+			totalNewerCount = countRows[0]?.count ?? newerRows.length;
+		}
+
+		const olderRows = await db.select()
+			.from(table.accessControlLogs)
+			.where(lte(table.accessControlLogs.performedAt, targetTimestamp))
+			.orderBy(desc(table.accessControlLogs.performedAt), desc(table.accessControlLogs.id))
+			.limit(beforeCount + 1);
+
+		const hasMoreBottom = olderRows.length > beforeCount;
+		if (hasMoreBottom) olderRows.pop();
+
+		const topOffset = Math.max(0, totalNewerCount - newerRows.length);
+
+		return {
+			rows: [...newerRows, ...olderRows],
+			hasMoreTop,
+			hasMoreBottom,
+			topOffset,
+		};
+	} catch (error) {
+		console.error("[DB Error] Failed to fetch access control logs around:", error);
+		return { rows: [], hasMoreTop: false, hasMoreBottom: false, topOffset: 0 };
 	}
 }

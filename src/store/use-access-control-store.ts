@@ -12,13 +12,18 @@ export interface RuleState {
 	whitelistIps: string[];
 	logs: AccessControlLogItem[];
 	hasMoreLogs: boolean;
+	hasMoreTopLogs: boolean;
 	isLoadingMoreLogs: boolean;
+	isLoadingMoreTopLogs: boolean;
 	isInitialized: boolean;
 	isLoading: boolean;
 	error: string | null;
 
 	fetchRules: (force?: boolean) => Promise<void>;
+	addLogs: (logs: AccessControlLogItem[]) => void;
 	fetchMoreLogs: () => Promise<void>;
+	fetchMoreLogsTop: () => Promise<void>;
+	loadLogsAround: (timestamp: number) => Promise<boolean>;
 	blockIp: (ips: string[], reason: string) => Promise<void>;
 	unblockIp: (ips: string[], reason: string) => Promise<void>;
 	addWhitelist: (ips: string[], reason: string) => Promise<void>;
@@ -43,7 +48,9 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 	whitelistIps: [],
 	logs: [],
 	hasMoreLogs: true,
+	hasMoreTopLogs: false,
 	isLoadingMoreLogs: false,
+	isLoadingMoreTopLogs: false,
 	isInitialized: false,
 	isLoading: false,
 	error: null,
@@ -94,6 +101,13 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 		}
 	},
 
+	addLogs: (newLogs) => {
+		if (newLogs.length === 0) return;
+		set((prev) => ({
+			logs: mergeAccessLogs(prev.logs, newLogs),
+		}));
+	},
+
 	fetchMoreLogs: async () => {
 		const { logs, hasMoreLogs, isLoadingMoreLogs, isLoading } = get();
 		if (!hasMoreLogs || isLoadingMoreLogs || isLoading) return;
@@ -114,6 +128,49 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 			console.error("[useAccessControlStore] fetchMoreLogs failed:", err);
 		} finally {
 			set({ isLoadingMoreLogs: false });
+		}
+	},
+
+	fetchMoreLogsTop: async () => {
+		const { logs, hasMoreTopLogs, isLoadingMoreTopLogs, isLoading } = get();
+		if (!hasMoreTopLogs || isLoadingMoreTopLogs || isLoading || logs.length === 0) return;
+
+		set({ isLoadingMoreTopLogs: true });
+		try {
+			const newestTimestamp = logs[0]?.performedAt;
+			if (newestTimestamp === undefined) return;
+			const nextLogs = await window.electronAPI.getAccessControlLogs({
+				afterTimestamp: newestTimestamp,
+				limit: PAGE_SIZE,
+				direction: "newer",
+			});
+
+			set((prev) => ({
+				logs: mergeAccessLogs(prev.logs, nextLogs),
+				hasMoreTopLogs: nextLogs.length >= PAGE_SIZE,
+			}));
+		} catch (err) {
+			console.error("[useAccessControlStore] fetchMoreLogsTop failed:", err);
+		} finally {
+			set({ isLoadingMoreTopLogs: false });
+		}
+	},
+
+	loadLogsAround: async (timestamp: number) => {
+		try {
+			const result = await window.electronAPI.getAccessControlLogsAround(timestamp, PAGE_SIZE);
+			if (result.logs.length > 0) {
+				set({
+					logs: result.logs,
+					hasMoreTopLogs: result.hasMoreTop,
+					hasMoreLogs: result.hasMoreBottom,
+				});
+				return true;
+			}
+			return false;
+		} catch (err) {
+			console.error("[useAccessControlStore] loadLogsAround failed:", err);
+			return false;
 		}
 	},
 

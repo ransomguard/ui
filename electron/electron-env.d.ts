@@ -55,9 +55,28 @@ interface Window {
 		onSecurityLogsUpdated(callback: OnSecurityLogsUpdatedCallback): Unsubscribe;
 		getEngineStatus(): Promise<GetLastEngineStatusData>;
 		getSecurityLogs(options?: FetchSecurityLogsOptions): Promise<IncomingIPCMessage[]>;
+		getSecurityLogsAround(
+			targetTimestamp: number,
+			types?: import("~/db/schema/security-logs").SecurityLogType[],
+			limit?: number
+		): Promise<{
+			logs: IncomingIPCMessage[];
+			hasMoreTop: boolean;
+			hasMoreBottom: boolean;
+			topOffset?: number;
+		}>;
 		acknowledgeThreats(timestamp?: number): Promise<boolean>;
 
 		getAccessControlLogs(options?: FetchAccessControlLogsOptions): Promise<FetchLogsResult>;
+		getAccessControlLogsAround(
+			targetTimestamp: number,
+			limit?: number
+		): Promise<{
+			logs: AccessControlLogItem[];
+			hasMoreTop: boolean;
+			hasMoreBottom: boolean;
+			topOffset?: number;
+		}>;
 		getBlockedIPs(): Promise<FetchIPsResult>;
 		getWhitelistedIPs(): Promise<FetchIPsResult>;
 		addBlockedIPs(ips: string[], reason: string): Promise<AccessControlLogItem[]>;

@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useMemo, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { useTranslation } from "react-i18next";
+import { useSearchParamTab } from "@/hooks/use-search-param-tab";
+import { useBidirectionalInfiniteScroll } from "@/hooks/use-bidirectional-infinite-scroll";
 import {
 	ShieldAlert,
 	RefreshCw,
@@ -26,14 +28,9 @@ export interface DashboardSummaryEventItem {
 	summary: string;
 	timestamp: number;
 	createdAt: string;
+	rawId?: string | number | null;
+	itemKey?: string;
 }
-
-const CATEGORY_ROUTES: Record<DashboardEventCategory, string> = {
-	threat: "/alerts",
-	recovery: "/alerts",
-	telemetry: "/telemetry",
-	firewall: "/access-control",
-};
 
 const columnHelper = createColumnHelper<DataTableFeatures, DashboardSummaryEventItem>();
 
@@ -159,8 +156,10 @@ export interface RecentEventsSectionProps {
 	isLoading?: boolean;
 	hasMoreByTab?: Record<"all" | DashboardEventCategory, boolean>;
 	isLoadingMore?: boolean;
-	onLoadMore?: (category: "all" | DashboardEventCategory) => void;
+	onLoadMore?: (category: "all" | DashboardEventCategory) => Promise<void> | void;
 }
+
+const SUMMARY_PAGE_SIZE = 15;
 
 export default function RecentEventsSection({
 	data,
@@ -173,11 +172,52 @@ export default function RecentEventsSection({
 	const { t } = useTranslation();
 	const navigate = useNavigate();
 
-	const [activeTab, setActiveTab] = useState<"all" | DashboardEventCategory>("all");
+	const [activeTab, setActiveTab] = useSearchParamTab<"all" | DashboardEventCategory>({
+		paramName: "eventTab",
+		defaultTab: "all",
+		validTabs: ["all", "threat", "recovery", "telemetry", "firewall"] as const,
+	});
 
-	const filteredData = activeTab === "all"
-		? data
-		: data.filter((item) => item.category === activeTab);
+	const handleTabChange = (val: string | null) => {
+		const nextTab = (val as "all" | DashboardEventCategory) ?? "all";
+		setActiveTab(nextTab);
+	};
+
+	const filteredData = useMemo(() => {
+		return activeTab === "all"
+			? data
+			: data.filter((item) => item.category === activeTab);
+	}, [data, activeTab]);
+
+	const {
+		visibleItems,
+		hasMoreTop,
+		hasMoreBottom,
+		isLoadingTop,
+		isLoadingBottom,
+		loadMore,
+		highlightedRowId,
+		setHighlightedRowId,
+		topOffset,
+	} = useBidirectionalInfiniteScroll<DashboardSummaryEventItem>({
+		cachedItems: filteredData,
+		pageSize: SUMMARY_PAGE_SIZE,
+		initialHasMoreBottom: !!hasMoreByTab?.[activeTab],
+		resetKey: activeTab,
+		getItemTimestamp: (item) => item.timestamp,
+		getItemKey: (item) => item.itemKey || item.id,
+		getRowId: (item) => item.id,
+		fetchFromElectron: useCallback(
+			async () => {
+				await onLoadMore?.(activeTab);
+				return { items: [], hasMore: !!hasMoreByTab?.[activeTab] };
+			},
+			[activeTab, onLoadMore, hasMoreByTab],
+		),
+		fetchAroundFromElectron: useCallback(async () => {
+			return { items: [], hasMoreTop: false, hasMoreBottom: false };
+		}, []),
+	});
 
 	const counts = totalCounts ?? {
 		all: data.length,
@@ -191,20 +231,49 @@ export default function RecentEventsSection({
 		<DataTable
 			heading={t(($) => $.recentEvents.heading)}
 			columns={summaryColumns}
-			data={filteredData}
+			data={visibleItems}
 			isLoading={isLoading}
-			hasMore={hasMoreByTab?.[activeTab]}
-			isLoadingMore={isLoadingMore}
-			onLoadMore={() => onLoadMore?.(activeTab)}
+			hasMoreTop={hasMoreTop}
+			hasMoreBottom={hasMoreBottom}
+			isLoadingMoreTop={isLoadingTop}
+			isLoadingMoreBottom={isLoadingBottom || isLoadingMore}
+			onLoadMoreTop={() => loadMore("newer")}
+			onLoadMoreBottom={() => loadMore("older")}
+			highlightedRowId={highlightedRowId}
+			onHighlightEnd={() => setHighlightedRowId(null)}
+			enableRowNumber
+			rowNumberOffset={topOffset}
 			filterPlaceholder={t(($) => $.recentEvents.searchPlaceholder)}
 			filterColumnKey="summary"
-			onRowClick={(row) => navigate(CATEGORY_ROUTES[row.category])}
+			onRowClick={(row) => {
+				const params = new URLSearchParams();
+				if (row.id) params.set("highlightId", row.id);
+				if (row.timestamp) params.set("timestamp", String(row.timestamp));
+				if (row.itemKey) params.set("itemKey", row.itemKey);
+
+				if (row.category === "threat" || row.category === "recovery") {
+					params.set("tab", row.category === "recovery" ? "RECOVERY" : "THREATS");
+					navigate(`/alerts?${params.toString()}`);
+				} else if (row.category === "telemetry") {
+					navigate(`/telemetry?${params.toString()}`);
+				} else if (row.category === "firewall") {
+					if (row.id.startsWith("firewall-block-")) {
+						params.set("tab", "blocked-ips");
+						if (row.target) params.set("target", row.target);
+					} else if (row.id.startsWith("firewall-whitelist-")) {
+						params.set("tab", "whitelisted-ips");
+						if (row.target) params.set("target", row.target);
+					} else {
+						params.set("tab", "access-logs");
+					}
+					navigate(`/access-control?${params.toString()}`);
+				}
+			}}
 			enableSearch
-			enableRowNumber
 		>
 			<Tabs
 				value={activeTab}
-				onValueChange={(val) => setActiveTab((val as "all" | DashboardEventCategory) ?? "all")}
+				onValueChange={handleTabChange}
 			>
 				<TabsList>
 					<TabsTrigger value="all">

@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParamTab } from "@/hooks/use-search-param-tab";
 
 import {
 	Select,
@@ -89,7 +89,11 @@ export default function MainChartSection<T extends TimeRangeItem>({
 	isLoading,
 }: MainChartSectionProps<T>) {
 	const { t, i18n: { language } } = useTranslation();
-	const [activeCategory, setActiveCategory] = useState<ChartCategory>("threat");
+	const [activeCategory, setActiveCategory] = useSearchParamTab<ChartCategory>({
+		paramName: "chartTab",
+		defaultTab: "threat",
+		validTabs: ["threat", "telemetry", "health", "all"] as const,
+	});
 
 	const getLabel = (item: T) => t($ => $.timeRange[item.label], { days: item.value });
 
