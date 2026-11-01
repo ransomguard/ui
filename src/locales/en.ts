@@ -78,11 +78,14 @@ export const en: AppTranslations = {
 	},
 
 	chart: {
-		heading: "Threat Detection Trend",
-		description: "Detection and block event statistics for {{ timeRange }}",
+		heading: "Security Event Activity Trend",
+		description: "Threat blocks, auto-recovery, process/file I/O, and firewall statistics for {{ timeRange }}",
 		visitors: "Events",
-		desktop: "Blocked",
-		mobile: "Monitored",
+		threat: "Threats & Blocks",
+		recovery: "Auto Recovery",
+		process: "Process Activity",
+		file: "File I/O",
+		firewall: "Firewall Policy",
 	},
 
 	recentEvents: {

@@ -17,8 +17,11 @@ import type { TimeRangeItem } from "./common";
 
 export interface AreaChartDataItem extends Record<string, unknown> {
 	date: string;
-	desktop: number;
-	mobile: number;
+	threat: number;
+	recovery: number;
+	process: number;
+	file: number;
+	firewall: number;
 }
 
 export interface MainChartSectionProps<T extends TimeRangeItem> {
@@ -44,13 +47,25 @@ export default function MainChartSection<T extends TimeRangeItem>({
 		visitors: {
 			label: t($ => $.chart.visitors),
 		},
-		desktop: {
-			label: t($ => $.chart.desktop),
+		threat: {
+			label: t($ => $.chart.threat),
+			color: "var(--chart-5)",
+		},
+		recovery: {
+			label: t($ => $.chart.recovery),
+			color: "var(--chart-2)",
+		},
+		process: {
+			label: t($ => $.chart.process),
 			color: "var(--chart-1)",
 		},
-		mobile: {
-			label: t($ => $.chart.mobile),
-			color: "var(--chart-2)",
+		file: {
+			label: t($ => $.chart.file),
+			color: "var(--chart-3)",
+		},
+		firewall: {
+			label: t($ => $.chart.firewall),
+			color: "var(--chart-4)",
 		},
 	} satisfies ChartConfig;
 

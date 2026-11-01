@@ -78,11 +78,14 @@ export const ko: AppTranslations = {
 	},
 
 	chart: {
-		heading: "위협 탐지 추이",
-		description: "{{ timeRange }}간의 탐지 및 차단 이벤트 통계",
+		heading: "통합 보안 이벤트 추이",
+		description: "{{ timeRange }}간의 위협 차단, 자동 복구, 프로세스·파일 I/O 및 방화벽 통계",
 		visitors: "이벤트 수",
-		desktop: "차단됨",
-		mobile: "감시됨",
+		threat: "위협/차단",
+		recovery: "자동 복구",
+		process: "프로세스 활동",
+		file: "파일 I/O",
+		firewall: "방화벽 정책",
 	},
 
 	recentEvents: {

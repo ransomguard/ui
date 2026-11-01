@@ -12,8 +12,11 @@ const metricTypesSet = new Set(metricTypes);
 
 export interface DailyChartStatsItem {
 	date: string;
-	desktop: number;
-	mobile: number;
+	threat: number;
+	recovery: number;
+	process: number;
+	file: number;
+	firewall: number;
 	blockedCount: number;
 	terminatedCount: number;
 }
@@ -111,11 +114,34 @@ export const useMetricStore = create<MetricState>((set) => ({
 			const dateKey = toDateKey(item.timestamp);
 			const stat = statsMap.get(dateKey) ?? {
 				date: dateKey,
-				desktop: 0,
-				mobile: 0,
+				threat: 0,
+				recovery: 0,
+				process: 0,
+				file: 0,
+				firewall: 0,
 				blockedCount: 0,
 				terminatedCount: 0,
 			};
+
+			if (item.type === "VSS_STATUS") {
+				stat.recovery += 1;
+			} else if (
+				item.type === "PROCESS_BLOCKED" ||
+				item.type === "VSS_ATTEMPT" ||
+				item.type === "ALERT"
+			) {
+				stat.threat += 1;
+			} else if (
+				item.type === "PROCESS_CREATE" ||
+				item.type === "PROCESS_TERMINATE"
+			) {
+				stat.process += 1;
+			} else if (
+				item.type === "FILE_WRITE" ||
+				item.type === "FILE_RENAME"
+			) {
+				stat.file += 1;
+			}
 
 			const isBlocked =
 				item.type === "PROCESS_BLOCKED" ||
@@ -123,10 +149,7 @@ export const useMetricStore = create<MetricState>((set) => ({
 				(item.type === "ALERT" && item.data.action !== "ALLOWED");
 
 			if (isBlocked) {
-				stat.desktop += 1;
 				stat.blockedCount += 1;
-			} else {
-				stat.mobile += 1;
 			}
 
 			if (item.type === "PROCESS_TERMINATE") {
@@ -142,10 +165,31 @@ export const useMetricStore = create<MetricState>((set) => ({
 			totalCounts: nextTotalCounts,
 		};
 	}),
-	incrementAccessLogCount: (amount) => set((state) => ({
-		totalCounts: {
-			...state.totalCounts,
-			accessControlLogs: state.totalCounts.accessControlLogs + amount,
-		},
-	})),
+	incrementAccessLogCount: (amount) => set((state) => {
+		const dateKey = toDateKey(Date.now());
+		const statsMap = new Map<string, DailyChartStatsItem>();
+		for (const s of state.dailyStats) {
+			statsMap.set(s.date, { ...s });
+		}
+		const stat = statsMap.get(dateKey) ?? {
+			date: dateKey,
+			threat: 0,
+			recovery: 0,
+			process: 0,
+			file: 0,
+			firewall: 0,
+			blockedCount: 0,
+			terminatedCount: 0,
+		};
+		stat.firewall += amount;
+		statsMap.set(dateKey, stat);
+
+		return {
+			dailyStats: Array.from(statsMap.values()),
+			totalCounts: {
+				...state.totalCounts,
+				accessControlLogs: state.totalCounts.accessControlLogs + amount,
+			},
+		};
+	}),
 }));

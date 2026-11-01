@@ -305,13 +305,24 @@ export default function Dashboard() {
 		firewall: totalFirewallCount,
 	};
 
-	// 날짜별 차단(desktop) 및 감시(mobile) 이벤트 집계 (Electron에서 계산된 일별 통계 사용)
-	const dailyCounts = new Map<string, { desktop: number; mobile: number; blockedCount: number; terminatedCount: number }>();
+	// 날짜별 통합 보안 이벤트 집계 (Electron에서 계산된 일별 통계 사용)
+	const dailyCounts = new Map<string, {
+		threat: number;
+		recovery: number;
+		process: number;
+		file: number;
+		firewall: number;
+		blockedCount: number;
+		terminatedCount: number;
+	}>();
 
 	for (const stat of dailyStats) {
 		dailyCounts.set(stat.date, {
-			desktop: stat.desktop,
-			mobile: stat.mobile,
+			threat: stat.threat,
+			recovery: stat.recovery,
+			process: stat.process,
+			file: stat.file,
+			firewall: stat.firewall,
 			blockedCount: stat.blockedCount,
 			terminatedCount: stat.terminatedCount,
 		});
@@ -322,8 +333,11 @@ export default function Dashboard() {
 			const dateKey = toDateKey(metric.timestamp);
 			if (!dailyCounts.has(dateKey)) {
 				dailyCounts.set(dateKey, {
-					desktop: metric.data.processesBlocked + metric.data.processesTerminated,
-					mobile: metric.data.eventsGenerated,
+					threat: metric.data.processesBlocked + metric.data.processesTerminated,
+					recovery: 0,
+					process: Math.ceil(metric.data.eventsGenerated / 2),
+					file: Math.floor(metric.data.eventsGenerated / 2),
+					firewall: 0,
 					blockedCount: metric.data.processesBlocked,
 					terminatedCount: metric.data.processesTerminated,
 				});
@@ -339,8 +353,11 @@ export default function Dashboard() {
 
 		return {
 			date: dateStr,
-			desktop: counts?.desktop ?? 0,
-			mobile: counts?.mobile ?? 0,
+			threat: counts?.threat ?? 0,
+			recovery: counts?.recovery ?? 0,
+			process: counts?.process ?? 0,
+			file: counts?.file ?? 0,
+			firewall: counts?.firewall ?? 0,
 		};
 	});
 

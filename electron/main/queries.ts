@@ -74,8 +74,11 @@ export async function fetchSecurityLogs(options?: FetchSecurityLogsOptions) {
 
 export interface DailyChartStatsItem {
 	date: string;
-	desktop: number;
-	mobile: number;
+	threat: number;
+	recovery: number;
+	process: number;
+	file: number;
+	firewall: number;
 	blockedCount: number;
 	terminatedCount: number;
 }
@@ -118,12 +121,9 @@ export async function getDashboardStatsAndCounts(days = 90): Promise<{
 			}).from(table.securityLogs),
 			db.select({
 				ips: table.accessControlLogs.ips,
+				performedAt: table.accessControlLogs.performedAt,
 			}).from(table.accessControlLogs),
 		]);
-
-		for (const ac of acRows) {
-			totalCounts.accessControlLogs += (ac.ips && ac.ips.length > 0 ? ac.ips.length : 1);
-		}
 
 		const dailyMap = new Map<string, DailyChartStatsItem>();
 		const toDateKey = (ts: number) => {
@@ -133,6 +133,35 @@ export async function getDashboardStatsAndCounts(days = 90): Promise<{
 			const day = String(d.getDate()).padStart(2, "0");
 			return `${year}-${month}-${day}`;
 		};
+
+		const getOrCreateDay = (dateKey: string): DailyChartStatsItem => {
+			let item = dailyMap.get(dateKey);
+			if (!item) {
+				item = {
+					date: dateKey,
+					threat: 0,
+					recovery: 0,
+					process: 0,
+					file: 0,
+					firewall: 0,
+					blockedCount: 0,
+					terminatedCount: 0,
+				};
+				dailyMap.set(dateKey, item);
+			}
+			return item;
+		};
+
+		for (const ac of acRows) {
+			const count = ac.ips && ac.ips.length > 0 ? ac.ips.length : 1;
+			totalCounts.accessControlLogs += count;
+
+			if (ac.performedAt >= startTime) {
+				const dateKey = toDateKey(ac.performedAt);
+				const item = getOrCreateDay(dateKey);
+				item.firewall += count;
+			}
+		}
 
 		for (const row of secRows) {
 			// 1. 전체 탭/뱃지용 최종 카운트 집계
@@ -164,13 +193,27 @@ export async function getDashboardStatsAndCounts(days = 90): Promise<{
 			// 2. 차트 기간 내 일별 통계 집계
 			if (row.timestamp >= startTime) {
 				const dateKey = toDateKey(row.timestamp);
-				const item = dailyMap.get(dateKey) ?? {
-					date: dateKey,
-					desktop: 0,
-					mobile: 0,
-					blockedCount: 0,
-					terminatedCount: 0,
-				};
+				const item = getOrCreateDay(dateKey);
+
+				if (row.type === "VSS_STATUS") {
+					item.recovery += 1;
+				} else if (
+					row.type === "PROCESS_BLOCKED" ||
+					row.type === "VSS_ATTEMPT" ||
+					row.type === "ALERT"
+				) {
+					item.threat += 1;
+				} else if (
+					row.type === "PROCESS_CREATE" ||
+					row.type === "PROCESS_TERMINATE"
+				) {
+					item.process += 1;
+				} else if (
+					row.type === "FILE_WRITE" ||
+					row.type === "FILE_RENAME"
+				) {
+					item.file += 1;
+				}
 
 				const isBlocked =
 					row.type === "PROCESS_BLOCKED" ||
@@ -178,17 +221,12 @@ export async function getDashboardStatsAndCounts(days = 90): Promise<{
 					(row.type === "ALERT" && row.data.type === "ALERT" && row.data.data.action !== "ALLOWED");
 
 				if (isBlocked) {
-					item.desktop += 1;
 					item.blockedCount += 1;
-				} else {
-					item.mobile += 1;
 				}
 
 				if (row.type === "PROCESS_TERMINATE") {
 					item.terminatedCount += 1;
 				}
-
-				dailyMap.set(dateKey, item);
 			}
 		}
 

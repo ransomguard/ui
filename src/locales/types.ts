@@ -64,8 +64,11 @@ export interface AppTranslations {
 		heading: string;
 		description: string;
 		visitors: string;
-		desktop: string;
-		mobile: string;
+		threat: string;
+		recovery: string;
+		process: string;
+		file: string;
+		firewall: string;
 	};
 
 	recentEvents: {
