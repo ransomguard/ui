@@ -36,6 +36,8 @@ export interface AppTranslations {
 		processesBlockedDesc: string;
 		processesTerminated: string;
 		processesTerminatedDesc: string;
+		filesRecovered: string;
+		filesRecoveredDesc: string;
 		queueDepth: string;
 		queueDepthDesc: string;
 		eventsDropped: string;
@@ -64,11 +66,21 @@ export interface AppTranslations {
 		heading: string;
 		description: string;
 		visitors: string;
+		tabs: {
+			threat: string;
+			telemetry: string;
+			health: string;
+			all: string;
+		};
 		threat: string;
+		processTerminated: string;
 		recovery: string;
-		process: string;
-		file: string;
+		fileRename: string;
+		fileWrite: string;
+		processCreate: string;
 		firewall: string;
+		queueDepth: string;
+		eventsDropped: string;
 	};
 
 	recentEvents: {

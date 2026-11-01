@@ -113,10 +113,14 @@ export async function fetchSecurityLogs(options?: FetchSecurityLogsOptions) {
 export interface DailyChartStatsItem {
 	date: string;
 	threat: number;
+	processTerminated: number;
 	recovery: number;
-	process: number;
-	file: number;
+	fileRename: number;
+	fileWrite: number;
+	processCreate: number;
 	firewall: number;
+	queueDepth: number;
+	eventsDropped: number;
 	blockedCount: number;
 	terminatedCount: number;
 }
@@ -178,10 +182,14 @@ export async function getDashboardStatsAndCounts(days = 90): Promise<{
 				item = {
 					date: dateKey,
 					threat: 0,
+					processTerminated: 0,
 					recovery: 0,
-					process: 0,
-					file: 0,
+					fileRename: 0,
+					fileWrite: 0,
+					processCreate: 0,
 					firewall: 0,
+					queueDepth: 0,
+					eventsDropped: 0,
 					blockedCount: 0,
 					terminatedCount: 0,
 				};
@@ -241,16 +249,14 @@ export async function getDashboardStatsAndCounts(days = 90): Promise<{
 					row.type === "ALERT"
 				) {
 					item.threat += 1;
-				} else if (
-					row.type === "PROCESS_CREATE" ||
-					row.type === "PROCESS_TERMINATE"
-				) {
-					item.process += 1;
-				} else if (
-					row.type === "FILE_WRITE" ||
-					row.type === "FILE_RENAME"
-				) {
-					item.file += 1;
+				} else if (row.type === "PROCESS_TERMINATE") {
+					item.processTerminated += 1;
+				} else if (row.type === "PROCESS_CREATE") {
+					item.processCreate += 1;
+				} else if (row.type === "FILE_RENAME") {
+					item.fileRename += 1;
+				} else if (row.type === "FILE_WRITE") {
+					item.fileWrite += 1;
 				}
 
 				const isBlocked =

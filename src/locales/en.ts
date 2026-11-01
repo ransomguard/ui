@@ -53,6 +53,8 @@ export const en: AppTranslations = {
 		processesBlockedDesc: "Number of processes blocked by real-time protection",
 		processesTerminated: "Processes Terminated",
 		processesTerminatedDesc: "Number of processes terminated due to threat activity",
+		filesRecovered: "Files Recovered",
+		filesRecoveredDesc: "Files restored from snapshots automatically",
 		queueDepth: "Queue Depth",
 		queueDepthDesc: "Current pending kernel event queue size",
 		eventsDropped: "Events Dropped",
@@ -79,13 +81,23 @@ export const en: AppTranslations = {
 
 	chart: {
 		heading: "Security Event Activity Trend",
-		description: "Threat blocks, auto-recovery, process/file I/O, and firewall statistics for {{ timeRange }}",
+		description: "Threat blocks, terminations, recovery, file/process monitoring, firewall, and queue load statistics for {{ timeRange }}",
 		visitors: "Events",
-		threat: "Threats & Blocks",
+		tabs: {
+			threat: "Threats & Defense",
+			telemetry: "System Activity",
+			health: "System Health",
+			all: "All Metrics",
+		},
+		threat: "Threat Blocks",
+		processTerminated: "Processes Terminated",
 		recovery: "Auto Recovery",
-		process: "Process Activity",
-		file: "File I/O",
+		fileRename: "Extension Changes",
+		fileWrite: "File I/O Activity",
+		processCreate: "Process Launches",
 		firewall: "Firewall Policy",
+		queueDepth: "Queue Depth",
+		eventsDropped: "Events Dropped",
 	},
 
 	recentEvents: {

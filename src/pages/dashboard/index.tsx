@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
 	ShieldBan,
 	ZapOff,
-	Layers,
+	RefreshCw,
 	AlertTriangle,
 } from "lucide-react";
 
@@ -308,10 +308,14 @@ export default function Dashboard() {
 	// 날짜별 통합 보안 이벤트 집계 (Electron에서 계산된 일별 통계 사용)
 	const dailyCounts = new Map<string, {
 		threat: number;
+		processTerminated: number;
 		recovery: number;
-		process: number;
-		file: number;
+		fileRename: number;
+		fileWrite: number;
+		processCreate: number;
 		firewall: number;
+		queueDepth: number;
+		eventsDropped: number;
 		blockedCount: number;
 		terminatedCount: number;
 	}>();
@@ -319,10 +323,14 @@ export default function Dashboard() {
 	for (const stat of dailyStats) {
 		dailyCounts.set(stat.date, {
 			threat: stat.threat,
+			processTerminated: stat.processTerminated,
 			recovery: stat.recovery,
-			process: stat.process,
-			file: stat.file,
+			fileRename: stat.fileRename,
+			fileWrite: stat.fileWrite,
+			processCreate: stat.processCreate,
 			firewall: stat.firewall,
+			queueDepth: stat.queueDepth ?? 0,
+			eventsDropped: stat.eventsDropped ?? 0,
 			blockedCount: stat.blockedCount,
 			terminatedCount: stat.terminatedCount,
 		});
@@ -331,18 +339,46 @@ export default function Dashboard() {
 	for (const metric of metrics) {
 		if (metric.type === "SYSTEM_STATUS") {
 			const dateKey = toDateKey(metric.timestamp);
-			if (!dailyCounts.has(dateKey)) {
-				dailyCounts.set(dateKey, {
-					threat: metric.data.processesBlocked + metric.data.processesTerminated,
-					recovery: 0,
-					process: Math.ceil(metric.data.eventsGenerated / 2),
-					file: Math.floor(metric.data.eventsGenerated / 2),
-					firewall: 0,
-					blockedCount: metric.data.processesBlocked,
-					terminatedCount: metric.data.processesTerminated,
-				});
-			}
+			const existing = dailyCounts.get(dateKey) ?? {
+				threat: 0,
+				processTerminated: 0,
+				recovery: 0,
+				fileRename: 0,
+				fileWrite: 0,
+				processCreate: 0,
+				firewall: 0,
+				queueDepth: 0,
+				eventsDropped: 0,
+				blockedCount: 0,
+				terminatedCount: 0,
+			};
+			existing.queueDepth = Math.max(existing.queueDepth, metric.data.queueDepth);
+			existing.eventsDropped = Math.max(existing.eventsDropped, metric.data.eventsDropped);
+			existing.threat = Math.max(existing.threat, metric.data.processesBlocked);
+			existing.processTerminated = Math.max(existing.processTerminated, metric.data.processesTerminated);
+			dailyCounts.set(dateKey, existing);
 		}
+	}
+
+	// 오늘 날짜에는 현재 sysData의 최신 queueDepth, eventsDropped도 실시간 반영
+	const todayKey = toDateKey(Date.now());
+	if (sysData) {
+		const todayCounts = dailyCounts.get(todayKey) ?? {
+			threat: 0,
+			processTerminated: 0,
+			recovery: 0,
+			fileRename: 0,
+			fileWrite: 0,
+			processCreate: 0,
+			firewall: 0,
+			queueDepth: 0,
+			eventsDropped: 0,
+			blockedCount: 0,
+			terminatedCount: 0,
+		};
+		todayCounts.queueDepth = Math.max(todayCounts.queueDepth, sysData.queueDepth);
+		todayCounts.eventsDropped = Math.max(todayCounts.eventsDropped, sysData.eventsDropped);
+		dailyCounts.set(todayKey, todayCounts);
 	}
 
 	const chartItems: AreaChartDataItem[] = Array.from({ length: MAX_CHART_DAYS }).map((_, i) => {
@@ -354,10 +390,14 @@ export default function Dashboard() {
 		return {
 			date: dateStr,
 			threat: counts?.threat ?? 0,
+			processTerminated: counts?.processTerminated ?? 0,
 			recovery: counts?.recovery ?? 0,
-			process: counts?.process ?? 0,
-			file: counts?.file ?? 0,
+			fileRename: counts?.fileRename ?? 0,
+			fileWrite: counts?.fileWrite ?? 0,
+			processCreate: counts?.processCreate ?? 0,
 			firewall: counts?.firewall ?? 0,
+			queueDepth: counts?.queueDepth ?? 0,
+			eventsDropped: counts?.eventsDropped ?? 0,
 		};
 	});
 
@@ -367,18 +407,22 @@ export default function Dashboard() {
 	const rangeDateKeys = new Set(filteredChartData.map((item) => item.date));
 	let logsBlockedCount = 0;
 	let logsTerminatedCount = 0;
+	let logsRecoveryCount = 0;
+	let logsDroppedCount = 0;
 	for (const dateKey of rangeDateKeys) {
 		const counts = dailyCounts.get(dateKey);
 		if (counts) {
-			logsBlockedCount += counts.blockedCount;
-			logsTerminatedCount += counts.terminatedCount;
+			logsBlockedCount += counts.threat || counts.blockedCount;
+			logsTerminatedCount += counts.processTerminated || counts.terminatedCount;
+			logsRecoveryCount += counts.recovery;
+			logsDroppedCount += counts.eventsDropped;
 		}
 	}
 
 	const processesBlockedCount = Math.max(logsBlockedCount, sysData?.processesBlocked ?? 0);
 	const processesTerminatedCount = Math.max(logsTerminatedCount, sysData?.processesTerminated ?? 0);
-	const queueDepthCount = sysData?.queueDepth ?? 0;
-	const eventsDroppedCount = sysData?.eventsDropped ?? 0;
+	const filesRecoveredCount = Math.max(logsRecoveryCount, totalCounts.recovery);
+	const eventsDroppedCount = Math.max(logsDroppedCount, sysData?.eventsDropped ?? 0);
 
 	const statsItems: StatsItem[] = [
 		{
@@ -394,10 +438,10 @@ export default function Dashboard() {
 			value: processesTerminatedCount.toLocaleString(),
 		},
 		{
-			icon: Layers,
-			label: "queueDepth",
-			description: "queueDepthDesc",
-			value: queueDepthCount.toLocaleString(),
+			icon: RefreshCw,
+			label: "filesRecovered",
+			description: "filesRecoveredDesc",
+			value: filesRecoveredCount.toLocaleString(),
 		},
 		{
 			icon: AlertTriangle,

@@ -53,6 +53,8 @@ export const ko: AppTranslations = {
 		processesBlockedDesc: "실시간 보호로 차단된 프로세스 수",
 		processesTerminated: "종료된 프로세스",
 		processesTerminatedDesc: "위협 행위로 강제 종료된 프로세스 수",
+		filesRecovered: "자동 복구된 파일",
+		filesRecoveredDesc: "스냅샷으로 안전하게 복원된 파일 수",
 		queueDepth: "큐 대기 깊이",
 		queueDepthDesc: "현재 커널 이벤트 처리 대기 수",
 		eventsDropped: "유실된 이벤트",
@@ -79,13 +81,23 @@ export const ko: AppTranslations = {
 
 	chart: {
 		heading: "통합 보안 이벤트 추이",
-		description: "{{ timeRange }}간의 위협 차단, 자동 복구, 프로세스·파일 I/O 및 방화벽 통계",
+		description: "{{ timeRange }}간의 위협 차단, 강제 종료, 자동 복구, 파일·프로세스 감시, 방화벽 및 시스템 큐 통계",
 		visitors: "이벤트 수",
-		threat: "위협/차단",
+		tabs: {
+			threat: "위협 및 대응",
+			telemetry: "시스템 활동",
+			health: "시스템 건전성",
+			all: "전체 지표",
+		},
+		threat: "위협 차단",
+		processTerminated: "프로세스 강제 종료",
 		recovery: "자동 복구",
-		process: "프로세스 활동",
-		file: "파일 I/O",
+		fileRename: "확장자 변경 의심",
+		fileWrite: "파일 I/O 활동",
+		processCreate: "프로세스 실행 감시",
 		firewall: "방화벽 정책",
+		queueDepth: "큐 대기 깊이",
+		eventsDropped: "유실된 이벤트",
 	},
 
 	recentEvents: {

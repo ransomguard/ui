@@ -13,10 +13,14 @@ const metricTypesSet = new Set(metricTypes);
 export interface DailyChartStatsItem {
 	date: string;
 	threat: number;
+	processTerminated: number;
 	recovery: number;
-	process: number;
-	file: number;
+	fileRename: number;
+	fileWrite: number;
+	processCreate: number;
 	firewall: number;
+	queueDepth: number;
+	eventsDropped: number;
 	blockedCount: number;
 	terminatedCount: number;
 }
@@ -85,7 +89,28 @@ export const useMetricStore = create<MetricState>((set) => ({
 		const nextTotalCounts = { ...state.totalCounts };
 
 		for (const item of logs) {
-			if (item.type === "SYSTEM_STATUS") continue;
+			const dateKey = toDateKey(item.timestamp);
+			const stat = statsMap.get(dateKey) ?? {
+				date: dateKey,
+				threat: 0,
+				processTerminated: 0,
+				recovery: 0,
+				fileRename: 0,
+				fileWrite: 0,
+				processCreate: 0,
+				firewall: 0,
+				queueDepth: 0,
+				eventsDropped: 0,
+				blockedCount: 0,
+				terminatedCount: 0,
+			};
+
+			if (item.type === "SYSTEM_STATUS") {
+				stat.queueDepth = Math.max(stat.queueDepth, item.data.queueDepth);
+				stat.eventsDropped = Math.max(stat.eventsDropped, item.data.eventsDropped);
+				statsMap.set(dateKey, stat);
+				continue;
+			}
 
 			if (item.type === "VSS_STATUS") {
 				nextTotalCounts.recovery += 1;
@@ -111,18 +136,6 @@ export const useMetricStore = create<MetricState>((set) => ({
 				nextTotalCounts.telemetry += 1;
 			}
 
-			const dateKey = toDateKey(item.timestamp);
-			const stat = statsMap.get(dateKey) ?? {
-				date: dateKey,
-				threat: 0,
-				recovery: 0,
-				process: 0,
-				file: 0,
-				firewall: 0,
-				blockedCount: 0,
-				terminatedCount: 0,
-			};
-
 			if (item.type === "VSS_STATUS") {
 				stat.recovery += 1;
 			} else if (
@@ -131,16 +144,14 @@ export const useMetricStore = create<MetricState>((set) => ({
 				item.type === "ALERT"
 			) {
 				stat.threat += 1;
-			} else if (
-				item.type === "PROCESS_CREATE" ||
-				item.type === "PROCESS_TERMINATE"
-			) {
-				stat.process += 1;
-			} else if (
-				item.type === "FILE_WRITE" ||
-				item.type === "FILE_RENAME"
-			) {
-				stat.file += 1;
+			} else if (item.type === "PROCESS_TERMINATE") {
+				stat.processTerminated += 1;
+			} else if (item.type === "PROCESS_CREATE") {
+				stat.processCreate += 1;
+			} else if (item.type === "FILE_RENAME") {
+				stat.fileRename += 1;
+			} else if (item.type === "FILE_WRITE") {
+				stat.fileWrite += 1;
 			}
 
 			const isBlocked =
@@ -174,10 +185,14 @@ export const useMetricStore = create<MetricState>((set) => ({
 		const stat = statsMap.get(dateKey) ?? {
 			date: dateKey,
 			threat: 0,
+			processTerminated: 0,
 			recovery: 0,
-			process: 0,
-			file: 0,
+			fileRename: 0,
+			fileWrite: 0,
+			processCreate: 0,
 			firewall: 0,
+			queueDepth: 0,
+			eventsDropped: 0,
 			blockedCount: 0,
 			terminatedCount: 0,
 		};
