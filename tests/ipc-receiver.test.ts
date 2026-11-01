@@ -219,4 +219,28 @@ describe("External IPC Receiver (IPC_TEST_PIPE_NAME)", () => {
 			notifySpy.mockRestore();
 		}
 	});
+
+	test("위협 확인 완료(clearUnreadThreats) 시 electronAPI.acknowledgeThreats가 호출되고 store 상태가 즉시 정상 복원되는지 검증", async () => {
+		await ensureTestPipeServers();
+
+		const ackSpy = spyOn(window.electronAPI, "acknowledgeThreats");
+
+		try {
+			// 1. 위협 이벤트 수신 상태에서 hasUnreadThreats가 true인지 확인
+			const statusBefore = useStatusStore.getState();
+			expect(statusBefore.hasUnreadThreats).toBe(true);
+			expect(statusBefore.status).toBe("THREAT_BLOCKED");
+
+			// 2. 사용자가 위협 확인 완료(clearUnreadThreats) 수행
+			useStatusStore.getState().clearUnreadThreats();
+
+			// 3. 상태가 정상 복원되고 electronAPI.acknowledgeThreats가 호출되었는지 검증
+			const statusAfter = useStatusStore.getState();
+			expect(statusAfter.hasUnreadThreats).toBe(false);
+			expect(statusAfter.status).not.toBe("THREAT_BLOCKED");
+			expect(ackSpy).toHaveBeenCalled();
+		} finally {
+			ackSpy.mockRestore();
+		}
+	});
 });

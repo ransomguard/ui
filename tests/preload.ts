@@ -147,6 +147,7 @@ globalWithWindow.window.electronAPI = {
 		},
 	}),
 	getSecurityLogs: async () => [],
+	acknowledgeThreats: async () => true,
 	getAccessControlLogs: async () => [...mockAccessControlLogs],
 	getBlockedIPs: async () => {
 		const raw = await sendToFirewallTool({ target: "block", action: "list" }, FW_TEST_PIPE_NAME);

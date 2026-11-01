@@ -12,6 +12,8 @@ export const WINDOW_MIN_HEIGHT = 600;
 export interface StoreData {
 	language?: string;
 	windowState: WindowState;
+	lastAcknowledgedThreatId?: number;
+	lastAcknowledgedThreatTime?: number;
 }
 
 export interface WindowState {
@@ -29,11 +31,30 @@ export const language = {
 	get: () => store.get("language") ?? electron.app?.getLocale() ?? "ko",
 };
 
+export const acknowledgedThreat = {
+	set: (id: number, timestamp = Date.now()) => {
+		store.set("lastAcknowledgedThreatId", id);
+		store.set("lastAcknowledgedThreatTime", timestamp);
+	},
+	get: () => ({
+		lastId: store.get("lastAcknowledgedThreatId") ?? 0,
+		lastTime: store.get("lastAcknowledgedThreatTime") ?? 0,
+	}),
+};
+
 export const store = new Store<StoreData>({
 	cwd: process.versions.electron ? undefined : os.tmpdir(),
 	schema: {
 		language: {
 			type: "string",
+		},
+		lastAcknowledgedThreatId: {
+			type: "number",
+			default: 0,
+		},
+		lastAcknowledgedThreatTime: {
+			type: "number",
+			default: 0,
 		},
 		windowState: {
 			type: "object",

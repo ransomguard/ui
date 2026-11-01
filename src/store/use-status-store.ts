@@ -103,9 +103,14 @@ export const useStatusStore = create<StatusState>((set) => ({
 		};
 	}),
 
-	clearUnreadThreats: () => set((state) => ({
-		hasUnreadThreats: false,
-		// 현재 상태 기반으로 다시 계산
-		status: toStatusValue(state.data, false), 
-	})),
+	clearUnreadThreats: () => {
+		window.electronAPI?.acknowledgeThreats?.(Date.now()).catch((err) => {
+			console.error("[useStatusStore] acknowledgeThreats failed:", err);
+		});
+		set((state) => ({
+			hasUnreadThreats: false,
+			// 현재 상태 기반으로 다시 계산
+			status: toStatusValue(state.data, false),
+		}));
+	},
 }));

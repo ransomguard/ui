@@ -1,5 +1,6 @@
-import { isNull, and, inArray, gte, lt, desc } from "drizzle-orm";
+import { and, inArray, gte, gt, lt, desc } from "drizzle-orm";
 
+import { acknowledgedThreat } from "~/store";
 import { getDB, table } from "~/db";
 import type { SecurityLogType } from "~/db/schema/security-logs";
 
@@ -18,23 +19,60 @@ export interface FetchSecurityLogsOptions {
 export async function checkUnreadThreats() {
 	try {
 		const db = getDB();
+		const { lastId, lastTime } = acknowledgedThreat.get();
+		const conditions = [
+			inArray(table.securityLogs.type, [
+				"ALERT",
+				"PROCESS_BLOCKED",
+				"VSS_ATTEMPT",
+			]),
+		];
+
+		if (lastId > 0) {
+			conditions.push(gt(table.securityLogs.id, lastId));
+		} else if (lastTime > 0) {
+			conditions.push(gt(table.securityLogs.timestamp, lastTime));
+		}
+
 		const unreadExists = await db.select({ id: table.securityLogs.id })
 			.from(table.securityLogs)
-			.where(
-				and(
-					isNull(table.securityLogs.isViewedAt),
-					inArray(table.securityLogs.type, [
-						"ALERT",
-						"PROCESS_BLOCKED",
-						"VSS_ATTEMPT"
-					])
-				)
-			)
+			.where(and(...conditions))
 			.limit(1);
 		return unreadExists.length > 0;
 	} catch (error) {
 		console.error("[DB Error] Failed to check unread threats:", error);
-		return false; 
+		return false;
+	}
+}
+
+/**
+ * 위협 확인 처리 (store에 마지막 확인한 위협 id 및 시각 기록)
+ */
+export async function acknowledgeThreats(timestamp?: number) {
+	try {
+		const db = getDB();
+		const latestThreat = await db.select({
+			id: table.securityLogs.id,
+			timestamp: table.securityLogs.timestamp,
+		})
+			.from(table.securityLogs)
+			.where(
+				inArray(table.securityLogs.type, [
+					"ALERT",
+					"PROCESS_BLOCKED",
+					"VSS_ATTEMPT",
+				]),
+			)
+			.orderBy(desc(table.securityLogs.id))
+			.limit(1);
+
+		const maxId = latestThreat[0]?.id ?? 0;
+		const maxTime = Math.max(latestThreat[0]?.timestamp ?? 0, timestamp ?? Date.now());
+		acknowledgedThreat.set(maxId, maxTime);
+		return true;
+	} catch (error) {
+		console.error("[Store Error] Failed to acknowledge threats:", error);
+		return false;
 	}
 }
 

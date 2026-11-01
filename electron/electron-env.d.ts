@@ -55,6 +55,7 @@ interface Window {
 		onSecurityLogsUpdated(callback: OnSecurityLogsUpdatedCallback): Unsubscribe;
 		getEngineStatus(): Promise<GetLastEngineStatusData>;
 		getSecurityLogs(options?: FetchSecurityLogsOptions): Promise<IncomingIPCMessage[]>;
+		acknowledgeThreats(timestamp?: number): Promise<boolean>;
 
 		getAccessControlLogs(options?: FetchAccessControlLogsOptions): Promise<FetchLogsResult>;
 		getBlockedIPs(): Promise<FetchIPsResult>;

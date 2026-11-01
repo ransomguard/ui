@@ -40,6 +40,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	getSecurityLogs(...args: unknown[]) {
 		return ipcRenderer.invoke("security-logs:fetch", ...args);
 	},
+	acknowledgeThreats(timestamp?: number) {
+		return ipcRenderer.invoke("threats:acknowledge", timestamp);
+	},
 
 	getAccessControlLogs(...args: unknown[]) {
 		return ipcRenderer.invoke("firewall:fetch-logs", ...args);
