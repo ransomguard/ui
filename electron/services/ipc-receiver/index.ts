@@ -12,7 +12,7 @@ export { isValidIPCMessage } from "./guard";
 const MAX_BATCH_SIZE = 500;
 const INTERVAL_MS = 500; // Queue consumer interval in milliseconds
 
-export const PIPE_NAME = getPipeName("Ransom0UI");
+export const PIPE_NAME = getPipeName("Ransom0_UI");
 
 
 
