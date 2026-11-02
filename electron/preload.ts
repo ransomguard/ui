@@ -53,22 +53,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	getAccessControlLogsAround(targetTimestamp: number, limit?: number) {
 		return ipcRenderer.invoke("firewall:fetch-logs-around", targetTimestamp, limit);
 	},
-	getBlockedIPs(...args: unknown[]) {
-		return ipcRenderer.invoke("firewall:block-list", ...args);
+	getFirewallStatus() {
+		return ipcRenderer.invoke("firewall:status");
 	},
-	addBlockedIPs(...args: unknown[]) {
-		return ipcRenderer.invoke("firewall:block-add", ...args);
+	setWhitelist(items: string[], reason?: string) {
+		return ipcRenderer.invoke("firewall:set-whitelist", items, reason);
 	},
-	removeBlockedIPs(...args: unknown[]) {
-		return ipcRenderer.invoke("firewall:block-remove", ...args);
-	},
-	getWhitelistedIPs(...args: unknown[]) {
-		return ipcRenderer.invoke("firewall:whitelist-list", ...args);
-	},
-	addWhitelistedIPs(...args: unknown[]) {
-		return ipcRenderer.invoke("firewall:whitelist-add", ...args);
-	},
-	removeWhitelistedIPs(...args: unknown[]) {
-		return ipcRenderer.invoke("firewall:whitelist-remove", ...args);
+	refreshWhitelist() {
+		return ipcRenderer.invoke("firewall:refresh-whitelist");
 	},
 });

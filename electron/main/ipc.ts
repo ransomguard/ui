@@ -7,7 +7,13 @@ import {
 	acknowledgeThreats,
 	type FetchSecurityLogsOptions,
 } from "./queries";
-import { fetchLogs, fetchLogsAround, fetchIPs, actionAndLogging } from "./firewall-tool";
+import {
+	fetchLogs,
+	fetchLogsAround,
+	getFirewallStatus,
+	setWhitelist,
+	refreshWhitelist,
+} from "./firewall-tool";
 
 
 
@@ -23,10 +29,7 @@ export function registerIpcHandlers(): void {
 	ipcMain.handle("firewall:fetch-logs-around", (_, targetTimestamp: number, limit?: number) =>
 		fetchLogsAround(targetTimestamp, limit)
 	);
-	ipcMain.handle("firewall:block-list", () => fetchIPs("block"));
-	ipcMain.handle("firewall:block-add", (_, ...args) => actionAndLogging("block", "add", ...args));
-	ipcMain.handle("firewall:block-remove", (_, ...args) => actionAndLogging("block", "remove", ...args));
-	ipcMain.handle("firewall:whitelist-list", () => fetchIPs("whitelist"));
-	ipcMain.handle("firewall:whitelist-add", (_, ...args) => actionAndLogging("whitelist", "add", ...args));
-	ipcMain.handle("firewall:whitelist-remove", (_, ...args) => actionAndLogging("whitelist", "remove", ...args));
+	ipcMain.handle("firewall:status", () => getFirewallStatus());
+	ipcMain.handle("firewall:set-whitelist", (_, items: string[], reason?: string) => setWhitelist(items, reason));
+	ipcMain.handle("firewall:refresh-whitelist", () => refreshWhitelist());
 }

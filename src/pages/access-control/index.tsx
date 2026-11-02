@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
@@ -6,12 +6,18 @@ import {
 	Plus,
 	Trash2,
 	MoreHorizontal,
-	ShieldX,
+	ShieldBan,
 	ShieldCheck,
 	ShieldAlert,
 	History,
+	RefreshCw,
 	CheckCircle2,
 	XCircle,
+	Globe,
+	Link2,
+	Network,
+	Clock,
+	FileText,
 } from "lucide-react";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -19,6 +25,14 @@ import { DataTable, type DataTableFeatures } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+	SheetDescription,
+} from "@/components/ui/sheet";
 import {
 	Dialog,
 	DialogTrigger,
@@ -51,26 +65,31 @@ import { I18n } from "@/components/i18n";
 import { useAccessControlStore, useAlertStore, useMetricStore } from "@/store";
 import { useBidirectionalInfiniteScroll } from "@/hooks/use-bidirectional-infinite-scroll";
 import { useSearchParamTab } from "@/hooks/use-search-param-tab";
-
-
-
-const IPV4_REG = /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.){3}(25[0-5]|(2[0-4]|1\d|[1-9]|)\d)$/;
+import type {
+	WhitelistItem,
+	WhitelistItemData,
+	WhitelistItemType,
+} from "~/services/firewall-tool";
 
 
 
 // Data types for rendering
-export interface BlockedIpRecord {
+export interface WhitelistedTargetRecord {
 	id: string;
-	ipAddress: string;
-	reason: string;
-	blockedAt: string;
-}
-
-export interface WhitelistedIpRecord {
-	id: string;
-	ipAddress: string;
+	type: WhitelistItemType;
+	value: string;
+	port: number;
+	cidr?: number;
+	domain?: string;
+	ipv4?: string;
+	ipv6?: string;
+	ipv4List?: string[];
+	ipv6List?: string[];
+	resolvedIps: string[];
 	description: string;
 	addedAt: string;
+	data: WhitelistItemData;
+	rawItem: WhitelistItem;
 }
 
 export interface BlockedProcessRecord {
@@ -284,16 +303,17 @@ export default function AccessControlPage() {
 	const targetTimestamp = timestampParam ? Number(timestampParam) : undefined;
 	const targetItemKey = searchParams.get("itemKey") ?? undefined;
 
-	const storeBlockedIps = useAccessControlStore((state) => state.blockedIps);
-	const storeWhitelist = useAccessControlStore((state) => state.whitelistIps);
+	const isFirewallActive = useAccessControlStore((state) => state.isFirewallActive);
+	const whitelistItems = useAccessControlStore((state) => state.whitelistItems);
 	const storeLogs = useAccessControlStore((state) => state.logs);
 	const storeHasMoreLogs = useAccessControlStore((state) => state.hasMoreLogs);
 	const storeIsLoading = useAccessControlStore((state) => state.isLoading);
+	const isRefreshing = useAccessControlStore((state) => state.isRefreshing);
+
 	const fetchRules = useAccessControlStore((state) => state.fetchRules);
-	const blockIp = useAccessControlStore((state) => state.blockIp);
-	const unblockIp = useAccessControlStore((state) => state.unblockIp);
 	const addWhitelist = useAccessControlStore((state) => state.addWhitelist);
 	const removeWhitelist = useAccessControlStore((state) => state.removeWhitelist);
+	const refreshWhitelist = useAccessControlStore((state) => state.refreshWhitelist);
 
 	const rawAlerts = useAlertStore((state) => state.alerts);
 	const hasMoreAlerts = useAlertStore((state) => state.hasMore);
@@ -302,13 +322,19 @@ export default function AccessControlPage() {
 
 	const totalCounts = useMetricStore((state) => state.totalCounts);
 
-	const [activeTab, setActiveTab] = useSearchParamTab<"blocked-ips" | "whitelisted-ips" | "blocked-processes" | "access-logs">({
+	const [activeTab, setActiveTab] = useSearchParamTab<
+		"whitelisted-targets" | "blocked-processes" | "access-logs"
+	>({
 		paramName: "tab",
-		defaultTab: "blocked-ips",
-		validTabs: ["blocked-ips", "whitelisted-ips", "blocked-processes", "access-logs"] as const,
+		defaultTab: "whitelisted-targets",
+		validTabs: [
+			"whitelisted-targets",
+			"blocked-processes",
+			"access-logs",
+		] as const,
 	});
 
-	const ruleHighlightTarget = (activeTab === "blocked-ips" || activeTab === "whitelisted-ips")
+	const ruleHighlightTarget = activeTab === "whitelisted-targets"
 		? (targetParam || highlightId || null)
 		: null;
 
@@ -382,176 +408,194 @@ export default function AccessControlPage() {
 		}, []),
 	});
 
-	// Dialog Inputs
-	const [newBlockedIp, setNewBlockedIp] = useState("");
-	const [blockedReason, setBlockedReason] = useState("");
-	const [newWhitelistIp, setNewWhitelistIp] = useState("");
+	// Dialog & Sheet State
+	const [newTargetsInput, setNewTargetsInput] = useState("");
 	const [whitelistDesc, setWhitelistDesc] = useState("");
 
 	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-	const [itemToDelete, setItemToDelete] = useState<{ id: string; ipOrPath: string; type: "blocked" | "whitelisted" } | null>(null);
+	const [itemToDelete, setItemToDelete] = useState<{ id: string; value: string } | null>(null);
+	const [selectedWhitelistItem, setSelectedWhitelistItem] = useState<WhitelistedTargetRecord | null>(null);
+	const [isWhitelistSheetOpen, setIsWhitelistSheetOpen] = useState(false);
 
-	// Map store items to UI tables
-	const blockedIpsData: BlockedIpRecord[] = storeBlockedIps.map((ip) => {
-		const matchedLog = storeLogs
-			.filter((log) => {
-				if (log.target !== "block" || log.action !== "add") return false;
-				if (log.ip === ip) return true;
-				const maybeIps = (log as { ips?: string[] | null }).ips;
-				return Array.isArray(maybeIps) && maybeIps.includes(ip);
-			})
-			.sort((a, b) => b.performedAt - a.performedAt)[0];
+	// Map WhitelistItems to table data
+	const whitelistedTargetsData: WhitelistedTargetRecord[] = useMemo(() => {
+		return whitelistItems.map((item) => {
+			const matchedLog = storeLogs
+				.filter((log) => {
+					if (log.target !== "whitelist" || log.action !== "add") return false;
+					if (log.ip === item.value) return true;
+					const maybeIps = (log as { ips?: string[] | null }).ips;
+					return Array.isArray(maybeIps) && maybeIps.includes(item.value);
+				})
+				.sort((a, b) => b.performedAt - a.performedAt)[0];
 
-		return {
-			id: ip,
-			ipAddress: ip,
-			reason: matchedLog?.reason || t(($) => $.accessControl.defaults.manualBlockReason),
-			blockedAt: matchedLog?.performedAt ? new Date(matchedLog.performedAt).toLocaleString() : "-",
-		};
-	});
+			let port = 0;
+			let cidr: number | undefined;
+			let domain: string | undefined;
+			let ipv4: string | undefined;
+			let ipv6: string | undefined;
+			let ipv4List: string[] | undefined;
+			let ipv6List: string[] | undefined;
+			let resolvedIps: string[] = [];
 
-	const whitelistedIpsData: WhitelistedIpRecord[] = storeWhitelist.map((ip) => {
-		const matchedLog = storeLogs
-			.filter((log) => {
-				if (log.target !== "whitelist" || log.action !== "add") return false;
-				if (log.ip === ip) return true;
-				const maybeIps = (log as { ips?: string[] | null }).ips;
-				return Array.isArray(maybeIps) && maybeIps.includes(ip);
-			})
-			.sort((a, b) => b.performedAt - a.performedAt)[0];
-
-		return {
-			id: ip,
-			ipAddress: ip,
-			description: matchedLog?.reason || t(($) => $.accessControl.defaults.manualWhitelistDesc),
-			addedAt: matchedLog?.performedAt ? new Date(matchedLog.performedAt).toLocaleString() : "-",
-		};
-	});
-
-	const blockedProcessesData: BlockedProcessRecord[] = rawAlerts
-		.flatMap((item, idx): BlockedProcessRecord[] => {
-			const timestamp = item.timestamp;
-			const blockedAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
-
-			if (item.type === "PROCESS_BLOCKED") {
-				const procData = item.data;
-				const imagePath = procData.imagePath || procData.commandLine || "-";
-				const processName = procData.imagePath
-					? procData.imagePath.split(/[/\\]/).pop() || procData.imagePath
-					: procData.commandLine
-						? procData.commandLine.split(/\s+/)[0] || "-"
-						: "-";
-				const reason = procData.matchedRuleId
-					? t(($) => $.alerts.defaults.ruleId, { id: procData.matchedRuleId })
-					: t(($) => $.alerts.defaults.ruleBlocked);
-
-				return [
-					{
-						id: `blocked-proc-${timestamp}-${idx}`,
-						processId: procData.processId ?? "-",
-						processName,
-						imagePath,
-						reason,
-						source: t(($) => $.alerts.sources.kernelDriver),
-						blockedAt,
-						timestamp,
-					},
-				];
+			if (item.type === "ipv4") {
+				const data = item.data as { ipv4: string; port: number; cidr: number };
+				ipv4 = data.ipv4;
+				port = data.port;
+				cidr = data.cidr;
+			} else if (item.type === "ipv6") {
+				const data = item.data as { ipv6: string; port: number; cidr: number };
+				ipv6 = data.ipv6;
+				port = data.port;
+				cidr = data.cidr;
+			} else if (item.type === "domain" || item.type === "url") {
+				const data = item.data as { domain: string; port: number; ipv4?: string[]; ipv6?: string[] };
+				port = data.port;
+				domain = data.domain;
+				ipv4List = data.ipv4 ?? [];
+				ipv6List = data.ipv6 ?? [];
+				resolvedIps = [...ipv4List, ...ipv6List];
 			}
 
-			if (
-				item.type === "ALERT" &&
-				(item.data.action === "BLOCKED" || item.data.action === "QUARANTINED")
-			) {
-				const alertData = item.data;
-				const imagePath = alertData.filePath || "-";
-				const processName =
-					alertData.processName ||
-					(alertData.filePath ? alertData.filePath.split(/[/\\]/).pop() || alertData.filePath : "-");
+			return {
+				id: item.value,
+				type: item.type,
+				value: item.value,
+				port,
+				cidr,
+				domain,
+				ipv4,
+				ipv6,
+				ipv4List,
+				ipv6List,
+				resolvedIps,
+				description: matchedLog?.reason || t(($) => $.accessControl.defaults.externalWhitelistDesc),
+				addedAt: matchedLog?.performedAt ? new Date(matchedLog.performedAt).toLocaleString() : "-",
+				data: item.data,
+				rawItem: item,
+			};
+		});
+	}, [whitelistItems, storeLogs, t]);
 
-				return [
-					{
-						id: `blocked-alert-${timestamp}-${idx}`,
-						processId: alertData.processId ?? "-",
-						processName,
-						imagePath,
-						reason: alertData.ruleName || alertData.action,
-						source: t(($) => $.alerts.sources.correlationEngine),
-						blockedAt,
-						timestamp,
-					},
-				];
-			}
+	const blockedProcessesData: BlockedProcessRecord[] = useMemo(() => {
+		return rawAlerts
+			.flatMap((item, idx): BlockedProcessRecord[] => {
+				const timestamp = item.timestamp;
+				const blockedAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
 
-			return [];
-		})
-		.sort((a, b) => b.timestamp - a.timestamp);
+				if (item.type === "PROCESS_BLOCKED") {
+					const procData = item.data;
+					const imagePath = procData.imagePath || procData.commandLine || "-";
+					const processName = procData.imagePath
+						? procData.imagePath.split(/[/\\]/).pop() || procData.imagePath
+						: procData.commandLine
+							? procData.commandLine.split(/\s+/)[0] || "-"
+							: "-";
+					const reason = procData.matchedRuleId
+						? t(($) => $.alerts.defaults.ruleId, { id: procData.matchedRuleId })
+						: t(($) => $.alerts.defaults.ruleBlocked);
 
-	const accessLogsData: AccessControlLogRecord[] = visibleLogs
-		.flatMap((log) => {
-			const timestamp = log.performedAt;
-			const performedAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
-			const maybeIps = (log as { ips?: string[] | null }).ips;
-			const ipsList = log.ip
-				? [log.ip]
-				: Array.isArray(maybeIps) && maybeIps.length > 0
-					? maybeIps
-					: ["-"];
+					return [
+						{
+							id: `blocked-proc-${timestamp}-${idx}`,
+							processId: procData.processId ?? "-",
+							processName,
+							imagePath,
+							reason,
+							source: t(($) => $.alerts.sources.kernelDriver),
+							blockedAt,
+							timestamp,
+						},
+					];
+				}
 
-			return ipsList.map((ip, ipIdx) => ({
-				id: `ac-log-${log.id}-${ip !== "-" ? ip : ipIdx}`,
-				target: log.target,
-				action: log.action,
-				ipAddress: ip,
-				reason: log.reason || "-",
-				success: log.success,
-				errorMessage: log.errorMessage,
-				performedAt,
-				timestamp,
-			}));
-		})
-		.sort((a, b) => b.timestamp - a.timestamp);
+				if (
+					item.type === "ALERT" &&
+					(item.data.action === "BLOCKED" || item.data.action === "QUARANTINED")
+				) {
+					const alertData = item.data;
+					const imagePath = alertData.filePath || "-";
+					const processName =
+						alertData.processName ||
+						(alertData.filePath ? alertData.filePath.split(/[/\\]/).pop() || alertData.filePath : "-");
 
-	// Add new Blocked IP
-	const handleAddBlockedIp = async () => {
-		if (!IPV4_REG.test(newBlockedIp.trim())) {
-			const msg = t(($) => $.accessControl.toasts.invalidIp);
+					return [
+						{
+							id: `blocked-alert-${timestamp}-${idx}`,
+							processId: alertData.processId ?? "-",
+							processName,
+							imagePath,
+							reason: alertData.ruleName || alertData.action,
+							source: t(($) => $.alerts.sources.correlationEngine),
+							blockedAt,
+							timestamp,
+						},
+					];
+				}
+
+				return [];
+			})
+			.sort((a, b) => b.timestamp - a.timestamp);
+	}, [rawAlerts, t]);
+
+	const accessLogsData: AccessControlLogRecord[] = useMemo(() => {
+		return visibleLogs
+			.flatMap((log) => {
+				const timestamp = log.performedAt;
+				const performedAt = timestamp ? new Date(timestamp).toLocaleString() : "-";
+				const maybeIps = (log as { ips?: string[] | null }).ips;
+				const ipsList = log.ip
+					? [log.ip]
+					: Array.isArray(maybeIps) && maybeIps.length > 0
+						? maybeIps
+						: ["-"];
+
+				return ipsList.map((ip, ipIdx) => ({
+					id: `ac-log-${log.id}-${ip !== "-" ? ip : ipIdx}`,
+					target: log.target,
+					action: log.action,
+					ipAddress: ip,
+					reason: log.reason || "-",
+					success: log.success,
+					errorMessage: log.errorMessage,
+					performedAt,
+					timestamp,
+				}));
+			})
+			.sort((a, b) => b.timestamp - a.timestamp);
+	}, [visibleLogs]);
+
+	// 화이트리스트 다중/단일 항목 추가 핸들러
+	const handleAddWhitelist = async () => {
+		const rawInput = newTargetsInput.trim();
+		if (!rawInput) {
+			const msg = t(($) => $.accessControl.toasts.invalidTarget);
 			toast.add({ id: msg, title: msg, type: "error" });
 			return;
 		}
-		const ip = newBlockedIp.trim();
-		const reason = blockedReason.trim() || t(($) => $.accessControl.defaults.manualBlockReason);
-		try {
-			await blockIp([ip], reason);
-			setNewBlockedIp("");
-			setBlockedReason("");
-			setIsAddDialogOpen(false);
-			toast.add({ title: t(($) => $.accessControl.toasts.blockedAdded, { ip }), type: "success" });
-		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
-			toast.add({
-				id: message,
-				title: message,
-				type: "error",
-			});
-		}
-	};
 
-	// Add new Whitelisted IP
-	const handleAddWhitelistedIp = async () => {
-		if (!IPV4_REG.test(newWhitelistIp.trim())) {
-			const msg = t(($) => $.accessControl.toasts.invalidIp);
+		// 쉼표, 줄바꿈, 세미콜론 등으로 구분
+		const targets = rawInput
+			.split(/[\r\n,;]+/)
+			.map((s) => s.trim())
+			.filter(Boolean);
+
+		if (targets.length === 0) {
+			const msg = t(($) => $.accessControl.toasts.invalidTarget);
 			toast.add({ id: msg, title: msg, type: "error" });
 			return;
 		}
-		const ip = newWhitelistIp.trim();
+
 		const desc = whitelistDesc.trim() || t(($) => $.accessControl.defaults.manualWhitelistDesc);
 		try {
-			await addWhitelist([ip], desc);
-			setNewWhitelistIp("");
+			await addWhitelist(targets, desc);
+			setNewTargetsInput("");
 			setWhitelistDesc("");
 			setIsAddDialogOpen(false);
-			toast.add({ title: t(($) => $.accessControl.toasts.whitelistAdded, { ip }), type: "success" });
+			toast.add({
+				title: t(($) => $.accessControl.toasts.whitelistAdded, { count: targets.length }),
+				type: "success",
+			});
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			toast.add({
@@ -562,17 +606,15 @@ export default function AccessControlPage() {
 		}
 	};
 
-	// Confirm delete
+	// 항목 삭제 확인 핸들러
 	const handleConfirmDelete = async () => {
 		if (!itemToDelete) return;
 		try {
-			if (itemToDelete.type === "blocked") {
-				await unblockIp([itemToDelete.ipOrPath], t(($) => $.accessControl.defaults.manualUnblockReason));
-				toast.add({ title: t(($) => $.accessControl.toasts.blockedRemoved, { ip: itemToDelete.ipOrPath }), type: "success" });
-			} else if (itemToDelete.type === "whitelisted") {
-				await removeWhitelist([itemToDelete.ipOrPath], t(($) => $.accessControl.defaults.manualRemoveWhitelistReason));
-				toast.add({ title: t(($) => $.accessControl.toasts.whitelistRemoved, { ip: itemToDelete.ipOrPath }), type: "success" });
-			}
+			await removeWhitelist([itemToDelete.value], t(($) => $.accessControl.defaults.manualRemoveWhitelistReason));
+			toast.add({
+				title: t(($) => $.accessControl.toasts.whitelistRemoved),
+				type: "success",
+			});
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			toast.add({
@@ -585,91 +627,166 @@ export default function AccessControlPage() {
 		}
 	};
 
-	// Table column definitions
-	const blockedColumnHelper = createColumnHelper<DataTableFeatures, BlockedIpRecord>();
-	const blockedColumns: ColumnDef<DataTableFeatures, BlockedIpRecord>[] = blockedColumnHelper.columns([
-		{
-			accessorKey: "ipAddress",
-			header: () => <I18n i18nKey="accessControl.blockedTable.columns.ipAddress"/>,
-			cell: ({ row }) => <span className="font-mono font-bold text-destructive">{row.original.ipAddress}</span>,
-		},
-		{
-			accessorKey: "reason",
-			header: () => <I18n i18nKey="accessControl.blockedTable.columns.reason"/>,
-			cell: ({ row }) => <span>{row.original.reason}</span>,
-		},
-		{
-			accessorKey: "blockedAt",
-			header: () => <I18n i18nKey="accessControl.blockedTable.columns.blockedAt"/>,
-			cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.blockedAt}</span>,
-		},
-		{
-			id: "actions",
-			header: () => <I18n i18nKey="accessControl.blockedTable.columns.actions"/>,
-			cell: ({ row }) => (
-				<DropdownMenu>
-					<DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="cursor-pointer"/>}>
-						<MoreHorizontal className="size-4"/>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<DropdownMenuItem
-							className="text-destructive cursor-pointer"
-							onClick={() => setItemToDelete({ id: row.original.id, ipOrPath: row.original.ipAddress, type: "blocked" })}
-						>
-							<Trash2 className="size-4 mr-2"/>
-							<I18n i18nKey="accessControl.blockedTable.unblockAction"/>
-						</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
-			),
-		},
-	]);
+	// DNS 갱신(새로고침) 핸들러
+	const handleRefreshWhitelist = async () => {
+		try {
+			await refreshWhitelist();
+			toast.add({
+				title: t(($) => $.accessControl.toasts.refreshSuccess),
+				type: "success",
+			});
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			toast.add({
+				id: message,
+				title: message,
+				type: "error",
+			});
+		}
+	};
 
-	const whitelistColumnHelper = createColumnHelper<DataTableFeatures, WhitelistedIpRecord>();
-	const whitelistColumns: ColumnDef<DataTableFeatures, WhitelistedIpRecord>[] = whitelistColumnHelper.columns([
-		{
-			accessorKey: "ipAddress",
-			header: () => <I18n i18nKey="accessControl.whitelistTable.columns.ipAddress"/>,
-			cell: ({ row }) => <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{row.original.ipAddress}</span>,
-		},
-		{
-			accessorKey: "description",
-			header: () => <I18n i18nKey="accessControl.whitelistTable.columns.description"/>,
-			cell: ({ row }) => <span>{row.original.description}</span>,
-		},
-		{
-			accessorKey: "addedAt",
-			header: () => <I18n i18nKey="accessControl.whitelistTable.columns.addedAt"/>,
-			cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.addedAt}</span>,
-		},
-		{
-			id: "actions",
-			header: () => <I18n i18nKey="accessControl.whitelistTable.columns.actions"/>,
-			cell: ({ row }) => (
-				<DropdownMenu>
-					<DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="cursor-pointer"/>}>
-						<MoreHorizontal className="size-4"/>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<DropdownMenuItem
-							className="text-destructive cursor-pointer"
-							onClick={() => setItemToDelete({ id: row.original.id, ipOrPath: row.original.ipAddress, type: "whitelisted" })}
-						>
-							<Trash2 className="size-4 mr-2"/>
-							<I18n i18nKey="accessControl.whitelistTable.removeAction"/>
-						</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
-			),
-		},
-	]);
+	// 화이트리스트 테이블 컬럼 정의
+	const whitelistTargetColumnHelper = createColumnHelper<DataTableFeatures, WhitelistedTargetRecord>();
+	const whitelistTargetColumns: ColumnDef<DataTableFeatures, WhitelistedTargetRecord>[] = useMemo(() => {
+		return whitelistTargetColumnHelper.columns([
+			{
+				accessorKey: "type",
+				header: () => <I18n i18nKey="accessControl.whitelistTable.columns.type"/>,
+				cell: ({ row }) => {
+					const type = row.original.type;
+					let variant: "default" | "secondary" | "outline" = "outline";
+					let label = type.toUpperCase();
+					let icon = <Network className="size-3"/>;
 
-	const isWhitelistDialog = activeTab === "whitelisted-ips";
-	const canAddPolicy = activeTab === "blocked-ips" || activeTab === "whitelisted-ips";
+					if (type === "ipv4") {
+						variant = "secondary";
+						label = "IPv4";
+					} else if (type === "ipv6") {
+						variant = "secondary";
+						label = "IPv6";
+					} else if (type === "domain") {
+						variant = "outline";
+						label = "Domain";
+						icon = <Globe className="size-3"/>;
+					} else if (type === "url") {
+						variant = "default";
+						label = "URL";
+						icon = <Link2 className="size-3"/>;
+					}
+
+					return (
+						<Badge variant={variant} className="gap-1 font-mono text-[11px] uppercase">
+							{icon}
+							<span>{label}</span>
+						</Badge>
+					);
+				},
+			},
+			{
+				accessorKey: "value",
+				header: () => <I18n i18nKey="accessControl.whitelistTable.columns.target"/>,
+				filterFn: (row, _columnId, filterValue) => {
+					const q = String(filterValue ?? "").toLowerCase().trim();
+					if (!q) return true;
+					return (
+						row.original.value.toLowerCase().includes(q) ||
+						row.original.description.toLowerCase().includes(q) ||
+						row.original.resolvedIps.some((ip) => ip.toLowerCase().includes(q))
+					);
+				},
+				cell: ({ row }) => (
+					<span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 break-all">
+						{row.original.value}
+					</span>
+				),
+			},
+			{
+				accessorKey: "port",
+				header: () => <I18n i18nKey="accessControl.whitelistTable.columns.port"/>,
+				cell: ({ row }) => {
+					const port = row.original.port;
+					if (port > 0) {
+						return (
+							<Badge variant="outline" className="font-mono text-xs">
+								:{port}
+							</Badge>
+						);
+					}
+					return (
+						<span className="text-xs text-muted-foreground">
+							{t(($) => $.accessControl.whitelistTable.allPorts)}
+						</span>
+					);
+				},
+			},
+			{
+				accessorKey: "cidr",
+				header: () => <I18n i18nKey="accessControl.whitelistTable.columns.cidr"/>,
+				cell: ({ row }) => {
+					const cidr = row.original.cidr;
+					if (cidr !== undefined) {
+						return <span className="font-mono text-xs text-muted-foreground">/{cidr}</span>;
+					}
+					return <span className="text-xs text-muted-foreground">-</span>;
+				},
+			},
+			{
+				accessorKey: "resolvedIps",
+				header: () => <I18n i18nKey="accessControl.whitelistTable.columns.resolvedIps"/>,
+				cell: ({ row }) => {
+					const ips = row.original.resolvedIps;
+					if (!ips || ips.length === 0) {
+						return <span className="text-xs text-muted-foreground">-</span>;
+					}
+					return (
+						<div className="flex flex-wrap gap-1 max-w-xs">
+							{ips.map((ip) => (
+								<Badge key={ip} variant="secondary" className="font-mono text-[10px] px-1.5 py-0">
+									{ip}
+								</Badge>
+							))}
+						</div>
+					);
+				},
+			},
+			{
+				accessorKey: "description",
+				header: () => <I18n i18nKey="accessControl.whitelistTable.columns.description"/>,
+				cell: ({ row }) => <span className="text-xs text-foreground/90">{row.original.description}</span>,
+			},
+			{
+				accessorKey: "addedAt",
+				header: () => <I18n i18nKey="accessControl.whitelistTable.columns.addedAt"/>,
+				cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground whitespace-nowrap">{row.original.addedAt}</span>,
+			},
+			{
+				id: "actions",
+				header: () => <I18n i18nKey="accessControl.whitelistTable.columns.actions"/>,
+				cell: ({ row }) => (
+					<div onClick={(e) => e.stopPropagation()}>
+						<DropdownMenu>
+							<DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="cursor-pointer"/>}>
+								<MoreHorizontal className="size-4"/>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end">
+								<DropdownMenuItem
+									className="text-destructive cursor-pointer"
+									onClick={() => setItemToDelete({ id: row.original.id, value: row.original.value })}
+								>
+									<Trash2 className="size-4 mr-2"/>
+									<I18n i18nKey="accessControl.whitelistTable.removeAction"/>
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					</div>
+				),
+			},
+		]);
+	}, [whitelistTargetColumnHelper, t]);
 
 	return (
 		<div className="flex flex-col gap-6 min-w-0">
-			{/* 페이지 서머리 헤더 */}
+			{/* 페이지 상단 헤더 */}
 			<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 				<div>
 					<h2 className="text-2xl font-bold tracking-tight">
@@ -679,20 +796,62 @@ export default function AccessControlPage() {
 						{t(($) => $.accessControl.description)}
 					</p>
 				</div>
+			</div>
 
-				{/* 신규 정책 등록 Dialog 모달 (IP 차단 / 허용 탭에서만 표시) */}
-				{canAddPolicy && (
+			{/* WFP 방화벽 전체 차단 상태 및 컨트롤 배너 카드 */}
+			<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border border-border bg-card p-5 shadow-xs">
+				<div className="flex items-start gap-3.5">
+					<div className={`mt-0.5 rounded-lg p-2.5 ${isFirewallActive ? "bg-destructive/15 text-destructive" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"}`}>
+						{isFirewallActive ? <ShieldBan className="size-6"/> : <ShieldCheck className="size-6"/>}
+					</div>
+					<div className="space-y-1">
+						<div className="flex items-center gap-2">
+							<Badge variant={isFirewallActive ? "destructive" : "secondary"} className="gap-1.5 text-xs font-semibold">
+								{isFirewallActive ? (
+									<>
+										<ShieldBan className="size-3.5"/>
+										{t(($) => $.accessControl.statusActive)}
+									</>
+								) : (
+									<>
+										<ShieldCheck className="size-3.5 text-emerald-600 dark:text-emerald-400"/>
+										{t(($) => $.accessControl.statusInactive)}
+									</>
+								)}
+							</Badge>
+						</div>
+						<p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
+							{isFirewallActive
+								? t(($) => $.accessControl.statusActiveDesc)
+								: t(($) => $.accessControl.statusInactiveDesc)}
+						</p>
+					</div>
+				</div>
+
+				{/* 컨트롤 액션 버튼 그룹 */}
+				<div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+					{/* DNS IP 새로고침 버튼 */}
+					<Button
+						variant="outline"
+						size="sm"
+						className="gap-1.5 cursor-pointer"
+						onClick={handleRefreshWhitelist}
+						disabled={isRefreshing}
+					>
+						<RefreshCw className={`size-3.5 ${isRefreshing ? "animate-spin" : ""}`}/>
+						<span>{isRefreshing ? t(($) => $.accessControl.refreshing) : t(($) => $.accessControl.refreshButton)}</span>
+					</Button>
+
+					{/* 화이트리스트 등록 모달 버튼 */}
 					<Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
 						<DialogTrigger render={<Button size="sm" className="gap-1.5 cursor-pointer"/>}>
 							<Plus className="size-4"/>
 							<span>{t(($) => $.accessControl.addPolicy)}</span>
 						</DialogTrigger>
-						<DialogContent className="sm:max-w-md">
+						<DialogContent className="sm:max-w-lg">
 							<DialogHeader>
 								<DialogTitle>
-									{!isWhitelistDialog
-										? t(($) => $.accessControl.dialog.blockTitle)
-										: t(($) => $.accessControl.dialog.whitelistTitle)}
+									{t(($) => $.accessControl.dialog.whitelistTitle)}
 								</DialogTitle>
 								<DialogDescription>
 									{t(($) => $.accessControl.dialog.description)}
@@ -700,76 +859,52 @@ export default function AccessControlPage() {
 							</DialogHeader>
 
 							<div className="space-y-4 py-2">
-								{!isWhitelistDialog ? (
-									<>
-										<Field>
-											<FieldLabel>{t(($) => $.accessControl.dialog.blockIpLabel)}</FieldLabel>
-											<Input
-												placeholder={t(($) => $.accessControl.dialog.blockIpPlaceholder)}
-												value={newBlockedIp}
-												onChange={(e) => setNewBlockedIp(e.target.value)}
-											/>
-										</Field>
-										<Field>
-											<FieldLabel>{t(($) => $.accessControl.dialog.blockReasonLabel)}</FieldLabel>
-											<Input
-												placeholder={t(($) => $.accessControl.dialog.blockReasonPlaceholder)}
-												value={blockedReason}
-												onChange={(e) => setBlockedReason(e.target.value)}
-											/>
-										</Field>
-									</>
-								) : (
-									<>
-										<Field>
-											<FieldLabel>{t(($) => $.accessControl.dialog.whitelistIpLabel)}</FieldLabel>
-											<Input
-												placeholder={t(($) => $.accessControl.dialog.whitelistIpPlaceholder)}
-												value={newWhitelistIp}
-												onChange={(e) => setNewWhitelistIp(e.target.value)}
-											/>
-										</Field>
-										<Field>
-											<FieldLabel>{t(($) => $.accessControl.dialog.whitelistDescLabel)}</FieldLabel>
-											<Input
-												placeholder={t(($) => $.accessControl.dialog.whitelistDescPlaceholder)}
-												value={whitelistDesc}
-												onChange={(e) => setWhitelistDesc(e.target.value)}
-											/>
-										</Field>
-									</>
-								)}
+								<Field>
+									<FieldLabel>{t(($) => $.accessControl.dialog.whitelistIpLabel)}</FieldLabel>
+									<Textarea
+										rows={3}
+										placeholder={t(($) => $.accessControl.dialog.whitelistIpPlaceholder)}
+										value={newTargetsInput}
+										onChange={(e) => setNewTargetsInput(e.target.value)}
+										className="font-mono text-xs"
+									/>
+									<p className="text-[11px] text-muted-foreground mt-1">
+										{t(($) => $.accessControl.dialog.helpExamples)}
+									</p>
+								</Field>
+								<Field>
+									<FieldLabel>{t(($) => $.accessControl.dialog.whitelistDescLabel)}</FieldLabel>
+									<Input
+										placeholder={t(($) => $.accessControl.dialog.whitelistDescPlaceholder)}
+										value={whitelistDesc}
+										onChange={(e) => setWhitelistDesc(e.target.value)}
+									/>
+								</Field>
 							</div>
 
 							<DialogFooter>
 								<DialogClose render={<Button variant="outline"/>}>
 									{t(($) => $.accessControl.dialog.cancel)}
 								</DialogClose>
-								<Button
-									onClick={
-										!isWhitelistDialog
-											? handleAddBlockedIp
-											: handleAddWhitelistedIp
-									}
-								>
+								<Button onClick={handleAddWhitelist}>
 									{t(($) => $.accessControl.dialog.submit)}
 								</Button>
 							</DialogFooter>
 						</DialogContent>
 					</Dialog>
-				)}
+				</div>
 			</div>
 
 			{/* 카테고리 분리 Tabs */}
-			<Tabs value={activeTab} onValueChange={(val) => setActiveTab(val ?? "blocked-ips")} className="w-full">
+			<Tabs
+				value={activeTab}
+				onValueChange={(val) => setActiveTab((val as "whitelisted-targets" | "blocked-processes" | "access-logs") ?? "whitelisted-targets")}
+				className="w-full"
+			>
 				<TabsList>
-					<TabsTrigger value="blocked-ips">
-						<ShieldX className="text-destructive"/>
-						<span>{t(($) => $.accessControl.tabs.blockedIps, { count: blockedIpsData.length })}</span>
-					</TabsTrigger>
-					<TabsTrigger value="whitelisted-ips">
+					<TabsTrigger value="whitelisted-targets">
 						<ShieldCheck className="text-emerald-600"/>
-						<span>{t(($) => $.accessControl.tabs.whitelistedIps, { count: whitelistedIpsData.length })}</span>
+						<span>{t(($) => $.accessControl.tabs.whitelistedTargets, { count: whitelistedTargetsData.length })}</span>
 					</TabsTrigger>
 					<TabsTrigger value="blocked-processes">
 						<ShieldAlert className="text-destructive"/>
@@ -789,39 +924,27 @@ export default function AccessControlPage() {
 					</TabsTrigger>
 				</TabsList>
 
-				{/* 탭 1: 방화벽 차단 IP */}
-				<TabsContent value="blocked-ips">
-					<DataTable
-						heading={t(($) => $.accessControl.blockedTable.heading)}
-						columns={blockedColumns}
-						data={blockedIpsData}
-						isLoading={storeIsLoading}
-						enableSearch={true}
-						enableRowNumber={true}
-						highlightedRowId={activeTab === "blocked-ips" ? ruleHighlightedRowId : null}
-						onHighlightEnd={() => setRuleHighlightedRowId(null)}
-						filterPlaceholder={t(($) => $.accessControl.blockedTable.searchPlaceholder)}
-						filterColumnKey="ipAddress"
-					/>
-				</TabsContent>
-
-				{/* 탭 2: 방화벽 허용 IP (화이트리스트) */}
-				<TabsContent value="whitelisted-ips">
+				{/* 탭 1: 허용 대상 목록 (화이트리스트) */}
+				<TabsContent value="whitelisted-targets">
 					<DataTable
 						heading={t(($) => $.accessControl.whitelistTable.heading)}
-						columns={whitelistColumns}
-						data={whitelistedIpsData}
+						columns={whitelistTargetColumns}
+						data={whitelistedTargetsData}
 						isLoading={storeIsLoading}
 						enableSearch={true}
 						enableRowNumber={true}
-						highlightedRowId={activeTab === "whitelisted-ips" ? ruleHighlightedRowId : null}
+						highlightedRowId={activeTab === "whitelisted-targets" ? ruleHighlightedRowId : null}
 						onHighlightEnd={() => setRuleHighlightedRowId(null)}
 						filterPlaceholder={t(($) => $.accessControl.whitelistTable.searchPlaceholder)}
-						filterColumnKey="ipAddress"
+						filterColumnKey="value"
+						onRowClick={(row) => {
+							setSelectedWhitelistItem(row);
+							setIsWhitelistSheetOpen(true);
+						}}
 					/>
 				</TabsContent>
 
-				{/* 탭 3: 프로세스 차단 목록 (읽기 전용) */}
+				{/* 탭 2: 프로세스 차단 목록 (읽기 전용) */}
 				<TabsContent value="blocked-processes">
 					<DataTable
 						heading={t(($) => $.accessControl.blockedProcessesTable.heading)}
@@ -837,7 +960,7 @@ export default function AccessControlPage() {
 					/>
 				</TabsContent>
 
-				{/* 탭 4: 접근 제어 로그 */}
+				{/* 탭 3: 접근 제어 로그 */}
 				<TabsContent value="access-logs">
 					<DataTable
 						heading={t(($) => $.accessControl.logsTable.heading)}
@@ -867,7 +990,7 @@ export default function AccessControlPage() {
 					<AlertDialogHeader>
 						<AlertDialogTitle>{t(($) => $.accessControl.deleteDialog.title)}</AlertDialogTitle>
 						<AlertDialogDescription>
-							{t(($) => $.accessControl.deleteDialog.description, { item: itemToDelete?.ipOrPath ?? "" })}
+							{t(($) => $.accessControl.deleteDialog.description, { item: itemToDelete?.value ?? "" })}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -881,6 +1004,167 @@ export default function AccessControlPage() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
+			{/* 화이트리스트 행 클릭 시 우측에서 슬라이드 오픈되는 상세 패널 Sheet */}
+			<Sheet open={isWhitelistSheetOpen} onOpenChange={setIsWhitelistSheetOpen}>
+				<SheetContent side="right" className="sm:max-w-md w-full p-6 overflow-y-auto">
+					<SheetHeader className="p-0 pb-4 border-b">
+						<SheetTitle className="flex items-center gap-2 text-base font-bold">
+							<ShieldCheck className="size-5 text-emerald-600"/>
+							<span>{t(($) => $.accessControl.sheet.title)}</span>
+						</SheetTitle>
+						<SheetDescription className="text-xs break-all">
+							{t(($) => $.accessControl.sheet.description, {
+								type: selectedWhitelistItem?.type.toUpperCase() ?? "-",
+								value: selectedWhitelistItem?.value ?? "-",
+							})}
+						</SheetDescription>
+					</SheetHeader>
+
+					{selectedWhitelistItem && (
+						<div className="space-y-4 py-4 text-xs">
+							{/* 기본 정보 카드 */}
+							<div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border">
+								<div>
+									<span className="text-muted-foreground flex items-center gap-1 mb-1">
+										<Network className="size-3"/> {t(($) => $.accessControl.sheet.type)}
+									</span>
+									<Badge variant="secondary" className="font-mono text-[10px] uppercase">
+										{selectedWhitelistItem.type}
+									</Badge>
+								</div>
+
+								<div>
+									<span className="text-muted-foreground flex items-center gap-1 mb-1">
+										<Globe className="size-3"/> {t(($) => $.accessControl.sheet.port)}
+									</span>
+									<span className="font-mono font-bold">
+										{selectedWhitelistItem.port > 0
+											? `:${selectedWhitelistItem.port}`
+											: `${t(($) => $.accessControl.whitelistTable.allPorts)} (0)`}
+									</span>
+								</div>
+
+								<div>
+									<span className="text-muted-foreground flex items-center gap-1 mb-1">
+										<Network className="size-3"/> {t(($) => $.accessControl.sheet.cidr)}
+									</span>
+									<span className="font-mono font-medium">
+										{selectedWhitelistItem.cidr !== undefined ? `/${selectedWhitelistItem.cidr}` : "-"}
+									</span>
+								</div>
+
+								<div>
+									<span className="text-muted-foreground flex items-center gap-1 mb-1">
+										<Clock className="size-3"/> {t(($) => $.accessControl.sheet.addedAt)}
+									</span>
+									<span className="font-mono font-medium">{selectedWhitelistItem.addedAt}</span>
+								</div>
+							</div>
+
+							{/* 허용 대상 입력값 */}
+							<div className="space-y-1.5">
+								<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+									<Link2 className="size-3.5"/> {t(($) => $.accessControl.sheet.targetValue)}
+								</label>
+								<div className="p-2.5 bg-background border rounded-md font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 break-all leading-normal">
+									{selectedWhitelistItem.value}
+								</div>
+							</div>
+
+							{/* IPC data 상세 필드: IPv4 / IPv6 */}
+							{(selectedWhitelistItem.ipv4 || selectedWhitelistItem.ipv6) && (
+								<div className="space-y-1.5">
+									<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+										<Network className="size-3.5"/> {t(($) => $.accessControl.sheet.ipAddress)}
+									</label>
+									<div className="p-2.5 bg-background border rounded-md font-mono text-xs break-all">
+										{selectedWhitelistItem.ipv4 || selectedWhitelistItem.ipv6}
+									</div>
+								</div>
+							)}
+
+							{/* IPC data 상세 필드: Domain / URL */}
+							{selectedWhitelistItem.domain && (
+								<>
+									<div className="space-y-1.5">
+										<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+											<Globe className="size-3.5"/> {t(($) => $.accessControl.sheet.domain)}
+										</label>
+										<div className="p-2.5 bg-background border rounded-md font-mono text-xs break-all">
+											{selectedWhitelistItem.domain}
+										</div>
+									</div>
+
+									<div className="space-y-1.5">
+										<label className="text-xs font-semibold text-muted-foreground">
+											{t(($) => $.accessControl.sheet.ipv4List)} ({selectedWhitelistItem.ipv4List?.length ?? 0})
+										</label>
+										<div className="p-2.5 bg-background border rounded-md flex flex-wrap gap-1.5">
+											{selectedWhitelistItem.ipv4List && selectedWhitelistItem.ipv4List.length > 0 ? (
+												selectedWhitelistItem.ipv4List.map((ip) => (
+													<Badge key={ip} variant="secondary" className="font-mono text-[11px]">
+														{ip}
+													</Badge>
+												))
+											) : (
+												<span className="text-muted-foreground">{t(($) => $.accessControl.sheet.none)}</span>
+											)}
+										</div>
+									</div>
+
+									<div className="space-y-1.5">
+										<label className="text-xs font-semibold text-muted-foreground">
+											{t(($) => $.accessControl.sheet.ipv6List)} ({selectedWhitelistItem.ipv6List?.length ?? 0})
+										</label>
+										<div className="p-2.5 bg-background border rounded-md flex flex-wrap gap-1.5">
+											{selectedWhitelistItem.ipv6List && selectedWhitelistItem.ipv6List.length > 0 ? (
+												selectedWhitelistItem.ipv6List.map((ip) => (
+													<Badge key={ip} variant="secondary" className="font-mono text-[11px]">
+														{ip}
+													</Badge>
+												))
+											) : (
+												<span className="text-muted-foreground">{t(($) => $.accessControl.sheet.none)}</span>
+											)}
+										</div>
+									</div>
+								</>
+							)}
+
+							{/* 설명 / 식별 사유 */}
+							<div className="space-y-1.5">
+								<label className="text-xs font-semibold text-muted-foreground">
+									{t(($) => $.accessControl.sheet.ruleDescription)}
+								</label>
+								<div className="p-2.5 bg-background border rounded-md text-xs text-foreground/90">
+									{selectedWhitelistItem.description}
+								</div>
+							</div>
+
+							{/* IPC 응답 data 객체 JSON */}
+							<div className="space-y-1.5">
+								<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+									<FileText className="size-3.5"/> {t(($) => $.accessControl.sheet.ipcData)}
+								</label>
+								<pre className="p-3 bg-muted/80 rounded-md font-mono text-[11px] overflow-x-auto whitespace-pre-wrap leading-relaxed text-foreground/90 max-h-60 border">
+									{JSON.stringify(selectedWhitelistItem.data, null, 2)}
+								</pre>
+							</div>
+
+							{/* 전체 Raw WhitelistItem JSON */}
+							<div className="space-y-1.5">
+								<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+									<FileText className="size-3.5"/> {t(($) => $.accessControl.sheet.rawJson)}
+								</label>
+								<pre className="p-3 bg-muted/80 rounded-md font-mono text-[11px] overflow-x-auto whitespace-pre-wrap leading-relaxed text-foreground/90 max-h-60 border">
+									{JSON.stringify(selectedWhitelistItem.rawItem, null, 2)}
+								</pre>
+							</div>
+						</div>
+					)}
+				</SheetContent>
+			</Sheet>
 		</div>
 	);
 }

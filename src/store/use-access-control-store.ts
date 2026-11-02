@@ -8,7 +8,8 @@ import { useMetricStore } from "./use-metrics-store";
 const PAGE_SIZE = 10;
 
 export interface RuleState {
-	blockedIps: string[];
+	isFirewallActive: boolean;
+	whitelistItems: WhitelistItem[];
 	whitelistIps: string[];
 	logs: AccessControlLogItem[];
 	hasMoreLogs: boolean;
@@ -17,20 +18,45 @@ export interface RuleState {
 	isLoadingMoreTopLogs: boolean;
 	isInitialized: boolean;
 	isLoading: boolean;
+	isRefreshing: boolean;
 	error: string | null;
 
+	getFirewallStatus: () => Promise<IncomingFWMessage>;
 	fetchRules: (force?: boolean) => Promise<void>;
 	addLogs: (logs: AccessControlLogItem[]) => void;
 	fetchMoreLogs: () => Promise<void>;
 	fetchMoreLogsTop: () => Promise<void>;
 	loadLogsAround: (timestamp: number) => Promise<boolean>;
-	blockIp: (ips: string[], reason: string) => Promise<void>;
-	unblockIp: (ips: string[], reason: string) => Promise<void>;
-	addWhitelist: (ips: string[], reason: string) => Promise<void>;
-	removeWhitelist: (ips: string[], reason: string) => Promise<void>;
+	setWhitelist: (items: string[], reason?: string) => Promise<void>;
+	addWhitelist: (items: string[], reason?: string) => Promise<void>;
+	removeWhitelist: (items: string[], reason?: string) => Promise<void>;
+	refreshWhitelist: () => Promise<void>;
 }
 
 
+
+const applyFirewallStatus = (
+	res: { success: boolean; active?: boolean; whitelist?: WhitelistItem[]; message?: string },
+	set: (partial: Partial<RuleState> | ((prev: RuleState) => Partial<RuleState>)) => void,
+) => {
+	if (res.success) {
+		const isFirewallActive = res.active ?? false;
+		if (res.whitelist !== undefined) {
+			const whitelistItems = res.whitelist;
+			const whitelistIps = whitelistItems.map(item => item.value);
+			set({
+				isFirewallActive,
+				whitelistItems,
+				whitelistIps,
+				error: null,
+			});
+		} else {
+			set({ isFirewallActive, error: null });
+		}
+	} else if (res.message) {
+		set({ error: res.message });
+	}
+};
 
 const mergeAccessLogs = (existing: AccessControlLogItem[], incoming: AccessControlLogItem[]) => {
 	const map = new Map<string, AccessControlLogItem>();
@@ -44,7 +70,8 @@ const mergeAccessLogs = (existing: AccessControlLogItem[], incoming: AccessContr
 };
 
 export const useAccessControlStore = create<RuleState>((set, get) => ({
-	blockedIps: [],
+	isFirewallActive: false,
+	whitelistItems: [],
 	whitelistIps: [],
 	logs: [],
 	hasMoreLogs: true,
@@ -53,37 +80,34 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 	isLoadingMoreTopLogs: false,
 	isInitialized: false,
 	isLoading: false,
+	isRefreshing: false,
 	error: null,
+
+	getFirewallStatus: async () => {
+		const res = await window.electronAPI.getFirewallStatus();
+		applyFirewallStatus(res, set);
+		return res;
+	},
 
 	fetchRules: async (force = false) => {
 		if (get().isLoading || (get().isInitialized && !force)) return;
 		set({ isLoading: true, error: null });
 		try {
-			const [logs, blockedRes, whitelistRes] = await Promise.all([
+			const [logs, fwStatus] = await Promise.all([
 				window.electronAPI.getAccessControlLogs({ limit: PAGE_SIZE }),
-				window.electronAPI.getBlockedIPs(),
-				window.electronAPI.getWhitelistedIPs(),
+				get().getFirewallStatus(),
 			]);
 
-			const errorMsg = !blockedRes?.success
-				? blockedRes?.message
-				: !whitelistRes?.success
-					? whitelistRes?.message
-					: null;
-
 			set((prev) => ({
-				blockedIps: blockedRes?.success ? blockedRes.ips : [],
-				whitelistIps: whitelistRes?.success ? whitelistRes.ips : [],
 				logs: mergeAccessLogs(prev.logs, logs),
 				hasMoreLogs: logs.length >= PAGE_SIZE,
 				isInitialized: true,
-				error: errorMsg ?? null,
 			}));
 
-			if (errorMsg) {
+			if (!fwStatus.success && fwStatus.message) {
 				toast.add({
-					id: errorMsg,
-					title: errorMsg,
+					id: fwStatus.message,
+					title: fwStatus.message,
 					type: "error",
 				});
 			}
@@ -174,75 +198,76 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 		}
 	},
 
-	blockIp: async (ips, reason) => {
-		const logs = await window.electronAPI.addBlockedIPs(ips, reason);
-		const failedLog = logs.find(x => !x.success);
-		useMetricStore.getState().incrementAccessLogCount(logs.length);
+	setWhitelist: async (items, reason) => {
+		const res = await window.electronAPI.setWhitelist(items, reason);
+		useMetricStore.getState().incrementAccessLogCount(res.logs.length);
 
-		set(prev => ({
-			blockedIps: failedLog
-				? prev.blockedIps
-				: Array.from(new Set([...prev.blockedIps, ...ips])),
-			logs: [...logs, ...prev.logs],
-			error: failedLog ? (failedLog.errorMessage ?? null) : null,
+		set((prev) => ({
+			logs: mergeAccessLogs(prev.logs, res.logs),
+			error: res.message ?? null,
 		}));
 
-		if (failedLog) {
-			throw new Error(failedLog.errorMessage ?? "Failed to add blocked IP");
+		// 응답에 whitelist가 포함되어 있다면 실시간 반영
+		if (res.whitelist !== undefined) {
+			applyFirewallStatus(res, set);
+		} else {
+			// breaking change로 set 응답에 whitelist가 누락될 경우 기존 get 함수를 활용하여 실시간 반영
+			await get().getFirewallStatus();
+		}
+
+		if (!res.success) {
+			throw new Error(res.message ?? "화이트리스트 설정에 실패했습니다.");
 		}
 	},
 
-	unblockIp: async (ips, reason) => {
-		const logs = await window.electronAPI.removeBlockedIPs(ips, reason);
-		const failedLog = logs.find(x => !x.success);
-		useMetricStore.getState().incrementAccessLogCount(logs.length);
-
-		set(prev => ({
-			blockedIps: failedLog
-				? prev.blockedIps
-				: prev.blockedIps.filter(ip => !ips.includes(ip)),
-			logs: [...logs, ...prev.logs],
-			error: failedLog ? (failedLog.errorMessage ?? null) : null,
-		}));
-
-		if (failedLog) {
-			throw new Error(failedLog.errorMessage ?? "Failed to remove blocked IP");
+	addWhitelist: async (items, reason) => {
+		// CLI나 타 프로세스가 변경했을 수 있으므로 기존 get 함수로 최신 상태 조회 및 스토어 실시간 반영
+		let currentValues = get().whitelistIps;
+		try {
+			const statusRes = await get().getFirewallStatus();
+			if (statusRes.success && statusRes.whitelist) {
+				currentValues = statusRes.whitelist.map((x) => x.value);
+			}
+		} catch (err) {
+			console.warn("[useAccessControlStore] getFirewallStatus before addWhitelist failed:", err);
 		}
+
+		const nextValues = Array.from(new Set([...currentValues, ...items]));
+		await get().setWhitelist(nextValues, reason || `화이트리스트 추가 (${items.join(", ")})`);
 	},
 
-	addWhitelist: async (ips, reason) => {
-		const logs = await window.electronAPI.addWhitelistedIPs(ips, reason);
-		const failedLog = logs.find(x => !x.success);
-		useMetricStore.getState().incrementAccessLogCount(logs.length);
-
-		set(prev => ({
-			whitelistIps: failedLog
-				? prev.whitelistIps
-				: Array.from(new Set([...prev.whitelistIps, ...ips])),
-			logs: [...logs, ...prev.logs],
-			error: failedLog ? (failedLog.errorMessage ?? null) : null,
-		}));
-
-		if (failedLog) {
-			throw new Error(failedLog.errorMessage ?? "Failed to add whitelisted IP");
+	removeWhitelist: async (items, reason) => {
+		// CLI나 타 프로세스가 변경했을 수 있으므로 기존 get 함수로 최신 상태 조회 및 스토어 실시간 반영
+		let currentValues = get().whitelistIps;
+		try {
+			const statusRes = await get().getFirewallStatus();
+			if (statusRes.success && statusRes.whitelist) {
+				currentValues = statusRes.whitelist.map((x) => x.value);
+			}
+		} catch (err) {
+			console.warn("[useAccessControlStore] getFirewallStatus before removeWhitelist failed:", err);
 		}
+
+		const nextValues = currentValues.filter((x) => !items.includes(x));
+		await get().setWhitelist(nextValues, reason || `화이트리스트 삭제 (${items.join(", ")})`);
 	},
 
-	removeWhitelist: async (ips, reason) => {
-		const logs = await window.electronAPI.removeWhitelistedIPs(ips, reason);
-		const failedLog = logs.find(x => !x.success);
-		useMetricStore.getState().incrementAccessLogCount(logs.length);
-
-		set(prev => ({
-			whitelistIps: failedLog
-				? prev.whitelistIps
-				: prev.whitelistIps.filter(ip => !ips.includes(ip)),
-			logs: [...logs, ...prev.logs],
-			error: failedLog ? (failedLog.errorMessage ?? null) : null,
-		}));
-
-		if (failedLog) {
-			throw new Error(failedLog.errorMessage ?? "Failed to remove whitelisted IP");
+	refreshWhitelist: async () => {
+		set({ isRefreshing: true });
+		try {
+			const res = await window.electronAPI.refreshWhitelist();
+			if (!res.success) {
+				throw new Error(res.message);
+			}
+			// 응답에 whitelist가 포함되어 있다면 실시간 반영
+			if (res.whitelist !== undefined) {
+				applyFirewallStatus(res, set);
+			} else {
+				// 누락 시 기존 get 함수를 활용하여 실시간 반영
+				await get().getFirewallStatus();
+			}
+		} finally {
+			set({ isRefreshing: false });
 		}
 	},
 }));

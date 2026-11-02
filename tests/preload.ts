@@ -7,11 +7,14 @@ import {
 	isValidIPCMessage,
 	type IncomingIPCMessage,
 } from "~/services/ipc-receiver";
+import type {
+	FirewallRequest,
+	IncomingFWMessage,
+	WhitelistItem,
+} from "~/services/firewall-tool";
 import {
 	sendToFirewallTool,
 	isValidFirewallMessage,
-	type FirewallRequest,
-	type IncomingFWMessage,
 } from "~/services/firewall-tool";
 import * as tray from "~/main/tray";
 import {
@@ -20,62 +23,124 @@ import {
 	useAlertStore,
 	useTelemetryStore,
 } from "@/store";
+import type { AccessControlLogItem } from "~/main/firewall-tool";
 
 import { FW_TEST_PIPE_NAME, IPC_TEST_PIPE_NAME } from "./common";
 
 
 
-// 가짜 FirewallTool 파이프 서버가 유지할 인메모리 상태
-const mockBlockedIps = new Set<string>([
-	"185.220.101.42",
-	"45.155.205.233",
-	"103.145.13.99",
-]);
+function parseMockWhitelistItem(value: string): WhitelistItem {
+	if (value.startsWith("http://") || value.startsWith("https://")) {
+		try {
+			const u = new URL(value);
+			const port = u.port ? Number(u.port) : (u.protocol === "https:" ? 443 : 80);
+			return {
+				type: "url",
+				value,
+				data: { domain: u.hostname, port, ipv4: ["192.168.0.1"], ipv6: [] },
+			};
+		} catch {
+			// fallback
+		}
+	}
+	if (value.includes("::")) {
+		return {
+			type: "ipv6",
+			value,
+			data: { ipv6: value, port: 0, cidr: 64 },
+		};
+	}
+	if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(value)) {
+		const parts = value.split(":");
+		const domain = parts[0] || value;
+		const port = parts[1] ? Number(parts[1]) : 0;
+		return {
+			type: "domain",
+			value,
+			data: { domain, port, ipv4: ["93.184.216.34"], ipv6: [] },
+		};
+	}
+	const parts = value.split(":");
+	const ipOrCidr = parts[0] || value;
+	const port = parts[1] ? Number(parts[1]) : 0;
+	const [ip, cidrStr] = ipOrCidr.split("/");
+	return {
+		type: "ipv4",
+		value,
+		data: { ipv4: ip || value, port, cidr: cidrStr ? Number(cidrStr) : 32 },
+	};
+}
 
-const mockWhitelistIps = new Set<string>([
-	"10.0.0.1",
-	"192.168.0.10",
+let mockActive = false;
+const mockWhitelistMap = new Map<string, WhitelistItem>([
+	["10.0.0.1", parseMockWhitelistItem("10.0.0.1")],
+	["192.168.0.10:8080", parseMockWhitelistItem("192.168.0.10:8080")],
+	["example.com", parseMockWhitelistItem("example.com")],
 ]);
 
 const mockAccessControlLogs: AccessControlLogItem[] = [];
 let logIdCounter = 0;
 
 function handleFakeFirewallRequest(req: FirewallRequest): IncomingFWMessage {
-	const targetSet = req.target === "block" ? mockBlockedIps : mockWhitelistIps;
-	const ips = Array.isArray(req.ips) ? req.ips : [];
-
 	switch (req.action) {
-		case "list": {
+		case "on": {
+			mockActive = true;
+			if (Array.isArray(req.whitelist)) {
+				mockWhitelistMap.clear();
+				for (const item of req.whitelist) {
+					mockWhitelistMap.set(item, parseMockWhitelistItem(item));
+				}
+			}
 			return {
 				success: true,
-				message: "OK",
-				ips: Array.from(targetSet),
+				active: true,
+				action: "on",
+				whitelist: Array.from(mockWhitelistMap.values()),
 			};
 		}
-		case "add": {
-			if (ips.includes("0.0.0.0")) {
+		case "off": {
+			mockActive = false;
+			return {
+				success: true,
+				active: false,
+				action: "off",
+			};
+		}
+		case "get": {
+			return {
+				success: true,
+				active: mockActive,
+				action: "get",
+				whitelist: Array.from(mockWhitelistMap.values()),
+			};
+		}
+		case "refresh": {
+			return {
+				success: true,
+				active: mockActive,
+				action: "refresh",
+				whitelist: Array.from(mockWhitelistMap.values()),
+			};
+		}
+		case "set": {
+			if (Array.isArray(req.whitelist) && req.whitelist.includes("invalid://error")) {
 				return {
 					success: false,
-					message: "예약된 시스템 주소(0.0.0.0)는 방화벽 정책에 추가할 수 없습니다.",
+					action: "set",
+					message: "유효하지 않은 화이트리스트 대상 형식입니다.",
 				};
 			}
-			for (const ip of ips) {
-				targetSet.add(ip);
+			if (Array.isArray(req.whitelist)) {
+				mockWhitelistMap.clear();
+				for (const item of req.whitelist) {
+					mockWhitelistMap.set(item, parseMockWhitelistItem(item));
+				}
 			}
 			return {
 				success: true,
-				message: `${req.target} 목록에 ${ips.length}개 IP가 추가되었습니다.`,
-				ips: Array.from(targetSet),
-			};
-		}
-		case "remove": {
-			for (const ip of ips) {
-				targetSet.delete(ip);
-			}
-			return {
-				success: true,
-				message: `${req.target} 목록에서 ${ips.length}개 IP가 제거되었습니다.`,
-				ips: Array.from(targetSet),
+				active: mockActive,
+				action: "set",
+				whitelist: Array.from(mockWhitelistMap.values()),
 			};
 		}
 		default: {
@@ -87,40 +152,44 @@ function handleFakeFirewallRequest(req: FirewallRequest): IncomingFWMessage {
 	}
 }
 
-async function invokeFakeFirewallAction(
-	target: "block" | "whitelist",
-	action: "add" | "remove",
-	ips: string[],
-	reason: string,
-): Promise<AccessControlLogItem[]> {
-	let response: IncomingFWMessage;
-	try {
-		const raw = await sendToFirewallTool({ target, action, ips }, FW_TEST_PIPE_NAME);
-		response = isValidFirewallMessage(raw)
-			? raw
-			: { success: false, message: "Invalid response from firewall tool" };
-	} catch (err) {
-		response = {
-			success: false,
-			message: err instanceof Error ? err.message : String(err),
-		};
+async function invokeFakeSetWhitelist(
+	items: string[],
+	reason?: string,
+): Promise<{ success: boolean; active: boolean; whitelist?: WhitelistItem[]; message?: string; logs: AccessControlLogItem[] }> {
+	const raw = await sendToFirewallTool({ action: "set", whitelist: items }, FW_TEST_PIPE_NAME);
+	const success = raw.success;
+	const errorMessage = raw.success ? undefined : raw.message;
+	const active = raw.success ? raw.active : mockActive;
+	let whitelist: WhitelistItem[] | undefined = raw.success && raw.whitelist ? raw.whitelist : undefined;
+
+	if (success && whitelist === undefined) {
+		const getRes = await sendToFirewallTool({ action: "get" }, FW_TEST_PIPE_NAME);
+		if (isValidFirewallMessage(getRes) && getRes.success && getRes.whitelist) {
+			whitelist = getRes.whitelist;
+		}
 	}
 
 	const id = ++logIdCounter;
 	const performedAt = Date.now();
-	const items: AccessControlLogItem[] = (response.success ? ips : [undefined]).map((ip) => ({
+	const logItems: AccessControlLogItem[] = (success ? items : [undefined]).map((ip) => ({
 		id,
-		target,
-		action,
-		reason,
-		success: response.success,
-		errorMessage: response.message,
+		target: "whitelist",
+		action: "add",
+		reason: reason || "화이트리스트 설정 갱신",
+		success,
+		errorMessage: errorMessage ?? null,
 		performedAt,
 		ip,
 	}));
 
-	mockAccessControlLogs.unshift(...items);
-	return items;
+	mockAccessControlLogs.unshift(...logItems);
+	return {
+		success,
+		active,
+		whitelist,
+		message: errorMessage,
+		logs: logItems,
+	};
 }
 
 // 프론트엔드 스토어(useAccessControlStore 등)가 테스트 환경에서도 동작하도록 window.electronAPI 연결
@@ -151,18 +220,16 @@ globalWithWindow.window.electronAPI = {
 	acknowledgeThreats: async () => true,
 	getAccessControlLogs: async () => [...mockAccessControlLogs],
 	getAccessControlLogsAround: async () => ({ logs: [...mockAccessControlLogs], hasMoreTop: false, hasMoreBottom: false, topOffset: 0 }),
-	getBlockedIPs: async () => {
-		const raw = await sendToFirewallTool({ target: "block", action: "list" }, FW_TEST_PIPE_NAME);
+
+	getFirewallStatus: async () => {
+		const raw = await sendToFirewallTool({ action: "get" }, FW_TEST_PIPE_NAME);
 		return isValidFirewallMessage(raw) ? raw : { success: false, message: "Invalid response" };
 	},
-	getWhitelistedIPs: async () => {
-		const raw = await sendToFirewallTool({ target: "whitelist", action: "list" }, FW_TEST_PIPE_NAME);
+	setWhitelist: (items, reason) => invokeFakeSetWhitelist(items, reason),
+	refreshWhitelist: async () => {
+		const raw = await sendToFirewallTool({ action: "refresh" }, FW_TEST_PIPE_NAME);
 		return isValidFirewallMessage(raw) ? raw : { success: false, message: "Invalid response" };
 	},
-	addBlockedIPs: (ips, reason) => invokeFakeFirewallAction("block", "add", ips, reason),
-	removeBlockedIPs: (ips, reason) => invokeFakeFirewallAction("block", "remove", ips, reason),
-	addWhitelistedIPs: (ips, reason) => invokeFakeFirewallAction("whitelist", "add", ips, reason),
-	removeWhitelistedIPs: (ips, reason) => invokeFakeFirewallAction("whitelist", "remove", ips, reason),
 };
 
 let fwServer: net.Server | null = null;
@@ -177,7 +244,9 @@ export function ensureTestPipeServers(): Promise<void> {
 				if (fs.existsSync(sockPath)) {
 					try {
 						fs.unlinkSync(sockPath);
-					} catch {}
+					} catch {
+						// ignore
+					}
 				}
 			}
 		}
@@ -245,6 +314,18 @@ export async function stopTestPipeServers(): Promise<void> {
 			fwServer!.close(() => resolve());
 		});
 		fwServer = null;
+	}
+
+	if (process.platform !== "win32") {
+		for (const sockPath of [FW_TEST_PIPE_NAME, IPC_TEST_PIPE_NAME]) {
+			try {
+				if (fs.existsSync(sockPath)) {
+					fs.unlinkSync(sockPath);
+				}
+			} catch {
+				// ignore
+			}
+		}
 	}
 	initPromise = null;
 }

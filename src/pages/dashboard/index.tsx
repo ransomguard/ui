@@ -82,7 +82,6 @@ export default function Dashboard() {
 
 	const sysData = useStatusStore((state) => state.data);
 
-	const storeBlockedIps = useAccessControlStore((state) => state.blockedIps);
 	const storeWhitelistIps = useAccessControlStore((state) => state.whitelistIps);
 	const storeLogs = useAccessControlStore((state) => state.logs);
 	const storeHasMoreLogs = useAccessControlStore((state) => state.hasMoreLogs);
@@ -281,20 +280,6 @@ export default function Dashboard() {
 			});
 		});
 
-		const unloggedBlockedSummaries: DashboardSummaryEventItem[] = storeBlockedIps
-			.filter((ip) => !loggedIps.has(`block:${ip}`))
-			.map((ip) => ({
-				id: `firewall-block-${ip}`,
-				category: "firewall",
-				action: "BLOCK_ADD",
-				target: ip,
-				summary: t(($) => $.recentEvents.defaultReason),
-				timestamp: 0,
-				createdAt: "-",
-				rawId: ip,
-				itemKey: `blocked-ip-${ip}`,
-			}));
-
 		const unloggedWhitelistSummaries: DashboardSummaryEventItem[] = storeWhitelistIps
 			.filter((ip) => !loggedIps.has(`whitelist:${ip}`))
 			.map((ip) => ({
@@ -313,7 +298,6 @@ export default function Dashboard() {
 			...alertAndRecoverySummaries,
 			...telemetrySummaries,
 			...firewallLogSummaries,
-			...unloggedBlockedSummaries,
 			...unloggedWhitelistSummaries,
 		].sort((a, b) => b.timestamp - a.timestamp);
 
@@ -321,7 +305,6 @@ export default function Dashboard() {
 		const totalRecoveryCount = Math.max(totalCounts.recovery, alertAndRecoverySummaries.filter(i => i.category === "recovery").length);
 		const totalTelemetryCount = Math.max(totalCounts.telemetry, telemetrySummaries.length);
 		const totalFirewallCount = Math.max(totalCounts.accessControlLogs, firewallLogSummaries.length)
-			+ unloggedBlockedSummaries.length
 			+ unloggedWhitelistSummaries.length;
 
 		const tabTotalCounts = {
@@ -333,7 +316,7 @@ export default function Dashboard() {
 		};
 
 		return { summaryEvents, tabTotalCounts };
-	}, [alerts, telemetryEvents, storeLogs, storeBlockedIps, storeWhitelistIps, totalCounts, t]);
+	}, [alerts, telemetryEvents, storeLogs, storeWhitelistIps, totalCounts, t]);
 
 	// 날짜별 통합 보안 이벤트 집계 (Electron에서 계산된 일별 통계 사용)
 	const dailyCounts = new Map<string, {

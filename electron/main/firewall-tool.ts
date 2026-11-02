@@ -1,10 +1,10 @@
 import { getDB, table, type Select } from "~/db";
-import { maybeStringArray, isString } from "~/utils/guard";
 import {
 	sendToFirewallTool,
 	isValidFirewallMessage,
 	type FirewallRequest,
 	type IncomingFWMessage,
+	type WhitelistItem,
 } from "~/services/firewall-tool";
 
 import {
@@ -43,21 +43,15 @@ export async function fetchLogsAround(targetTimestamp: number, limit = 10): Prom
 
 
 
-export async function fetchIPs(
-	target: FirewallRequest["target"],
-): Promise<IncomingFWMessage> {
-	const action = "list" as const;
-	const data = { target, action };
-
+async function sendFirewallRequest(request: FirewallRequest): Promise<IncomingFWMessage> {
 	try {
-		const response = await sendToFirewallTool(data);
+		const response = await sendToFirewallTool(request);
 		if (!isValidFirewallMessage(response)) {
 			return {
 				success: false,
-				message: "Invalid response from firewall tool",
+				message: "Invalid response from firewall daemon",
 			};
 		}
-
 		return response;
 	} catch (error) {
 		return {
@@ -67,52 +61,63 @@ export async function fetchIPs(
 	}
 }
 
+export async function getFirewallStatus(): Promise<IncomingFWMessage> {
+	return sendFirewallRequest({ action: "get" });
+}
 
-
-export async function actionAndLogging(
-	target: FirewallRequest["target"],
-	action: Exclude<FirewallRequest["action"], "list">,
-	...args: unknown[]
-): Promise<AccessControlLogItem[]> {
+export async function setWhitelist(
+	items: string[],
+	reason?: string,
+): Promise<{
+	success: boolean;
+	active: boolean;
+	whitelist?: WhitelistItem[];
+	message?: string;
+	logs: AccessControlLogItem[];
+}> {
 	const db = getDB();
-	const [ips, reason] = args;
+	const response = await sendFirewallRequest({ action: "set", whitelist: items });
 
-	if (!maybeStringArray(ips) || !ips) {
-		throw new Error("Invalid input: ips must be an array of strings");
-	}
-	if (!isString(reason)) {
-		throw new Error("Invalid input: reason must be a string");
-	}
-	const data = { target, action, ips, reason };
+	const success = response.success;
+	const errorMessage = response.success ? undefined : response.message;
+	const active = response.success ? response.active : false;
+	let whitelist: WhitelistItem[] | undefined = response.success && response.whitelist ? response.whitelist : undefined;
 
-	let response: IncomingFWMessage;
-	try {
-		const raw = await sendToFirewallTool(data);
-		if (!isValidFirewallMessage(raw)) {
-			response = {
-				success: false,
-				message: "Invalid response from firewall tool",
-			};
-		} else {
-			response = raw;
+	// breaking change 대비: set 응답에 whitelist가 포함되지 않은 경우 기존 get 함수(getFirewallStatus)를 활용
+	if (success && whitelist === undefined) {
+		const getRes = await getFirewallStatus();
+		if (getRes.success && getRes.whitelist) {
+			whitelist = getRes.whitelist;
 		}
-	} catch (error) {
-		response = {
-			success: false,
-			message: error instanceof Error ? error.message : String(error),
-		};
 	}
-	const { success, message } = response;
+
+	const logReason = reason || "화이트리스트 설정 갱신";
 
 	const rows = await db.insert(table.accessControlLogs).values({
-		target, action, reason, success,
-		ips: success ? ips : null,
-		errorMessage: message,
+		target: "whitelist",
+		action: "add",
+		reason: logReason,
+		success,
+		ips: success ? items : null,
+		errorMessage,
 	}).returning();
 
-	// ips가 null이면 에러가 발생했다는 의미이므로 ip 없이 에러 로그를 넘김
-	return rows.flatMap(({ ips, ...row }) => (ips && ips.length > 0 ? ips : [undefined]).map(ip => ({
-		...row,
-		ip,
-	})));
+	const logs: AccessControlLogItem[] = rows.flatMap(({ ips, ...row }) =>
+		(ips && ips.length > 0 ? ips : [undefined]).map(ip => ({
+			...row,
+			ip,
+		})),
+	);
+
+	return {
+		success,
+		active,
+		whitelist,
+		message: errorMessage,
+		logs,
+	};
+}
+
+export async function refreshWhitelist(): Promise<IncomingFWMessage> {
+	return sendFirewallRequest({ action: "refresh" });
 }

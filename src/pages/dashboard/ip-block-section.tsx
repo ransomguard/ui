@@ -257,11 +257,8 @@ export default function RecentEventsSection({
 				} else if (row.category === "telemetry") {
 					navigate(`/telemetry?${params.toString()}`);
 				} else if (row.category === "firewall") {
-					if (row.id.startsWith("firewall-block-")) {
-						params.set("tab", "blocked-ips");
-						if (row.target) params.set("target", row.target);
-					} else if (row.id.startsWith("firewall-whitelist-")) {
-						params.set("tab", "whitelisted-ips");
+					if (row.id.startsWith("firewall-whitelist-")) {
+						params.set("tab", "whitelisted-targets");
 						if (row.target) params.set("target", row.target);
 					} else {
 						params.set("tab", "access-logs");

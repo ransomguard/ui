@@ -42,8 +42,10 @@ type FetchAccessControlLogsOptions = import("~/main/queries").FetchAccessControl
 
 type FirewallRequest = import("~/services/firewall-tool").FirewallRequest;
 type IncomingFWMessage = import("~/services/firewall-tool").IncomingFWMessage;
+type WhitelistItem = import("~/services/firewall-tool").WhitelistItem;
+type WhitelistItemType = import("~/services/firewall-tool").WhitelistItemType;
+type WhitelistItemData = import("~/services/firewall-tool").WhitelistItemData;
 type FetchLogsResult = Awaited<ReturnType<typeof import("~/main/firewall-tool").fetchLogs>>;
-type FetchIPsResult = Awaited<ReturnType<typeof import("~/main/firewall-tool").fetchIPs>>;
 type AccessControlLogItem = import("~/main/firewall-tool").AccessControlLogItem;
 
 interface Window {
@@ -77,11 +79,14 @@ interface Window {
 			hasMoreBottom: boolean;
 			topOffset?: number;
 		}>;
-		getBlockedIPs(): Promise<FetchIPsResult>;
-		getWhitelistedIPs(): Promise<FetchIPsResult>;
-		addBlockedIPs(ips: string[], reason: string): Promise<AccessControlLogItem[]>;
-		removeBlockedIPs(ips: string[], reason: string): Promise<AccessControlLogItem[]>;
-		addWhitelistedIPs(ips: string[], reason: string): Promise<AccessControlLogItem[]>;
-		removeWhitelistedIPs(ips: string[], reason: string): Promise<AccessControlLogItem[]>;
+		getFirewallStatus(): Promise<IncomingFWMessage>;
+		setWhitelist(items: string[], reason?: string): Promise<{
+			success: boolean;
+			active: boolean;
+			whitelist?: WhitelistItem[];
+			message?: string;
+			logs: AccessControlLogItem[];
+		}>;
+		refreshWhitelist(): Promise<IncomingFWMessage>;
 	};
 }

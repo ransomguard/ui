@@ -202,47 +202,42 @@ export interface AppTranslations {
 		heading: string;
 		description: string;
 		addPolicy: string;
+		statusActive: string;
+		statusInactive: string;
+		statusActiveDesc: string;
+		statusInactiveDesc: string;
+		refreshButton: string;
+		refreshing: string;
 		tabs: {
-			blockedIps: string;
-			whitelistedIps: string;
+			whitelistedTargets: string;
 			blockedProcesses: string;
 			accessLogs: string;
 		};
 		dialog: {
-			blockTitle: string;
 			whitelistTitle: string;
 			description: string;
-			blockIpLabel: string;
-			blockIpPlaceholder: string;
-			blockReasonLabel: string;
-			blockReasonPlaceholder: string;
 			whitelistIpLabel: string;
 			whitelistIpPlaceholder: string;
 			whitelistDescLabel: string;
 			whitelistDescPlaceholder: string;
+			helpExamples: string;
 			cancel: string;
 			submit: string;
-		};
-		blockedTable: {
-			heading: string;
-			searchPlaceholder: string;
-			columns: {
-				ipAddress: string;
-				reason: string;
-				blockedAt: string;
-				actions: string;
-			};
-			unblockAction: string;
 		};
 		whitelistTable: {
 			heading: string;
 			searchPlaceholder: string;
 			columns: {
-				ipAddress: string;
+				type: string;
+				target: string;
+				port: string;
+				cidr: string;
+				resolvedIps: string;
 				description: string;
 				addedAt: string;
 				actions: string;
 			};
+			allPorts: string;
 			removeAction: string;
 		};
 		blockedProcessesTable: {
@@ -287,18 +282,33 @@ export interface AppTranslations {
 			cancel: string;
 			confirm: string;
 		};
+		sheet: {
+			title: string;
+			description: string;
+			type: string;
+			targetValue: string;
+			port: string;
+			cidr: string;
+			domain: string;
+			ipAddress: string;
+			ipv4List: string;
+			ipv6List: string;
+			addedAt: string;
+			ruleDescription: string;
+			ipcData: string;
+			rawJson: string;
+			none: string;
+		};
 		defaults: {
-			manualBlockReason: string;
 			manualWhitelistDesc: string;
-			manualUnblockReason: string;
+			externalWhitelistDesc: string;
 			manualRemoveWhitelistReason: string;
 		};
 		toasts: {
-			invalidIp: string;
-			blockedAdded: string;
+			invalidTarget: string;
 			whitelistAdded: string;
-			blockedRemoved: string;
 			whitelistRemoved: string;
+			refreshSuccess: string;
 		};
 	};
 }
