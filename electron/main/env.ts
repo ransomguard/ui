@@ -6,13 +6,13 @@ import { __dirname } from "~/config";
 
 // The built directory structure
 //
-// ├─┬─┬ dist
-// │ │ └── index.html
-// │ │
-// │ ├─┬ dist-electron
-// │ │ ├── main.js
-// │ │ └── preload.mjs
-// │
+// └─┬─┬ dist
+//   │ └── index.html
+//   │
+//   └─┬ dist-electron
+//     ├── main.js
+//     └── preload.mjs
+//
 process.env.APP_ROOT = path.join(__dirname, "..");
 
 // 🚧 Use ["ENV_NAME"] avoid vite:define plugin - Vite@2.x
