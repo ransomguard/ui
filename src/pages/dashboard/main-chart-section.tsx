@@ -91,8 +91,8 @@ export default function MainChartSection<T extends TimeRangeItem>({
 	const { t, i18n: { language } } = useTranslation();
 	const [activeCategory, setActiveCategory] = useSearchParamTab<ChartCategory>({
 		paramName: "chartTab",
-		defaultTab: "threat",
-		validTabs: ["threat", "telemetry", "health", "all"] as const,
+		defaultTab: "all",
+		validTabs: ["all", "threat", "telemetry", "health"] as const,
 	});
 
 	const getLabel = (item: T) => t($ => $.timeRange[item.label], { days: item.value });
@@ -159,6 +159,9 @@ export default function MainChartSection<T extends TimeRangeItem>({
 					onValueChange={(val) => setActiveCategory((val as ChartCategory) ?? "threat")}
 				>
 					<TabsList className="h-9">
+						<TabsTrigger value="all" className="text-xs px-2.5">
+							{t($ => $.chart.tabs.all)}
+						</TabsTrigger>
 						<TabsTrigger value="threat" className="text-xs px-2.5">
 							{t($ => $.chart.tabs.threat)}
 						</TabsTrigger>
@@ -167,9 +170,6 @@ export default function MainChartSection<T extends TimeRangeItem>({
 						</TabsTrigger>
 						<TabsTrigger value="health" className="text-xs px-2.5">
 							{t($ => $.chart.tabs.health)}
-						</TabsTrigger>
-						<TabsTrigger value="all" className="text-xs px-2.5">
-							{t($ => $.chart.tabs.all)}
 						</TabsTrigger>
 					</TabsList>
 				</Tabs>

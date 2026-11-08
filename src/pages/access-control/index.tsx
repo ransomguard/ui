@@ -20,7 +20,7 @@ import {
 	FileText,
 } from "lucide-react";
 
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, type DataTableFeatures } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -785,6 +785,36 @@ export default function AccessControlPage() {
 		]);
 	}, [whitelistTargetColumnHelper, t]);
 
+	const tabsToolbar = (
+		<Tabs
+			value={activeTab}
+			onValueChange={(val) => setActiveTab((val as "whitelisted-targets" | "blocked-processes" | "access-logs") ?? "whitelisted-targets")}
+		>
+			<TabsList>
+				<TabsTrigger value="whitelisted-targets">
+					<ShieldCheck className="text-emerald-600"/>
+					<span>{t(($) => $.accessControl.tabs.whitelistedTargets, { count: whitelistedTargetsData.length })}</span>
+				</TabsTrigger>
+				<TabsTrigger value="blocked-processes">
+					<ShieldAlert className="text-destructive"/>
+					<span>
+						{t(($) => $.accessControl.tabs.blockedProcesses, {
+							count: Math.max(totalCounts.blockedProcesses, blockedProcessesData.length),
+						})}
+					</span>
+				</TabsTrigger>
+				<TabsTrigger value="access-logs">
+					<History className="text-muted-foreground"/>
+					<span>
+						{t(($) => $.accessControl.tabs.accessLogs, {
+							count: Math.max(totalCounts.accessControlLogs, accessLogsData.length),
+						})}
+					</span>
+				</TabsTrigger>
+			</TabsList>
+		</Tabs>
+	);
+
 	return (
 		<div className="flex flex-col gap-6 min-w-0">
 			{/* 페이지 상단 헤더 */}
@@ -896,94 +926,70 @@ export default function AccessControlPage() {
 				</div>
 			</div>
 
-			{/* 카테고리 분리 Tabs */}
-			<Tabs
-				value={activeTab}
-				onValueChange={(val) => setActiveTab((val as "whitelisted-targets" | "blocked-processes" | "access-logs") ?? "whitelisted-targets")}
-				className="w-full"
-			>
-				<TabsList>
-					<TabsTrigger value="whitelisted-targets">
-						<ShieldCheck className="text-emerald-600"/>
-						<span>{t(($) => $.accessControl.tabs.whitelistedTargets, { count: whitelistedTargetsData.length })}</span>
-					</TabsTrigger>
-					<TabsTrigger value="blocked-processes">
-						<ShieldAlert className="text-destructive"/>
-						<span>
-							{t(($) => $.accessControl.tabs.blockedProcesses, {
-								count: Math.max(totalCounts.blockedProcesses, blockedProcessesData.length),
-							})}
-						</span>
-					</TabsTrigger>
-					<TabsTrigger value="access-logs">
-						<History className="text-muted-foreground"/>
-						<span>
-							{t(($) => $.accessControl.tabs.accessLogs, {
-								count: Math.max(totalCounts.accessControlLogs, accessLogsData.length),
-							})}
-						</span>
-					</TabsTrigger>
-				</TabsList>
+			{/* 탭 1: 허용 대상 목록 (화이트리스트) */}
+			{activeTab === "whitelisted-targets" && (
+				<DataTable
+					heading={t(($) => $.accessControl.whitelistTable.heading)}
+					columns={whitelistTargetColumns}
+					data={whitelistedTargetsData}
+					isLoading={storeIsLoading}
+					enableSearch={true}
+					enableRowNumber={true}
+					highlightedRowId={ruleHighlightedRowId}
+					onHighlightEnd={() => setRuleHighlightedRowId(null)}
+					filterPlaceholder={t(($) => $.accessControl.whitelistTable.searchPlaceholder)}
+					filterColumnKey="value"
+					onRowClick={(row) => {
+						setSelectedWhitelistItem(row);
+						setIsWhitelistSheetOpen(true);
+					}}
+				>
+					{tabsToolbar}
+				</DataTable>
+			)}
 
-				{/* 탭 1: 허용 대상 목록 (화이트리스트) */}
-				<TabsContent value="whitelisted-targets">
-					<DataTable
-						heading={t(($) => $.accessControl.whitelistTable.heading)}
-						columns={whitelistTargetColumns}
-						data={whitelistedTargetsData}
-						isLoading={storeIsLoading}
-						enableSearch={true}
-						enableRowNumber={true}
-						highlightedRowId={activeTab === "whitelisted-targets" ? ruleHighlightedRowId : null}
-						onHighlightEnd={() => setRuleHighlightedRowId(null)}
-						filterPlaceholder={t(($) => $.accessControl.whitelistTable.searchPlaceholder)}
-						filterColumnKey="value"
-						onRowClick={(row) => {
-							setSelectedWhitelistItem(row);
-							setIsWhitelistSheetOpen(true);
-						}}
-					/>
-				</TabsContent>
+			{/* 탭 2: 프로세스 차단 목록 (읽기 전용) */}
+			{activeTab === "blocked-processes" && (
+				<DataTable
+					heading={t(($) => $.accessControl.blockedProcessesTable.heading)}
+					columns={blockedProcessesColumns}
+					data={blockedProcessesData}
+					enableSearch={true}
+					enableRowNumber={true}
+					hasMore={hasMoreAlerts}
+					isLoadingMore={isLoadingMoreAlerts}
+					onLoadMore={fetchMoreAlerts}
+					filterPlaceholder={t(($) => $.accessControl.blockedProcessesTable.searchPlaceholder)}
+					filterColumnKey="processName"
+				>
+					{tabsToolbar}
+				</DataTable>
+			)}
 
-				{/* 탭 2: 프로세스 차단 목록 (읽기 전용) */}
-				<TabsContent value="blocked-processes">
-					<DataTable
-						heading={t(($) => $.accessControl.blockedProcessesTable.heading)}
-						columns={blockedProcessesColumns}
-						data={blockedProcessesData}
-						enableSearch={true}
-						enableRowNumber={true}
-						hasMore={hasMoreAlerts}
-						isLoadingMore={isLoadingMoreAlerts}
-						onLoadMore={fetchMoreAlerts}
-						filterPlaceholder={t(($) => $.accessControl.blockedProcessesTable.searchPlaceholder)}
-						filterColumnKey="processName"
-					/>
-				</TabsContent>
-
-				{/* 탭 3: 접근 제어 로그 */}
-				<TabsContent value="access-logs">
-					<DataTable
-						heading={t(($) => $.accessControl.logsTable.heading)}
-						columns={logsColumns}
-						data={accessLogsData}
-						isLoading={storeIsLoading}
-						enableSearch={true}
-						enableRowNumber={true}
-						rowNumberOffset={logsTopOffset}
-						hasMoreTop={logsHasMoreTop}
-						hasMoreBottom={logsHasMoreBottom}
-						isLoadingMoreTop={logsIsLoadingTop}
-						isLoadingMoreBottom={logsIsLoadingBottom}
-						onLoadMoreTop={() => loadMoreLogs("newer")}
-						onLoadMoreBottom={() => loadMoreLogs("older")}
-						highlightedRowId={activeTab === "access-logs" ? logHighlightedRowId : null}
-						onHighlightEnd={() => setLogHighlightedRowId(null)}
-						filterPlaceholder={t(($) => $.accessControl.logsTable.searchPlaceholder)}
-						filterColumnKey="ipAddress"
-					/>
-				</TabsContent>
-			</Tabs>
+			{/* 탭 3: 접근 제어 로그 */}
+			{activeTab === "access-logs" && (
+				<DataTable
+					heading={t(($) => $.accessControl.logsTable.heading)}
+					columns={logsColumns}
+					data={accessLogsData}
+					isLoading={storeIsLoading}
+					enableSearch={true}
+					enableRowNumber={true}
+					rowNumberOffset={logsTopOffset}
+					hasMoreTop={logsHasMoreTop}
+					hasMoreBottom={logsHasMoreBottom}
+					isLoadingMoreTop={logsIsLoadingTop}
+					isLoadingMoreBottom={logsIsLoadingBottom}
+					onLoadMoreTop={() => loadMoreLogs("newer")}
+					onLoadMoreBottom={() => loadMoreLogs("older")}
+					highlightedRowId={logHighlightedRowId}
+					onHighlightEnd={() => setLogHighlightedRowId(null)}
+					filterPlaceholder={t(($) => $.accessControl.logsTable.searchPlaceholder)}
+					filterColumnKey="ipAddress"
+				>
+					{tabsToolbar}
+				</DataTable>
+			)}
 
 			{/* 삭제 확인 AlertDialog */}
 			<AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
