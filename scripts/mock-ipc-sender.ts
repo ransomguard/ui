@@ -10,21 +10,32 @@ import {
 
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_DAYS_AGO = 90;
+const DEFAULT_INITIAL_COUNT = 50;
 
 /**
- * 모든 화면(대시보드, 위협 및 복구 현황, 실시간 이벤트, 접근 및 예외 관리 - 프로세스 차단)을
- * 한 번에 확인할 수 있는 초기 시드용 가짜 엔진 IPC 메시지 목록을 생성합니다.
+ * 90일 전부터 현재(now) 사이의 임의 시각(timestamp)을 반환합니다.
  */
-export function createMockEngineMessages(now = Date.now()): IncomingIPCMessage[] {
-	let seq = 1000;
-	const nextSeq = () => ++seq;
+function getRandomTimestampWithin90Days(now: number): number {
+	const offsetMs = Math.floor(Math.random() * MAX_DAYS_AGO * DAY_MS);
+	return now - offsetMs;
+}
 
-	// 대시보드 차트(최근 90일/60일/30일/15일/7일/1일) 추이 확인용 과거 일자별 이벤트
-	const historicalDaysAgo = [60, 45, 30, 20, 14, 10, 6, 4, 2, 1];
-	const historicalMessages: IncomingIPCMessage[] = historicalDaysAgo.flatMap((daysAgo, idx) => {
-		const ts = now - daysAgo * DAY_MS;
-		return [
-			{
+/**
+ * 90일 내 임의 날짜를 가진 단일 랜덤 IPC 메시지를 생성합니다.
+ */
+function createSingleRandomMockMessage(
+	idx: number,
+	nextSeq: () => number,
+	now: number,
+): IncomingIPCMessage {
+	const ts = getRandomTimestampWithin90Days(now);
+	const approxDaysAgo = Math.max(1, Math.round((now - ts) / DAY_MS));
+	const kind = idx % 9;
+
+	switch (kind) {
+		case 0:
+			return {
 				type: "SYSTEM_STATUS",
 				timestamp: ts,
 				sequenceNumber: nextSeq(),
@@ -39,49 +50,159 @@ export function createMockEngineMessages(now = Date.now()): IncomingIPCMessage[]
 					processesBlocked: (idx % 3) + 1,
 					processesTerminated: idx % 2,
 				},
-			},
-			{
+			};
+		case 1:
+			return {
 				type: "PROCESS_BLOCKED",
-				timestamp: ts + 1000,
+				timestamp: ts,
 				sequenceNumber: nextSeq(),
 				data: {
 					processId: 3000 + idx,
 					parentProcessId: 1024,
 					creatorProcessId: 1024,
 					flags: 1,
-					processCreateTime: ts,
-					matchedRuleId: 100 + idx,
-					imagePath: `C:\\Temp\\suspicious_sample_${daysAgo}d.exe`,
-					commandLine: `suspicious_sample_${daysAgo}d.exe --silent`,
+					processCreateTime: ts - 500,
+					matchedRuleId: 100 + (idx % 50),
+					imagePath: `C:\\Temp\\suspicious_sample_${approxDaysAgo}d_${idx}.exe`,
+					commandLine: `suspicious_sample_${approxDaysAgo}d_${idx}.exe --silent`,
 				},
-			},
-			{
+			};
+		case 2:
+			return {
 				type: "FILE_WRITE",
-				timestamp: ts + 2000,
+				timestamp: ts,
 				sequenceNumber: nextSeq(),
 				data: {
 					processId: 2048 + idx,
 					operationType: 1,
 					flags: 0,
-					filePath: `C:\\Users\\Admin\\Documents\\archive_${daysAgo}d.docx`,
+					filePath: `C:\\Users\\Admin\\Documents\\archive_${approxDaysAgo}d_${idx}.docx`,
 				},
-			},
-		];
-	});
+			};
+		case 3:
+			return {
+				type: "PROCESS_CREATE",
+				timestamp: ts,
+				sequenceNumber: nextSeq(),
+				data: {
+					processId: 4000 + idx,
+					parentProcessId: 1420,
+					creatorProcessId: 1420,
+					flags: 0,
+					processCreateTime: ts,
+					matchedRuleId: 0,
+					imagePath: "C:\\Windows\\System32\\cmd.exe",
+					commandLine: `cmd.exe /c echo check_${idx}`,
+				},
+			};
+		case 4:
+			return {
+				type: "FILE_RENAME",
+				timestamp: ts,
+				sequenceNumber: nextSeq(),
+				data: {
+					processId: 5000 + idx,
+					operationType: 2,
+					flags: 1,
+					filePath: `C:\\Users\\Admin\\Documents\\report_${approxDaysAgo}d_${idx}.xlsx`,
+					newExtension: ".encrypted",
+				},
+			};
+		case 5:
+			return {
+				type: "PROCESS_TERMINATE",
+				timestamp: ts,
+				sequenceNumber: nextSeq(),
+				data: {
+					processId: 3000 + idx,
+					parentProcessId: 1024,
+					creatorProcessId: 1024,
+					flags: 0,
+					processCreateTime: ts - 3000,
+					imagePath: `C:\\Temp\\suspicious_sample_${approxDaysAgo}d_${idx}.exe`,
+					commandLine: `suspicious_sample_${approxDaysAgo}d_${idx}.exe --silent`,
+				},
+			};
+		case 6:
+			return {
+				type: "VSS_ATTEMPT",
+				timestamp: ts,
+				sequenceNumber: nextSeq(),
+				data: {
+					processId: 6000 + idx,
+					action: "vssadmin.exe delete shadows /all /quiet",
+				},
+			};
+		case 7:
+			return {
+				type: "ALERT",
+				timestamp: ts,
+				sequenceNumber: null,
+				data: {
+					processId: 6000 + idx,
+					processName: `malicious_${idx}.exe`,
+					action: idx % 2 === 0 ? "BLOCKED" : "QUARANTINED",
+					eventId: `EVT-RND-${1000 + idx}`,
+					threatScore: 80 + (idx % 20),
+					ruleName: "Ransom.Behavior.MassEncryption",
+					filePath: `C:\\Users\\Admin\\Documents\\report_${approxDaysAgo}d_${idx}.xlsx`,
+				},
+			};
+		default:
+			return {
+				type: "VSS_STATUS",
+				timestamp: ts,
+				sequenceNumber: null,
+				data: {
+					action: idx % 2 === 0 ? "BACKUP_CREATED" : "RESTORE_COMPLETED",
+					targetPath: `C:\\Users\\Admin\\Documents\\report_${approxDaysAgo}d_${idx}.xlsx`,
+					message: "VSS 스냅샷 백업 및 무결성 복구 이벤트",
+					snapshotId: `VSS-SNAP-RND-${idx}`,
+				},
+			};
+	}
+}
 
-	// 현재 시각 기준 모든 페이지 렌더링용 이벤트
-	const currentMessages: IncomingIPCMessage[] = [
+/**
+ * 모든 화면(대시보드, 위협 및 복구 현황, 실시간 이벤트, 접근 및 예외 관리 - 프로세스 차단)을
+ * 한 번에 확인할 수 있는 초기 시드용 가짜 엔진 IPC 메시지 목록을 생성합니다.
+ * 초기 배치 데이터는 지정된 개수(count)만큼 90일 전부터 현재까지의 랜덤 날짜로 고르게 분포됩니다.
+ */
+export function createMockEngineMessages(
+	now = Date.now(),
+	count = DEFAULT_INITIAL_COUNT,
+): IncomingIPCMessage[] {
+	if (count <= 0) return [];
+
+	let seq = 1000;
+	const nextSeq = () => ++seq;
+
+	// 모든 페이지/탭 렌더링을 보장하는 대표 이벤트들도 오늘 날짜에 몰리지 않도록 90일 내 랜덤 시각 부여
+	const tsProcessCreate = getRandomTimestampWithin90Days(now);
+	const tsFileWrite = getRandomTimestampWithin90Days(now);
+	const tsFileRename = getRandomTimestampWithin90Days(now);
+	const tsProcessBlocked = getRandomTimestampWithin90Days(now);
+	const tsVssAttempt = getRandomTimestampWithin90Days(now);
+	const tsAlertBlocked = getRandomTimestampWithin90Days(now);
+	const tsAlertQuarantined = getRandomTimestampWithin90Days(now);
+	const tsProcessTerminate = getRandomTimestampWithin90Days(now);
+	const tsVssBackup = getRandomTimestampWithin90Days(now);
+	const tsVssRestoreStart = Math.min(now, tsVssBackup + 1000);
+	const tsVssRestoreDone = Math.min(now, tsVssBackup + 2000);
+	const tsFinalStatus = getRandomTimestampWithin90Days(now);
+
+	const representativeMessages: IncomingIPCMessage[] = [
 		// 1. 실시간 이벤트 (Telemetry: PROCESS_CREATE, FILE_WRITE, FILE_RENAME, PROCESS_TERMINATE)
 		{
 			type: "PROCESS_CREATE",
-			timestamp: now - 15000,
+			timestamp: tsProcessCreate,
 			sequenceNumber: nextSeq(),
 			data: {
 				processId: 5120,
 				parentProcessId: 1420,
 				creatorProcessId: 1420,
 				flags: 0,
-				processCreateTime: now - 15000,
+				processCreateTime: tsProcessCreate,
 				matchedRuleId: 0,
 				imagePath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
 				commandLine: "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Scripts\\backup_check.ps1",
@@ -89,7 +210,7 @@ export function createMockEngineMessages(now = Date.now()): IncomingIPCMessage[]
 		},
 		{
 			type: "FILE_WRITE",
-			timestamp: now - 12000,
+			timestamp: tsFileWrite,
 			sequenceNumber: nextSeq(),
 			data: {
 				processId: 5120,
@@ -100,7 +221,7 @@ export function createMockEngineMessages(now = Date.now()): IncomingIPCMessage[]
 		},
 		{
 			type: "FILE_RENAME",
-			timestamp: now - 9000,
+			timestamp: tsFileRename,
 			sequenceNumber: nextSeq(),
 			data: {
 				processId: 6840,
@@ -114,14 +235,14 @@ export function createMockEngineMessages(now = Date.now()): IncomingIPCMessage[]
 		// 2. 위협 탐지 및 차단 (Alerts, Dashboard Threat 탭, 접근 제어 프로세스 차단 탭: PROCESS_BLOCKED, VSS_ATTEMPT, ALERT)
 		{
 			type: "PROCESS_BLOCKED",
-			timestamp: now - 7500,
+			timestamp: tsProcessBlocked,
 			sequenceNumber: nextSeq(),
 			data: {
 				processId: 6840,
 				parentProcessId: 5120,
 				creatorProcessId: 5120,
 				flags: 2,
-				processCreateTime: now - 8000,
+				processCreateTime: tsProcessBlocked - 500,
 				matchedRuleId: 204,
 				imagePath: "C:\\Users\\Admin\\AppData\\Local\\Temp\\lockbit_payload.exe",
 				commandLine: "lockbit_payload.exe --fast-encrypt C:\\Users\\Admin\\Documents",
@@ -129,7 +250,7 @@ export function createMockEngineMessages(now = Date.now()): IncomingIPCMessage[]
 		},
 		{
 			type: "VSS_ATTEMPT",
-			timestamp: now - 6000,
+			timestamp: tsVssAttempt,
 			sequenceNumber: nextSeq(),
 			data: {
 				processId: 6840,
@@ -138,7 +259,7 @@ export function createMockEngineMessages(now = Date.now()): IncomingIPCMessage[]
 		},
 		{
 			type: "ALERT",
-			timestamp: now - 5000,
+			timestamp: tsAlertBlocked,
 			sequenceNumber: null,
 			data: {
 				processId: 6840,
@@ -152,7 +273,7 @@ export function createMockEngineMessages(now = Date.now()): IncomingIPCMessage[]
 		},
 		{
 			type: "ALERT",
-			timestamp: now - 4000,
+			timestamp: tsAlertQuarantined,
 			sequenceNumber: null,
 			data: {
 				processId: 7104,
@@ -166,14 +287,14 @@ export function createMockEngineMessages(now = Date.now()): IncomingIPCMessage[]
 		},
 		{
 			type: "PROCESS_TERMINATE",
-			timestamp: now - 3500,
+			timestamp: tsProcessTerminate,
 			sequenceNumber: nextSeq(),
 			data: {
 				processId: 6840,
 				parentProcessId: 5120,
 				creatorProcessId: 5120,
 				flags: 0,
-				processCreateTime: now - 8000,
+				processCreateTime: tsProcessTerminate - 4500,
 				imagePath: "C:\\Users\\Admin\\AppData\\Local\\Temp\\lockbit_payload.exe",
 				commandLine: "lockbit_payload.exe --fast-encrypt C:\\Users\\Admin\\Documents",
 			},
@@ -182,7 +303,7 @@ export function createMockEngineMessages(now = Date.now()): IncomingIPCMessage[]
 		// 3. 백업 및 복구 (Alerts & Dashboard Recovery 탭: VSS_STATUS)
 		{
 			type: "VSS_STATUS",
-			timestamp: now - 3000,
+			timestamp: tsVssBackup,
 			sequenceNumber: null,
 			data: {
 				action: "BACKUP_CREATED",
@@ -193,7 +314,7 @@ export function createMockEngineMessages(now = Date.now()): IncomingIPCMessage[]
 		},
 		{
 			type: "VSS_STATUS",
-			timestamp: now - 2000,
+			timestamp: tsVssRestoreStart,
 			sequenceNumber: null,
 			data: {
 				action: "RESTORE_STARTED",
@@ -204,7 +325,7 @@ export function createMockEngineMessages(now = Date.now()): IncomingIPCMessage[]
 		},
 		{
 			type: "VSS_STATUS",
-			timestamp: now - 1000,
+			timestamp: tsVssRestoreDone,
 			sequenceNumber: null,
 			data: {
 				action: "RESTORE_COMPLETED",
@@ -213,27 +334,46 @@ export function createMockEngineMessages(now = Date.now()): IncomingIPCMessage[]
 				snapshotId: "VSS-SNAP-20261018-01",
 			},
 		},
-
-		// 4. 엔진 상태 및 상단 통계 배너 (Dashboard EngineStatus & StatsSection: SYSTEM_STATUS)
-		{
-			type: "SYSTEM_STATUS",
-			timestamp: now,
-			sequenceNumber: nextSeq(),
-			data: {
-				engineProcessId: 4120,
-				engineVersion: "0.5.0-kernel",
-				fastPathMode: 2,
-				selfProtectEnabled: true,
-				queueDepth: 8,
-				eventsGenerated: 1482,
-				eventsDropped: 2,
-				processesBlocked: 14,
-				processesTerminated: 6,
-			},
-		},
 	];
 
-	return [...historicalMessages, ...currentMessages];
+	const finalStatusMessage: IncomingIPCMessage = {
+		type: "SYSTEM_STATUS",
+		timestamp: tsFinalStatus,
+		sequenceNumber: nextSeq(),
+		data: {
+			engineProcessId: 4120,
+			engineVersion: "0.5.0-kernel",
+			fastPathMode: 2,
+			selfProtectEnabled: true,
+			queueDepth: 8,
+			eventsGenerated: 1482,
+			eventsDropped: 2,
+			processesBlocked: 14,
+			processesTerminated: 6,
+		},
+	};
+
+	// 요청한 count가 대표 메시지 수(12개)보다 작을 때는 순수 랜덤 메시지로 count개 생성
+	if (count < representativeMessages.length + 1) {
+		return Array.from({ length: count }, (_, idx) =>
+			createSingleRandomMockMessage(idx, nextSeq, now),
+		).sort((a, b) => a.timestamp - b.timestamp);
+	}
+
+	// 대표 메시지(11개) + 마지막 SYSTEM_STATUS(1개)를 제외한 나머지 개수만큼 랜덤 메시지 생성
+	const extraRandomCount = count - (representativeMessages.length + 1);
+	const randomMessages: IncomingIPCMessage[] = Array.from(
+		{ length: extraRandomCount },
+		(_, idx) => createSingleRandomMockMessage(idx, nextSeq, now),
+	);
+
+	// 시간순 정렬 후 마지막 엔진 상태(SYSTEM_STATUS) 추가하여 총 count개 반환
+	const sortedMessages = [...randomMessages, ...representativeMessages].sort(
+		(a, b) => a.timestamp - b.timestamp,
+	);
+	sortedMessages.push(finalStatusMessage);
+
+	return sortedMessages;
 }
 
 /**
@@ -374,37 +514,69 @@ function summarizeByType(messages: IncomingIPCMessage[]): Record<EngineEventType
 	return counts;
 }
 
+function parseNumericOption(
+	args: string[],
+	flags: string[],
+	defaultValue: number,
+): number {
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i]!;
+		for (const flag of flags) {
+			if (arg === flag && args[i + 1] !== undefined) {
+				const parsed = Number(args[i + 1]);
+				if (!Number.isNaN(parsed)) return parsed;
+			}
+			if (arg.startsWith(`${flag}=`)) {
+				const parsed = Number(arg.slice(flag.length + 1));
+				if (!Number.isNaN(parsed)) return parsed;
+			}
+		}
+	}
+	return defaultValue;
+}
+
 async function runCli() {
 	const args = process.argv.slice(2);
 	const isStreamMode = args.includes("--stream") || args.includes("-s");
-	const intervalArg = args.find((arg) => arg.startsWith("--interval="));
-	const intervalMs = intervalArg ? Math.max(500, Number(intervalArg.split("=")[1]) || 3000) : 3000;
-
-	const initialMessages = createMockEngineMessages();
-	for (const msg of initialMessages) {
-		if (!isValidIPCMessage(msg)) {
-			throw new Error(`Invalid mock IPC message generated: ${JSON.stringify(msg)}`);
-		}
-	}
+	const initialCount = Math.max(
+		0,
+		Math.floor(parseNumericOption(args, ["--count", "-c"], DEFAULT_INITIAL_COUNT)),
+	);
+	const intervalMs = Math.max(
+		500,
+		Math.floor(parseNumericOption(args, ["--interval", "-i"], 3000)),
+	);
 
 	console.log(`[Mock IPC Sender] Target Pipe: ${PIPE_NAME}`);
-	console.log(`[Mock IPC Sender] Sending ${initialMessages.length} initial mock messages...`);
 
-	try {
-		await sendMessagesToPipe(initialMessages, PIPE_NAME);
-		console.log("[Mock IPC Sender] Initial batch sent successfully!");
-		console.table(summarizeByType(initialMessages));
-	} catch (error) {
-		console.error(
-			`\n[Mock IPC Sender] Failed to connect to ${PIPE_NAME}.\n` +
-			"먼저 개발 서버(bun run dev)를 실행하여 Electron 앱이 파이프를 열고 있는지 확인해주세요.\n",
-			error,
-		);
-		process.exit(1);
+	if (initialCount > 0) {
+		const initialMessages = createMockEngineMessages(Date.now(), initialCount);
+		for (const msg of initialMessages) {
+			if (!isValidIPCMessage(msg)) {
+				throw new Error(`Invalid mock IPC message generated: ${JSON.stringify(msg)}`);
+			}
+		}
+
+		console.log(`[Mock IPC Sender] Sending ${initialMessages.length} initial random mock messages (90d range)...`);
+
+		try {
+			await sendMessagesToPipe(initialMessages, PIPE_NAME);
+			console.log("[Mock IPC Sender] Initial batch sent successfully!");
+			console.table(summarizeByType(initialMessages));
+		} catch (error) {
+			console.error(
+				`\n[Mock IPC Sender] Failed to connect to ${PIPE_NAME}.\n` +
+				"먼저 개발 서버(bun run dev)를 실행하여 Electron 앱이 파이프를 열고 있는지 확인해주세요.\n",
+				error,
+			);
+			process.exit(1);
+		}
+	} else {
+		console.log("[Mock IPC Sender] Initial count is 0, skipping initial batch.");
 	}
 
 	if (!isStreamMode) {
-		console.log("[Mock IPC Sender] Tip: 실시간 스트리밍 전송을 원하시면 '--stream' (또는 '-s') 옵션을 붙여 실행하세요.");
+		console.log("[Mock IPC Sender] Tip: 실시간 스트리밍 전송을 원하시면 '--stream' (또는 '-s'), 초기 데이터 개수를 지정하려면 '--count <N>' (또는 '-c <N>') 옵션을 붙여 실행하세요.");
 		return;
 	}
 
@@ -425,4 +597,3 @@ async function runCli() {
 if (import.meta.main) {
 	runCli();
 }
-
