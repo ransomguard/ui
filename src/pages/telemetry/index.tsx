@@ -21,6 +21,7 @@ import {
 	SheetTitle,
 	SheetDescription,
 } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { DataTable, type DataTableFeatures } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { I18n } from "@/components/i18n";
@@ -255,8 +256,8 @@ export default function TelemetryPage() {
 
 			{/* 행 클릭 시 우측에서 슬라이드 오픈되는 검사 패널 Sheet */}
 			<Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-				<SheetContent side="right" className="sm:max-w-md w-full p-6 overflow-y-auto">
-					<SheetHeader className="p-0 pb-4 border-b">
+				<SheetContent side="right" className="sm:max-w-md w-full p-0 overflow-hidden">
+					<SheetHeader className="p-6 pb-4 border-b shrink-0">
 						<SheetTitle className="flex items-center gap-2 text-base font-bold">
 							<Activity className="size-5 text-primary"/>
 							<span>{t(($) => $.telemetry.sheet.title)}</span>
@@ -270,81 +271,85 @@ export default function TelemetryPage() {
 					</SheetHeader>
 
 					{selectedLog && (
-						<div className="space-y-4 py-4 text-xs">
-							{/* 기본 정보 테이블 카드 */}
-							<div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border">
-								<div>
-									<span className="text-muted-foreground flex items-center gap-1 mb-1">
-										<Clock className="size-3"/> {t(($) => $.telemetry.sheet.createdAt)}
-									</span>
-									<span className="font-mono font-medium">{selectedLog.createdAt}</span>
+						<ScrollArea className="flex-1 min-h-0">
+							<div className="space-y-4 px-6 py-4 text-xs">
+								{/* 기본 정보 테이블 카드 */}
+								<div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border">
+									<div>
+										<span className="text-muted-foreground flex items-center gap-1 mb-1">
+											<Clock className="size-3"/> {t(($) => $.telemetry.sheet.createdAt)}
+										</span>
+										<span className="font-mono font-medium">{selectedLog.createdAt}</span>
+									</div>
+
+									<div>
+										<span className="text-muted-foreground flex items-center gap-1 mb-1">
+											<Shield className="size-3"/> {t(($) => $.telemetry.sheet.actionResult)}
+										</span>
+										<Badge
+											variant={
+												selectedLog.action === "BLOCKED" || selectedLog.action === "TERMINATED"
+													? "destructive"
+													: "default"
+											}
+											className="text-[10px]"
+										>
+											{selectedLog.action}
+										</Badge>
+									</div>
+
+									<div>
+										<span className="text-muted-foreground flex items-center gap-1 mb-1">
+											<Terminal className="size-3"/> {t(($) => $.telemetry.sheet.processId)}
+										</span>
+										<span className="font-mono font-bold">{selectedLog.processId}</span>
+									</div>
+
+									<div>
+										<span className="text-muted-foreground flex items-center gap-1 mb-1">
+											<Terminal className="size-3"/> {t(($) => $.telemetry.sheet.processName)}
+										</span>
+										<span className="font-medium">{selectedLog.processName}</span>
+									</div>
 								</div>
 
-								<div>
-									<span className="text-muted-foreground flex items-center gap-1 mb-1">
-										<Shield className="size-3"/> {t(($) => $.telemetry.sheet.actionResult)}
-									</span>
-									<Badge
-										variant={
-											selectedLog.action === "BLOCKED" || selectedLog.action === "TERMINATED"
-												? "destructive"
-												: "default"
-										}
-										className="text-[10px]"
-									>
-										{selectedLog.action}
-									</Badge>
-								</div>
+								{/* 대상 이미지 경로 */}
+								{selectedLog.imagePath && selectedLog.imagePath !== "-" && (
+									<div className="space-y-1.5">
+										<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+											<HardDrive className="size-3.5"/> {t(($) => $.telemetry.sheet.imagePath)}
+										</label>
+										<div className="p-2.5 bg-background border rounded-md font-mono text-[11px] break-all leading-normal">
+											{selectedLog.imagePath}
+										</div>
+									</div>
+								)}
 
-								<div>
-									<span className="text-muted-foreground flex items-center gap-1 mb-1">
-										<Terminal className="size-3"/> {t(($) => $.telemetry.sheet.processId)}
-									</span>
-									<span className="font-mono font-bold">{selectedLog.processId}</span>
-								</div>
+								{/* 매칭된 룰 및 엔트로피 */}
+								{selectedLog.matchedRule && (
+									<div className="space-y-1.5">
+										<label className="text-xs font-semibold text-muted-foreground">
+											{t(($) => $.telemetry.sheet.matchedRule)}
+										</label>
+										<div className="p-2 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-md font-mono text-xs font-medium">
+											{selectedLog.matchedRule}
+										</div>
+									</div>
+								)}
 
-								<div>
-									<span className="text-muted-foreground flex items-center gap-1 mb-1">
-										<Terminal className="size-3"/> {t(($) => $.telemetry.sheet.processName)}
-									</span>
-									<span className="font-medium">{selectedLog.processName}</span>
-								</div>
-							</div>
-
-							{/* 대상 이미지 경로 */}
-							{selectedLog.imagePath && selectedLog.imagePath !== "-" && (
+								{/* RAW JSON Details */}
 								<div className="space-y-1.5">
 									<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-										<HardDrive className="size-3.5"/> {t(($) => $.telemetry.sheet.imagePath)}
+										<FileText className="size-3.5"/> {t(($) => $.telemetry.sheet.rawJson)}
 									</label>
-									<div className="p-2.5 bg-background border rounded-md font-mono text-[11px] break-all leading-normal">
-										{selectedLog.imagePath}
-									</div>
+									<ScrollArea className="max-h-80 rounded-md border bg-muted/80">
+										<pre className="p-3 font-mono text-[11px] whitespace-pre-wrap break-all leading-relaxed text-foreground/90">
+											{selectedLog.details}
+										</pre>
+									</ScrollArea>
 								</div>
-							)}
-
-							{/* 매칭된 룰 및 엔트로피 */}
-							{selectedLog.matchedRule && (
-								<div className="space-y-1.5">
-									<label className="text-xs font-semibold text-muted-foreground">
-										{t(($) => $.telemetry.sheet.matchedRule)}
-									</label>
-									<div className="p-2 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-md font-mono text-xs font-medium">
-										{selectedLog.matchedRule}
-									</div>
-								</div>
-							)}
-
-							{/* RAW JSON Details */}
-							<div className="space-y-1.5">
-								<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-									<FileText className="size-3.5"/> {t(($) => $.telemetry.sheet.rawJson)}
-								</label>
-								<pre className="p-3 bg-muted/80 rounded-md font-mono text-[11px] overflow-x-auto whitespace-pre-wrap leading-relaxed text-foreground/90 max-h-80 border">
-									{selectedLog.details}
-								</pre>
 							</div>
-						</div>
+						</ScrollArea>
 					)}
 				</SheetContent>
 			</Sheet>

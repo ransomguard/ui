@@ -19,7 +19,13 @@ function ScrollArea({
         data-slot="scroll-area-viewport"
         className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
       >
-        {children}
+        {/* [수정] 내부 콘텐츠 크기 변경(페이지 이동, 탭 전환 등) 시 스크롤바 표시 상태 및 크기를 재계산하도록 Content 추가 */}
+        <ScrollAreaPrimitive.Content
+          data-slot="scroll-area-content"
+          style={{ minWidth: undefined }}
+        >
+          {children}
+        </ScrollAreaPrimitive.Content>
       </ScrollAreaPrimitive.Viewport>
       <ScrollBar />
       <ScrollAreaPrimitive.Corner />

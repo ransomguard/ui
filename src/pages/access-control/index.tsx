@@ -33,6 +33,7 @@ import {
 	SheetTitle,
 	SheetDescription,
 } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Dialog,
 	DialogTrigger,
@@ -1007,8 +1008,8 @@ export default function AccessControlPage() {
 
 			{/* 화이트리스트 행 클릭 시 우측에서 슬라이드 오픈되는 상세 패널 Sheet */}
 			<Sheet open={isWhitelistSheetOpen} onOpenChange={setIsWhitelistSheetOpen}>
-				<SheetContent side="right" className="sm:max-w-md w-full p-6 overflow-y-auto">
-					<SheetHeader className="p-0 pb-4 border-b">
+				<SheetContent side="right" className="sm:max-w-md w-full p-0 overflow-hidden">
+					<SheetHeader className="p-6 pb-4 border-b shrink-0">
 						<SheetTitle className="flex items-center gap-2 text-base font-bold">
 							<ShieldCheck className="size-5 text-emerald-600"/>
 							<span>{t(($) => $.accessControl.sheet.title)}</span>
@@ -1022,146 +1023,152 @@ export default function AccessControlPage() {
 					</SheetHeader>
 
 					{selectedWhitelistItem && (
-						<div className="space-y-4 py-4 text-xs">
-							{/* 기본 정보 카드 */}
-							<div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border">
-								<div>
-									<span className="text-muted-foreground flex items-center gap-1 mb-1">
-										<Network className="size-3"/> {t(($) => $.accessControl.sheet.type)}
-									</span>
-									<Badge variant="secondary" className="font-mono text-[10px] uppercase">
-										{selectedWhitelistItem.type}
-									</Badge>
+						<ScrollArea className="flex-1 min-h-0">
+							<div className="space-y-4 px-6 py-4 text-xs">
+								{/* 기본 정보 카드 */}
+								<div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border">
+									<div>
+										<span className="text-muted-foreground flex items-center gap-1 mb-1">
+											<Network className="size-3"/> {t(($) => $.accessControl.sheet.type)}
+										</span>
+										<Badge variant="secondary" className="font-mono text-[10px] uppercase">
+											{selectedWhitelistItem.type}
+										</Badge>
+									</div>
+
+									<div>
+										<span className="text-muted-foreground flex items-center gap-1 mb-1">
+											<Globe className="size-3"/> {t(($) => $.accessControl.sheet.port)}
+										</span>
+										<span className="font-mono font-bold">
+											{selectedWhitelistItem.port > 0
+												? `:${selectedWhitelistItem.port}`
+												: `${t(($) => $.accessControl.whitelistTable.allPorts)} (0)`}
+										</span>
+									</div>
+
+									<div>
+										<span className="text-muted-foreground flex items-center gap-1 mb-1">
+											<Network className="size-3"/> {t(($) => $.accessControl.sheet.cidr)}
+										</span>
+										<span className="font-mono font-medium">
+											{selectedWhitelistItem.cidr !== undefined ? `/${selectedWhitelistItem.cidr}` : "-"}
+										</span>
+									</div>
+
+									<div>
+										<span className="text-muted-foreground flex items-center gap-1 mb-1">
+											<Clock className="size-3"/> {t(($) => $.accessControl.sheet.addedAt)}
+										</span>
+										<span className="font-mono font-medium">{selectedWhitelistItem.addedAt}</span>
+									</div>
 								</div>
 
-								<div>
-									<span className="text-muted-foreground flex items-center gap-1 mb-1">
-										<Globe className="size-3"/> {t(($) => $.accessControl.sheet.port)}
-									</span>
-									<span className="font-mono font-bold">
-										{selectedWhitelistItem.port > 0
-											? `:${selectedWhitelistItem.port}`
-											: `${t(($) => $.accessControl.whitelistTable.allPorts)} (0)`}
-									</span>
-								</div>
-
-								<div>
-									<span className="text-muted-foreground flex items-center gap-1 mb-1">
-										<Network className="size-3"/> {t(($) => $.accessControl.sheet.cidr)}
-									</span>
-									<span className="font-mono font-medium">
-										{selectedWhitelistItem.cidr !== undefined ? `/${selectedWhitelistItem.cidr}` : "-"}
-									</span>
-								</div>
-
-								<div>
-									<span className="text-muted-foreground flex items-center gap-1 mb-1">
-										<Clock className="size-3"/> {t(($) => $.accessControl.sheet.addedAt)}
-									</span>
-									<span className="font-mono font-medium">{selectedWhitelistItem.addedAt}</span>
-								</div>
-							</div>
-
-							{/* 허용 대상 입력값 */}
-							<div className="space-y-1.5">
-								<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-									<Link2 className="size-3.5"/> {t(($) => $.accessControl.sheet.targetValue)}
-								</label>
-								<div className="p-2.5 bg-background border rounded-md font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 break-all leading-normal">
-									{selectedWhitelistItem.value}
-								</div>
-							</div>
-
-							{/* IPC data 상세 필드: IPv4 / IPv6 */}
-							{(selectedWhitelistItem.ipv4 || selectedWhitelistItem.ipv6) && (
+								{/* 허용 대상 입력값 */}
 								<div className="space-y-1.5">
 									<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-										<Network className="size-3.5"/> {t(($) => $.accessControl.sheet.ipAddress)}
+										<Link2 className="size-3.5"/> {t(($) => $.accessControl.sheet.targetValue)}
 									</label>
-									<div className="p-2.5 bg-background border rounded-md font-mono text-xs break-all">
-										{selectedWhitelistItem.ipv4 || selectedWhitelistItem.ipv6}
+									<div className="p-2.5 bg-background border rounded-md font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 break-all leading-normal">
+										{selectedWhitelistItem.value}
 									</div>
 								</div>
-							)}
 
-							{/* IPC data 상세 필드: Domain / URL */}
-							{selectedWhitelistItem.domain && (
-								<>
+								{/* IPC data 상세 필드: IPv4 / IPv6 */}
+								{(selectedWhitelistItem.ipv4 || selectedWhitelistItem.ipv6) && (
 									<div className="space-y-1.5">
 										<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-											<Globe className="size-3.5"/> {t(($) => $.accessControl.sheet.domain)}
+											<Network className="size-3.5"/> {t(($) => $.accessControl.sheet.ipAddress)}
 										</label>
 										<div className="p-2.5 bg-background border rounded-md font-mono text-xs break-all">
-											{selectedWhitelistItem.domain}
+											{selectedWhitelistItem.ipv4 || selectedWhitelistItem.ipv6}
 										</div>
 									</div>
+								)}
 
-									<div className="space-y-1.5">
-										<label className="text-xs font-semibold text-muted-foreground">
-											{t(($) => $.accessControl.sheet.ipv4List)} ({selectedWhitelistItem.ipv4List?.length ?? 0})
-										</label>
-										<div className="p-2.5 bg-background border rounded-md flex flex-wrap gap-1.5">
-											{selectedWhitelistItem.ipv4List && selectedWhitelistItem.ipv4List.length > 0 ? (
-												selectedWhitelistItem.ipv4List.map((ip) => (
-													<Badge key={ip} variant="secondary" className="font-mono text-[11px]">
-														{ip}
-													</Badge>
-												))
-											) : (
-												<span className="text-muted-foreground">{t(($) => $.accessControl.sheet.none)}</span>
-											)}
+								{/* IPC data 상세 필드: Domain / URL */}
+								{selectedWhitelistItem.domain && (
+									<>
+										<div className="space-y-1.5">
+											<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+												<Globe className="size-3.5"/> {t(($) => $.accessControl.sheet.domain)}
+											</label>
+											<div className="p-2.5 bg-background border rounded-md font-mono text-xs break-all">
+												{selectedWhitelistItem.domain}
+											</div>
 										</div>
-									</div>
 
-									<div className="space-y-1.5">
-										<label className="text-xs font-semibold text-muted-foreground">
-											{t(($) => $.accessControl.sheet.ipv6List)} ({selectedWhitelistItem.ipv6List?.length ?? 0})
-										</label>
-										<div className="p-2.5 bg-background border rounded-md flex flex-wrap gap-1.5">
-											{selectedWhitelistItem.ipv6List && selectedWhitelistItem.ipv6List.length > 0 ? (
-												selectedWhitelistItem.ipv6List.map((ip) => (
-													<Badge key={ip} variant="secondary" className="font-mono text-[11px]">
-														{ip}
-													</Badge>
-												))
-											) : (
-												<span className="text-muted-foreground">{t(($) => $.accessControl.sheet.none)}</span>
-											)}
+										<div className="space-y-1.5">
+											<label className="text-xs font-semibold text-muted-foreground">
+												{t(($) => $.accessControl.sheet.ipv4List)} ({selectedWhitelistItem.ipv4List?.length ?? 0})
+											</label>
+											<div className="p-2.5 bg-background border rounded-md flex flex-wrap gap-1.5">
+												{selectedWhitelistItem.ipv4List && selectedWhitelistItem.ipv4List.length > 0 ? (
+													selectedWhitelistItem.ipv4List.map((ip) => (
+														<Badge key={ip} variant="secondary" className="font-mono text-[11px]">
+															{ip}
+														</Badge>
+													))
+												) : (
+													<span className="text-muted-foreground">{t(($) => $.accessControl.sheet.none)}</span>
+												)}
+											</div>
 										</div>
-									</div>
-								</>
-							)}
 
-							{/* 설명 / 식별 사유 */}
-							<div className="space-y-1.5">
-								<label className="text-xs font-semibold text-muted-foreground">
-									{t(($) => $.accessControl.sheet.ruleDescription)}
-								</label>
-								<div className="p-2.5 bg-background border rounded-md text-xs text-foreground/90">
-									{selectedWhitelistItem.description}
+										<div className="space-y-1.5">
+											<label className="text-xs font-semibold text-muted-foreground">
+												{t(($) => $.accessControl.sheet.ipv6List)} ({selectedWhitelistItem.ipv6List?.length ?? 0})
+											</label>
+											<div className="p-2.5 bg-background border rounded-md flex flex-wrap gap-1.5">
+												{selectedWhitelistItem.ipv6List && selectedWhitelistItem.ipv6List.length > 0 ? (
+													selectedWhitelistItem.ipv6List.map((ip) => (
+														<Badge key={ip} variant="secondary" className="font-mono text-[11px]">
+															{ip}
+														</Badge>
+													))
+												) : (
+													<span className="text-muted-foreground">{t(($) => $.accessControl.sheet.none)}</span>
+												)}
+											</div>
+										</div>
+									</>
+								)}
+
+								{/* 설명 / 식별 사유 */}
+								<div className="space-y-1.5">
+									<label className="text-xs font-semibold text-muted-foreground">
+										{t(($) => $.accessControl.sheet.ruleDescription)}
+									</label>
+									<div className="p-2.5 bg-background border rounded-md text-xs text-foreground/90">
+										{selectedWhitelistItem.description}
+									</div>
+								</div>
+
+								{/* IPC 응답 data 객체 JSON */}
+								<div className="space-y-1.5">
+									<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+										<FileText className="size-3.5"/> {t(($) => $.accessControl.sheet.ipcData)}
+									</label>
+									<ScrollArea className="max-h-60 rounded-md border bg-muted/80">
+										<pre className="p-3 font-mono text-[11px] whitespace-pre-wrap break-all leading-relaxed text-foreground/90">
+											{JSON.stringify(selectedWhitelistItem.data, null, 2)}
+										</pre>
+									</ScrollArea>
+								</div>
+
+								{/* 전체 Raw WhitelistItem JSON */}
+								<div className="space-y-1.5">
+									<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+										<FileText className="size-3.5"/> {t(($) => $.accessControl.sheet.rawJson)}
+									</label>
+									<ScrollArea className="max-h-60 rounded-md border bg-muted/80">
+										<pre className="p-3 font-mono text-[11px] whitespace-pre-wrap break-all leading-relaxed text-foreground/90">
+											{JSON.stringify(selectedWhitelistItem.rawItem, null, 2)}
+										</pre>
+									</ScrollArea>
 								</div>
 							</div>
-
-							{/* IPC 응답 data 객체 JSON */}
-							<div className="space-y-1.5">
-								<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-									<FileText className="size-3.5"/> {t(($) => $.accessControl.sheet.ipcData)}
-								</label>
-								<pre className="p-3 bg-muted/80 rounded-md font-mono text-[11px] overflow-x-auto whitespace-pre-wrap leading-relaxed text-foreground/90 max-h-60 border">
-									{JSON.stringify(selectedWhitelistItem.data, null, 2)}
-								</pre>
-							</div>
-
-							{/* 전체 Raw WhitelistItem JSON */}
-							<div className="space-y-1.5">
-								<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-									<FileText className="size-3.5"/> {t(($) => $.accessControl.sheet.rawJson)}
-								</label>
-								<pre className="p-3 bg-muted/80 rounded-md font-mono text-[11px] overflow-x-auto whitespace-pre-wrap leading-relaxed text-foreground/90 max-h-60 border">
-									{JSON.stringify(selectedWhitelistItem.rawItem, null, 2)}
-								</pre>
-							</div>
-						</div>
+						</ScrollArea>
 					)}
 				</SheetContent>
 			</Sheet>
