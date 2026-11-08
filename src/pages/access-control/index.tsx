@@ -939,6 +939,7 @@ export default function AccessControlPage() {
 					onHighlightEnd={() => setRuleHighlightedRowId(null)}
 					filterPlaceholder={t(($) => $.accessControl.whitelistTable.searchPlaceholder)}
 					filterColumnKey="value"
+					maxHeight="calc(100vh - 25rem)"
 					onRowClick={(row) => {
 						setSelectedWhitelistItem(row);
 						setIsWhitelistSheetOpen(true);
@@ -961,6 +962,7 @@ export default function AccessControlPage() {
 					onLoadMore={fetchMoreAlerts}
 					filterPlaceholder={t(($) => $.accessControl.blockedProcessesTable.searchPlaceholder)}
 					filterColumnKey="processName"
+					maxHeight="calc(100vh - 25rem)"
 				>
 					{tabsToolbar}
 				</DataTable>
@@ -986,6 +988,7 @@ export default function AccessControlPage() {
 					onHighlightEnd={() => setLogHighlightedRowId(null)}
 					filterPlaceholder={t(($) => $.accessControl.logsTable.searchPlaceholder)}
 					filterColumnKey="ipAddress"
+					maxHeight="calc(100vh - 25rem)"
 				>
 					{tabsToolbar}
 				</DataTable>
