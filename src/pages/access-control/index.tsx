@@ -18,6 +18,9 @@ import {
 	Network,
 	Clock,
 	FileText,
+	Shield,
+	Terminal,
+	HardDrive,
 } from "lucide-react";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
 	Sheet,
 	SheetContent,
@@ -98,10 +102,13 @@ export interface BlockedProcessRecord {
 	processId: number | string;
 	processName: string;
 	imagePath: string;
+	action: string;
+	threatScore: number;
 	reason: string;
 	source: string;
 	blockedAt: string;
 	timestamp: number;
+	details: string;
 }
 
 export interface AccessControlLogRecord {
@@ -417,6 +424,8 @@ export default function AccessControlPage() {
 	const [itemToDelete, setItemToDelete] = useState<{ id: string; value: string } | null>(null);
 	const [selectedWhitelistItem, setSelectedWhitelistItem] = useState<WhitelistedTargetRecord | null>(null);
 	const [isWhitelistSheetOpen, setIsWhitelistSheetOpen] = useState(false);
+	const [selectedBlockedProcess, setSelectedBlockedProcess] = useState<BlockedProcessRecord | null>(null);
+	const [isBlockedProcessSheetOpen, setIsBlockedProcessSheetOpen] = useState(false);
 
 	// Map WhitelistItems to table data
 	const whitelistedTargetsData: WhitelistedTargetRecord[] = useMemo(() => {
@@ -502,10 +511,13 @@ export default function AccessControlPage() {
 							processId: procData.processId ?? "-",
 							processName,
 							imagePath,
+							action: "BLOCKED",
+							threatScore: 90,
 							reason,
 							source: t(($) => $.alerts.sources.kernelDriver),
 							blockedAt,
 							timestamp,
+							details: JSON.stringify(item, null, 2),
 						},
 					];
 				}
@@ -526,10 +538,13 @@ export default function AccessControlPage() {
 							processId: alertData.processId ?? "-",
 							processName,
 							imagePath,
+							action: alertData.action || "BLOCKED",
+							threatScore: alertData.threatScore ?? 85,
 							reason: alertData.ruleName || alertData.action,
 							source: t(($) => $.alerts.sources.correlationEngine),
 							blockedAt,
 							timestamp,
+							details: JSON.stringify(item, null, 2),
 						},
 					];
 				}
@@ -963,6 +978,10 @@ export default function AccessControlPage() {
 					filterPlaceholder={t(($) => $.accessControl.blockedProcessesTable.searchPlaceholder)}
 					filterColumnKey="processName"
 					maxHeight="calc(100vh - 25rem)"
+					onRowClick={(row) => {
+						setSelectedBlockedProcess(row);
+						setIsBlockedProcessSheetOpen(true);
+					}}
 				>
 					{tabsToolbar}
 				</DataTable>
@@ -1173,6 +1192,112 @@ export default function AccessControlPage() {
 									<ScrollArea className="max-h-60 rounded-md border bg-muted/80">
 										<pre className="p-3 font-mono text-[11px] whitespace-pre-wrap break-all leading-relaxed text-foreground/90">
 											{JSON.stringify(selectedWhitelistItem.rawItem, null, 2)}
+										</pre>
+									</ScrollArea>
+								</div>
+							</div>
+						</ScrollArea>
+					)}
+				</SheetContent>
+			</Sheet>
+
+			{/* 프로세스 차단 목록 행 클릭 시 우측에서 슬라이드 오픈되는 상세 패널 Sheet */}
+			<Sheet open={isBlockedProcessSheetOpen} onOpenChange={setIsBlockedProcessSheetOpen}>
+				<SheetContent side="right" className="sm:max-w-md w-full p-0 overflow-hidden">
+					<SheetHeader className="p-6 pb-4 border-b shrink-0">
+						<SheetTitle className="flex items-center gap-2 text-base font-bold">
+							<ShieldAlert className="size-5 text-destructive"/>
+							<span>{t(($) => $.alerts.sheet.title)}</span>
+						</SheetTitle>
+						<SheetDescription className="text-xs">
+							{t(($) => $.alerts.sheet.description, {
+								id: selectedBlockedProcess?.id ?? "-",
+								source: selectedBlockedProcess?.source ?? "-",
+							})}
+						</SheetDescription>
+					</SheetHeader>
+
+					{selectedBlockedProcess && (
+						<ScrollArea className="flex-1 min-h-0">
+							<div className="space-y-4 px-6 py-4 text-xs">
+								{/* 기본 정보 카드 */}
+								<div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border">
+									<div>
+										<span className="text-muted-foreground flex items-center gap-1 mb-1">
+											<Clock className="size-3"/> {t(($) => $.alerts.sheet.createdAt)}
+										</span>
+										<span className="font-mono font-medium">{selectedBlockedProcess.blockedAt}</span>
+									</div>
+
+									<div>
+										<span className="text-muted-foreground flex items-center gap-1 mb-1">
+											<Shield className="size-3"/> {t(($) => $.alerts.sheet.actionResult)}
+										</span>
+										<Badge variant="destructive" className="text-[10px]">
+											{selectedBlockedProcess.action}
+										</Badge>
+									</div>
+
+									<div>
+										<span className="text-muted-foreground flex items-center gap-1 mb-1">
+											<Terminal className="size-3"/> {t(($) => $.alerts.sheet.processId)}
+										</span>
+										<span className="font-mono font-bold">{selectedBlockedProcess.processId}</span>
+									</div>
+
+									<div>
+										<span className="text-muted-foreground flex items-center gap-1 mb-1">
+											<Terminal className="size-3"/> {t(($) => $.alerts.sheet.processName)}
+										</span>
+										<span className="font-medium">{selectedBlockedProcess.processName}</span>
+									</div>
+								</div>
+
+								{/* 위협 스코어 프로그레스 바 */}
+								<div className="space-y-1.5">
+									<div className="flex justify-between text-xs font-medium">
+										<span className="text-muted-foreground">
+											{t(($) => $.alerts.sheet.threatScore)}
+										</span>
+										<span className="text-destructive font-mono font-bold">
+											{selectedBlockedProcess.threatScore} / 100
+										</span>
+									</div>
+									<Progress value={selectedBlockedProcess.threatScore} className="h-1.5"/>
+								</div>
+
+								{/* 매칭된 룰 */}
+								{selectedBlockedProcess.reason && (
+									<div className="space-y-1.5">
+										<label className="text-xs font-semibold text-muted-foreground">
+											{t(($) => $.alerts.sheet.matchedRule)}
+										</label>
+										<div className="p-2 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-md font-mono text-xs font-medium">
+											{selectedBlockedProcess.reason}
+										</div>
+									</div>
+								)}
+
+								{/* 대상 경로 */}
+								{selectedBlockedProcess.imagePath && (
+									<div className="space-y-1.5">
+										<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+											<HardDrive className="size-3.5"/> {t(($) => $.alerts.sheet.imagePath)}
+										</label>
+										<div className="p-2.5 bg-background border rounded-md font-mono text-[11px] break-all leading-normal">
+											{selectedBlockedProcess.imagePath}
+										</div>
+									</div>
+								)}
+
+								{/* RAW JSON Details */}
+								<div className="space-y-1.5">
+									<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+										<FileText className="size-3.5"/> {t(($) => $.alerts.sheet.rawJson)}
+									</label>
+									<ScrollArea className="max-h-80 rounded-md border bg-muted/80">
+										<pre className="p-3 font-mono text-[11px] whitespace-pre-wrap break-all leading-relaxed text-foreground/90">
+											{selectedBlockedProcess.details}
 										</pre>
 									</ScrollArea>
 								</div>
