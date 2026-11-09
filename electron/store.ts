@@ -42,8 +42,15 @@ export const acknowledgedThreat = {
 	}),
 };
 
+const getStoreCwd = () => {
+	if (!process.versions.electron) {
+		return os.tmpdir();
+	}
+	return electron.app?.isPackaged ? undefined : electron.app?.getAppPath();
+};
+
 export const store = new Store<StoreData>({
-	cwd: process.versions.electron ? undefined : os.tmpdir(),
+	cwd: getStoreCwd(),
 	schema: {
 		language: {
 			type: "string",

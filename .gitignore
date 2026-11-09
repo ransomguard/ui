@@ -27,5 +27,6 @@ release
 
 
 
-# db
+# project specific
 db.sqlite
+config.json
