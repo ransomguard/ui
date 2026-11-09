@@ -22,7 +22,7 @@ function openWindow() {
 }
 
 function getTrayIconPath(): string {
-	return path.join(process.env.VITE_PUBLIC, "logo.png");
+	return path.join(process.env.VITE_PUBLIC, "icons", "256x256.png");
 }
 
 function getTrayI18n(localeCode: string) {

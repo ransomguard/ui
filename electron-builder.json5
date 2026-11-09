@@ -1,9 +1,9 @@
 // @see - https://www.electron.build/configuration/configuration
 {
 	"$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-	"appId": "ransomguard-ransom0",
+	"appId": "ransomguard-ransom0-ui",
 	"asar": true,
-	"productName": "Ransom0",
+	"productName": "ransom0-ui",
 	"icon": "public/logo.png",
 	"directories": {
 		"output": "release/${version}"
@@ -43,10 +43,16 @@
 		"deleteAppDataOnUninstall": false
 	},
 	"linux": {
+		"icon": "public/icons",
 		"category": "Security",
 		"target": [
 			"AppImage"
 		],
+		"desktop": {
+			"entry": {
+				"Name": "Ransom0 UI"
+			}
+		},
 		"artifactName": "${productName}-Linux-${version}.${ext}"
 	}
 }

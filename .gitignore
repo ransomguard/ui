@@ -30,3 +30,4 @@ release
 # project specific
 db.sqlite
 config.json
+public/icons/
