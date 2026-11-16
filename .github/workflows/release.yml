@@ -62,7 +62,7 @@ jobs:
           path: |
             release/**/ransom0-ui-*
             release/**/*.blockmap
-            release/**/latest-*.yml
+            release/**/latest*.yml
           retention-days: 1
 
   release:
