@@ -225,6 +225,8 @@ export const en: AppTranslations = {
 		statusInactiveDesc: "Network blocking is disabled; all communication is allowed normally.",
 		refreshButton: "Refresh DNS IPs",
 		refreshing: "Refreshing...",
+		clearAllButton: "Clear Whitelist",
+		clearing: "Clearing...",
 		tabs: {
 			whitelistedTargets: "Whitelist ({{ count }})",
 			blockedProcesses: "Blocked Processes ({{ count }})",
@@ -299,6 +301,12 @@ export const en: AppTranslations = {
 			cancel: "Cancel",
 			confirm: "Remove",
 		},
+		clearAllDialog: {
+			title: "Confirm Clear Whitelist",
+			description: "Are you sure you want to clear all whitelist rules? Default policies may remain depending on the firewall daemon, and changes will take effect immediately.",
+			cancel: "Cancel",
+			confirm: "Clear All",
+		},
 		sheet: {
 			title: "Whitelist Rule Details",
 			description: "Type: {{ type }} • Target: {{ value }}",
@@ -320,11 +328,13 @@ export const en: AppTranslations = {
 			manualWhitelistDesc: "Manual allow by administrator",
 			externalWhitelistDesc: "External registration (CLI/System)",
 			manualRemoveWhitelistReason: "Manual whitelist removal",
+			manualClearWhitelistReason: "Clear all whitelist",
 		},
 		toasts: {
 			invalidTarget: "Please enter at least one valid target (IP, Domain, URL, CIDR, etc.).",
 			whitelistAdded: "{{ count }} target(s) have been added to the whitelist.",
 			whitelistRemoved: "Target has been removed from the whitelist.",
+			clearAllSuccess: "All whitelist rules have been cleared successfully.",
 			refreshSuccess: "Domain and URL IP addresses refreshed successfully.",
 		},
 	},

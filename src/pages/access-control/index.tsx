@@ -321,6 +321,7 @@ export default function AccessControlPage() {
 	const fetchRules = useAccessControlStore((state) => state.fetchRules);
 	const addWhitelist = useAccessControlStore((state) => state.addWhitelist);
 	const removeWhitelist = useAccessControlStore((state) => state.removeWhitelist);
+	const clearWhitelist = useAccessControlStore((state) => state.clearWhitelist);
 	const refreshWhitelist = useAccessControlStore((state) => state.refreshWhitelist);
 
 	const rawAlerts = useAlertStore((state) => state.alerts);
@@ -421,6 +422,8 @@ export default function AccessControlPage() {
 	const [whitelistDesc, setWhitelistDesc] = useState("");
 
 	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+	const [isClearAllDialogOpen, setIsClearAllDialogOpen] = useState(false);
+	const [isClearing, setIsClearing] = useState(false);
 	const [itemToDelete, setItemToDelete] = useState<{ id: string; value: string } | null>(null);
 	const [selectedWhitelistItem, setSelectedWhitelistItem] = useState<WhitelistedTargetRecord | null>(null);
 	const [isWhitelistSheetOpen, setIsWhitelistSheetOpen] = useState(false);
@@ -640,6 +643,28 @@ export default function AccessControlPage() {
 			});
 		} finally {
 			setItemToDelete(null);
+		}
+	};
+
+	// 화이트리스트 전체 삭제 확인 핸들러
+	const handleConfirmClearAll = async () => {
+		setIsClearing(true);
+		try {
+			await clearWhitelist(t(($) => $.accessControl.defaults.manualClearWhitelistReason));
+			toast.add({
+				title: t(($) => $.accessControl.toasts.clearAllSuccess),
+				type: "success",
+			});
+		} catch (err) {
+			const message = err instanceof Error ? err.message : String(err);
+			toast.add({
+				id: message,
+				title: message,
+				type: "error",
+			});
+		} finally {
+			setIsClearing(false);
+			setIsClearAllDialogOpen(false);
 		}
 	};
 
@@ -876,6 +901,18 @@ export default function AccessControlPage() {
 
 				{/* 컨트롤 액션 버튼 그룹 */}
 				<div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+					{/* 화이트리스트 전체 삭제 버튼 */}
+					<Button
+						variant="outline"
+						size="sm"
+						className="gap-1.5 cursor-pointer text-destructive hover:text-destructive"
+						onClick={() => setIsClearAllDialogOpen(true)}
+						disabled={whitelistItems.length === 0 || isClearing}
+					>
+						<Trash2 className="size-3.5"/>
+						<span>{isClearing ? t(($) => $.accessControl.clearing) : t(($) => $.accessControl.clearAllButton)}</span>
+					</Button>
+
 					{/* DNS IP 새로고침 버튼 */}
 					<Button
 						variant="outline"
@@ -1029,6 +1066,30 @@ export default function AccessControlPage() {
 							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 						>
 							{t(($) => $.accessControl.deleteDialog.confirm)}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+
+			{/* 화이트리스트 전체 삭제 확인 AlertDialog */}
+			<AlertDialog open={isClearAllDialogOpen} onOpenChange={setIsClearAllDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>{t(($) => $.accessControl.clearAllDialog.title)}</AlertDialogTitle>
+						<AlertDialogDescription>
+							{t(($) => $.accessControl.clearAllDialog.description)}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={isClearing}>
+							{t(($) => $.accessControl.clearAllDialog.cancel)}
+						</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={handleConfirmClearAll}
+							disabled={isClearing}
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+						>
+							{t(($) => $.accessControl.clearAllDialog.confirm)}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

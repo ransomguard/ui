@@ -195,5 +195,10 @@ describe("FirewallTool Test Pipe Server (FW_TEST_PIPE_NAME)", () => {
 		} finally {
 			window.electronAPI.setWhitelist = originalSetWhitelist;
 		}
+
+		// 8. 화이트리스트 전체 삭제 (clearWhitelist) - set([]) 호출 후 응답 기반 스토어 최신화 검증
+		await store.clearWhitelist("테스트 전체 삭제");
+		expect(useAccessControlStore.getState().whitelistItems.length).toBe(0);
+		expect(useAccessControlStore.getState().whitelistIps.length).toBe(0);
 	});
 });

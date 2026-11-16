@@ -208,6 +208,8 @@ export interface AppTranslations {
 		statusInactiveDesc: string;
 		refreshButton: string;
 		refreshing: string;
+		clearAllButton: string;
+		clearing: string;
 		tabs: {
 			whitelistedTargets: string;
 			blockedProcesses: string;
@@ -282,6 +284,12 @@ export interface AppTranslations {
 			cancel: string;
 			confirm: string;
 		};
+		clearAllDialog: {
+			title: string;
+			description: string;
+			cancel: string;
+			confirm: string;
+		};
 		sheet: {
 			title: string;
 			description: string;
@@ -303,11 +311,13 @@ export interface AppTranslations {
 			manualWhitelistDesc: string;
 			externalWhitelistDesc: string;
 			manualRemoveWhitelistReason: string;
+			manualClearWhitelistReason: string;
 		};
 		toasts: {
 			invalidTarget: string;
 			whitelistAdded: string;
 			whitelistRemoved: string;
+			clearAllSuccess: string;
 			refreshSuccess: string;
 		};
 	};

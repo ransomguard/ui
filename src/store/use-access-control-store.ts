@@ -30,6 +30,7 @@ export interface RuleState {
 	setWhitelist: (items: string[], reason?: string) => Promise<void>;
 	addWhitelist: (items: string[], reason?: string) => Promise<void>;
 	removeWhitelist: (items: string[], reason?: string) => Promise<void>;
+	clearWhitelist: (reason?: string) => Promise<void>;
 	refreshWhitelist: () => Promise<void>;
 }
 
@@ -266,6 +267,10 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 		if (!res.success) {
 			throw new Error(res.message ?? "화이트리스트 삭제에 실패했습니다.");
 		}
+	},
+
+	clearWhitelist: async (reason?: string) => {
+		await get().setWhitelist([], reason);
 	},
 
 	refreshWhitelist: async () => {

@@ -225,6 +225,8 @@ export const ko: AppTranslations = {
 		statusInactiveDesc: "네트워크 차단이 해제되어 모든 통신이 정상적으로 허용됩니다.",
 		refreshButton: "DNS IP 갱신",
 		refreshing: "갱신 중...",
+		clearAllButton: "전체 삭제",
+		clearing: "삭제 중...",
 		tabs: {
 			whitelistedTargets: "화이트리스트 ({{ count }})",
 			blockedProcesses: "프로세스 차단 목록 ({{ count }})",
@@ -299,6 +301,12 @@ export const ko: AppTranslations = {
 			cancel: "취소",
 			confirm: "삭제 수행",
 		},
+		clearAllDialog: {
+			title: "화이트리스트 전체 삭제 확인",
+			description: "등록된 모든 화이트리스트 규칙을 삭제하시겠습니까? 기본 제공 정책을 제외한 모든 항목이 제거되며, 즉시 네트워크 차단 정책에 반영됩니다.",
+			cancel: "취소",
+			confirm: "전체 삭제",
+		},
 		sheet: {
 			title: "화이트리스트 규칙 상세 정보",
 			description: "유형: {{ type }} • 대상: {{ value }}",
@@ -320,11 +328,13 @@ export const ko: AppTranslations = {
 			manualWhitelistDesc: "관리자 수동 허용",
 			externalWhitelistDesc: "외부 등록 (CLI/시스템)",
 			manualRemoveWhitelistReason: "수동 허용 삭제",
+			manualClearWhitelistReason: "화이트리스트 전체 삭제",
 		},
 		toasts: {
 			invalidTarget: "유효한 대상(IP, 도메인, URL, CIDR 등)을 1개 이상 입력해 주세요.",
 			whitelistAdded: "{{ count }}개 대상이 화이트리스트에 등록되었습니다.",
 			whitelistRemoved: "화이트리스트에서 삭제되었습니다.",
+			clearAllSuccess: "화이트리스트를 성공적으로 전체 삭제했습니다.",
 			refreshSuccess: "도메인 및 URL의 IP 주소가 성공적으로 갱신되었습니다.",
 		},
 	},
