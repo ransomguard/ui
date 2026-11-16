@@ -15,7 +15,7 @@
 		"dev": "bun run build:icon && vite",
 		"mock:ipc": "bun scripts/mock-ipc-sender.ts",
 		"test": "bun test",
-		"build": "bun run build:icon && tsc -b && vite build && electron-builder",
+		"build": "bun run build:icon && tsc -b && vite build && electron-builder --publish never",
 		"build:icon": "bun scripts/generate-icons.ts",
 		"lint": "bun run lint:eslint",
 		"lint:eslint": "eslint .",
