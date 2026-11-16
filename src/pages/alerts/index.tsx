@@ -412,17 +412,17 @@ export default function AlertsPage() {
 
 			{/* 행 클릭 시 우측에서 슬라이드 오픈되는 검사 패널 Sheet */}
 			<Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-				<SheetContent side="right" className="sm:max-w-md w-full p-0 overflow-hidden">
+				<SheetContent side="right" className="sm:max-w-lg w-full p-0 overflow-hidden flex flex-col">
 					<SheetHeader className="p-6 pb-4 border-b shrink-0">
 						<SheetTitle className="flex items-center gap-2 text-base font-bold">
 							{selectedAlert?.isRecovery ? (
-								<RefreshCw className="size-5 text-emerald-600"/>
+								<RefreshCw className="size-5 text-emerald-600 shrink-0"/>
 							) : (
-								<ShieldAlert className="size-5 text-destructive"/>
+								<ShieldAlert className="size-5 text-destructive shrink-0"/>
 							)}
-							<span>{t(($) => $.alerts.sheet.title)}</span>
+							<span className="truncate">{t(($) => $.alerts.sheet.title)}</span>
 						</SheetTitle>
-						<SheetDescription className="text-xs">
+						<SheetDescription className="text-xs break-all">
 							{t(($) => $.alerts.sheet.description, {
 								id: selectedAlert?.id ?? "-",
 								source: selectedAlert?.source ?? "-",
@@ -435,37 +435,44 @@ export default function AlertsPage() {
 							<div className="space-y-4 px-6 py-4 text-xs">
 								{/* 기본 정보 카드 */}
 								<div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border">
-									<div>
+									<div className="min-w-0">
 										<span className="text-muted-foreground flex items-center gap-1 mb-1">
-											<Clock className="size-3"/> {t(($) => $.alerts.sheet.createdAt)}
+											<Clock className="size-3 shrink-0"/> {t(($) => $.alerts.sheet.createdAt)}
 										</span>
-										<span className="font-mono font-medium">{selectedAlert.createdAt}</span>
+										<span className="font-mono font-medium block truncate" title={selectedAlert.createdAt}>
+											{selectedAlert.createdAt}
+										</span>
 									</div>
 
-									<div>
+									<div className="min-w-0">
 										<span className="text-muted-foreground flex items-center gap-1 mb-1">
-											<Shield className="size-3"/> {t(($) => $.alerts.sheet.actionResult)}
+											<Shield className="size-3 shrink-0"/> {t(($) => $.alerts.sheet.actionResult)}
 										</span>
 										<Badge
 											variant={selectedAlert.isThreat ? "destructive" : "default"}
-											className={selectedAlert.isRecovery ? "bg-emerald-600 hover:bg-emerald-700 text-[10px]" : "text-[10px]"}
+											className={selectedAlert.isRecovery ? "bg-emerald-600 hover:bg-emerald-700 text-[10px] truncate max-w-full block" : "text-[10px] truncate max-w-full block"}
+											title={selectedAlert.action}
 										>
 											{selectedAlert.action}
 										</Badge>
 									</div>
 
-									<div>
+									<div className="min-w-0">
 										<span className="text-muted-foreground flex items-center gap-1 mb-1">
-											<Terminal className="size-3"/> {t(($) => $.alerts.sheet.processId)}
+											<Terminal className="size-3 shrink-0"/> {t(($) => $.alerts.sheet.processId)}
 										</span>
-										<span className="font-mono font-bold">{selectedAlert.processId ?? "-"}</span>
+										<span className="font-mono font-bold block truncate">
+											{selectedAlert.processId ?? "-"}
+										</span>
 									</div>
 
-									<div>
+									<div className="min-w-0">
 										<span className="text-muted-foreground flex items-center gap-1 mb-1">
-											<Terminal className="size-3"/> {t(($) => $.alerts.sheet.processName)}
+											<Terminal className="size-3 shrink-0"/> {t(($) => $.alerts.sheet.processName)}
 										</span>
-										<span className="font-medium">{selectedAlert.processName ?? "-"}</span>
+										<span className="font-medium block break-all" title={selectedAlert.processName ?? "-"}>
+											{selectedAlert.processName ?? "-"}
+										</span>
 									</div>
 								</div>
 
@@ -490,9 +497,11 @@ export default function AlertsPage() {
 										<label className="text-xs font-semibold text-muted-foreground">
 											{t(($) => $.alerts.sheet.matchedRule)}
 										</label>
-										<div className="p-2 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-md font-mono text-xs font-medium">
-											{selectedAlert.matchedRule}
-										</div>
+										<ScrollArea className="max-h-36 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+											<div className="p-2.5 font-mono text-xs font-medium break-all whitespace-pre-wrap leading-relaxed">
+												{selectedAlert.matchedRule}
+											</div>
+										</ScrollArea>
 									</div>
 								)}
 
@@ -500,18 +509,20 @@ export default function AlertsPage() {
 								{selectedAlert.imagePath && (
 									<div className="space-y-1.5">
 										<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-											<HardDrive className="size-3.5"/> {t(($) => $.alerts.sheet.imagePath)}
+											<HardDrive className="size-3.5 shrink-0"/> {t(($) => $.alerts.sheet.imagePath)}
 										</label>
-										<div className="p-2.5 bg-background border rounded-md font-mono text-[11px] break-all leading-normal">
-											{selectedAlert.imagePath}
-										</div>
+										<ScrollArea className="max-h-36 rounded-md border bg-background">
+											<div className="p-2.5 font-mono text-[11px] break-all leading-normal">
+												{selectedAlert.imagePath}
+											</div>
+										</ScrollArea>
 									</div>
 								)}
 
 								{/* RAW JSON Details */}
 								<div className="space-y-1.5">
 									<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-										<FileText className="size-3.5"/> {t(($) => $.alerts.sheet.rawJson)}
+										<FileText className="size-3.5 shrink-0"/> {t(($) => $.alerts.sheet.rawJson)}
 									</label>
 									<ScrollArea className="max-h-80 rounded-md border bg-muted/80">
 										<pre className="p-3 font-mono text-[11px] whitespace-pre-wrap break-all leading-relaxed text-foreground/90">
