@@ -6,6 +6,7 @@ import {
 	fetchSecurityLogs,
 	fetchSecurityLogsAround,
 	acknowledgeThreats,
+	getDashboardChartStats,
 	type FetchSecurityLogsOptions,
 } from "./queries";
 import {
@@ -38,4 +39,7 @@ export function registerIpcHandlers(): void {
 		dashboardTimeRange.set(days);
 	});
 	ipcMain.handle("dashboard-time-range:get", () => dashboardTimeRange.get());
+	ipcMain.handle("dashboard-chart-stats:get", (_, days: number, interval: string) =>
+		getDashboardChartStats({ days, interval })
+	);
 }

@@ -499,3 +499,151 @@ export async function getRecentAccessControlLogsAround(
 		return { rows: [], hasMoreTop: false, hasMoreBottom: false, topOffset: 0 };
 	}
 }
+
+/**
+ * 대시보드 차트 전용 기간/인터벌별 버킷 통계 집계 (과거 DB 로그 전체 반영)
+ */
+export async function getDashboardChartStats({
+	days,
+	interval,
+}: {
+	days: number;
+	interval: string;
+}): Promise<DailyChartStatsItem[]> {
+	try {
+		const db = getDB();
+		const match = interval.match(/^(\d+)([mhd])$/);
+		let intervalMs = 24 * 60 * 60 * 1000;
+		if (match) {
+			const num = Number(match[1]);
+			const unit = match[2];
+			if (unit === "m") intervalMs = num * 60 * 1000;
+			else if (unit === "h") intervalMs = num * 60 * 60 * 1000;
+			else if (unit === "d") intervalMs = num * 24 * 60 * 60 * 1000;
+		}
+
+		const isDaily = interval === "1d" || intervalMs >= 24 * 60 * 60 * 1000;
+		const now = Date.now();
+
+		let startTime: number;
+		let bucketCount: number;
+		let startBucketTime: number;
+
+		if (isDaily) {
+			const startDate = new Date();
+			startDate.setHours(0, 0, 0, 0);
+			startDate.setDate(startDate.getDate() - (days - 1));
+			startTime = startDate.getTime();
+			startBucketTime = startTime;
+			bucketCount = days;
+			intervalMs = 24 * 60 * 60 * 1000;
+		} else {
+			const totalDurationMs = days * 24 * 60 * 60 * 1000;
+			startTime = now - totalDurationMs;
+			bucketCount = Math.ceil(totalDurationMs / intervalMs);
+			startBucketTime = Math.floor(startTime / intervalMs) * intervalMs;
+		}
+
+		const formatLabel = (t: number) => {
+			const d = new Date(t);
+			const year = d.getFullYear();
+			const month = String(d.getMonth() + 1).padStart(2, "0");
+			const day = String(d.getDate()).padStart(2, "0");
+			if (isDaily) return `${year}-${month}-${day}`;
+			const hour = String(d.getHours()).padStart(2, "0");
+			const minute = String(d.getMinutes()).padStart(2, "0");
+			return `${year}-${month}-${day} ${hour}:${minute}`;
+		};
+
+		const bucketMap = new Map<number, DailyChartStatsItem>();
+		for (let i = 0; i < bucketCount; i++) {
+			const t = startBucketTime + i * intervalMs;
+			bucketMap.set(t, {
+				date: formatLabel(t),
+				threat: 0,
+				processTerminated: 0,
+				recovery: 0,
+				fileRename: 0,
+				fileWrite: 0,
+				processCreate: 0,
+				firewall: 0,
+				queueDepth: 0,
+				eventsDropped: 0,
+				blockedCount: 0,
+				terminatedCount: 0,
+			});
+		}
+
+		const [secRows, acRows] = await Promise.all([
+			db.select({
+				type: table.securityLogs.type,
+				timestamp: table.securityLogs.timestamp,
+				data: table.securityLogs.data,
+			})
+				.from(table.securityLogs)
+				.where(gte(table.securityLogs.timestamp, startTime)),
+			db.select({
+				ips: table.accessControlLogs.ips,
+				performedAt: table.accessControlLogs.performedAt,
+			})
+				.from(table.accessControlLogs)
+				.where(gte(table.accessControlLogs.performedAt, startTime)),
+		]);
+
+		const addToBucket = (ts: number, apply: (item: DailyChartStatsItem) => void) => {
+			if (ts < startTime) return;
+			const bucketTime = isDaily
+				? startBucketTime + Math.floor((ts - startBucketTime) / intervalMs) * intervalMs
+				: Math.floor(ts / intervalMs) * intervalMs;
+			const item = bucketMap.get(bucketTime);
+			if (item) apply(item);
+		};
+
+		for (const ac of acRows) {
+			const count = ac.ips && ac.ips.length > 0 ? ac.ips.length : 1;
+			addToBucket(ac.performedAt, (item) => {
+				item.firewall += count;
+			});
+		}
+
+		for (const row of secRows) {
+			addToBucket(row.timestamp, (item) => {
+				if (row.type === "VSS_STATUS") {
+					item.recovery += 1;
+				} else if (
+					row.type === "PROCESS_BLOCKED" ||
+					row.type === "VSS_ATTEMPT" ||
+					row.type === "ALERT"
+				) {
+					item.threat += 1;
+				} else if (row.type === "PROCESS_TERMINATE") {
+					item.processTerminated += 1;
+				} else if (row.type === "PROCESS_CREATE") {
+					item.processCreate += 1;
+				} else if (row.type === "FILE_RENAME") {
+					item.fileRename += 1;
+				} else if (row.type === "FILE_WRITE") {
+					item.fileWrite += 1;
+				}
+
+				const isBlocked =
+					row.type === "PROCESS_BLOCKED" ||
+					row.type === "VSS_ATTEMPT" ||
+					(row.type === "ALERT" && row.data.type === "ALERT" && row.data.data.action !== "ALLOWED");
+
+				if (isBlocked) {
+					item.blockedCount += 1;
+				}
+
+				if (row.type === "PROCESS_TERMINATE") {
+					item.terminatedCount += 1;
+				}
+			});
+		}
+
+		return Array.from(bucketMap.values());
+	} catch (error) {
+		console.error("[DB Error] Failed to fetch dashboard chart stats:", error);
+		return [];
+	}
+}

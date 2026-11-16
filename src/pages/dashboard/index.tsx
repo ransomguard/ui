@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense, useMemo } from "react";
+import { useState, useEffect, lazy, Suspense, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	ShieldBan,
@@ -74,7 +74,6 @@ function extractBaseName(pathStr?: string | null): string {
 	return pathStr.split(/[/\\]/).pop() || pathStr;
 }
 
-const MAX_CHART_DAYS = timeRangeItems[0].value;
 const DEFAULT_TIME_RANGE = timeRangeItems.find(x => x.default) ?? timeRangeItems[0];
 
 export default function Dashboard() {
@@ -103,22 +102,49 @@ export default function Dashboard() {
 	const fetchMoreTelemetry = useTelemetryStore((state) => state.fetchMoreEvents);
 
 	const [timeRange, setTimeRange] = useState<TimeRangeItem>(DEFAULT_TIME_RANGE);
+	const [dbChartData, setDbChartData] = useState<AreaChartDataItem[]>([]);
+	const currentQueryRef = useRef({ days: DEFAULT_TIME_RANGE.value, interval: DEFAULT_TIME_RANGE.interval });
 
-	useEffect(() => {
-		window.electronAPI?.getDashboardTimeRange?.().then((savedDays) => {
-			if (typeof savedDays === "number") {
-				const found = timeRangeItems.find((item) => item.value === savedDays);
-				if (found) {
-					setTimeRange(found);
+	const loadChartStats = useCallback((days: number, interval: TimeRangeItem["interval"]) => {
+		currentQueryRef.current = { days, interval };
+		window.electronAPI?.getDashboardChartStats?.(days, interval).then((stats) => {
+			if (currentQueryRef.current.days === days && currentQueryRef.current.interval === interval) {
+				if (Array.isArray(stats)) {
+					setDbChartData(stats as unknown as AreaChartDataItem[]);
 				}
 			}
 		}).catch(() => {});
 	}, []);
 
+	useEffect(() => {
+		window.electronAPI?.getDashboardTimeRange?.().then((savedDays) => {
+			let targetRange = DEFAULT_TIME_RANGE;
+			if (typeof savedDays === "number") {
+				const found = timeRangeItems.find((item) => item.value === savedDays);
+				if (found) {
+					targetRange = found;
+					setTimeRange(found);
+				}
+			}
+			loadChartStats(targetRange.value, targetRange.interval);
+		}).catch(() => {
+			loadChartStats(DEFAULT_TIME_RANGE.value, DEFAULT_TIME_RANGE.interval);
+		});
+	}, [loadChartStats]);
+
+	// 신규 실시간 이벤트 수신 시 차트 버킷 최신화 (디바운스 적용)
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			loadChartStats(timeRange.value, timeRange.interval);
+		}, 300);
+		return () => clearTimeout(timer);
+	}, [alerts.length, telemetryEvents.length, storeLogs.length, timeRange, loadChartStats]);
+
 	const updateTimeRange = (value: TimeRangeItem | null) => {
 		const next = value ?? DEFAULT_TIME_RANGE;
 		setTimeRange(next);
 		window.electronAPI?.setDashboardTimeRange?.(next.value).catch(() => {});
+		loadChartStats(next.value, next.interval);
 	};
 
 	const handleLoadMoreSummary = async (category: "all" | "threat" | "recovery" | "telemetry" | "firewall") => {
@@ -332,40 +358,65 @@ export default function Dashboard() {
 	}, [alerts, telemetryEvents, storeLogs, storeWhitelistIps, totalCounts, t]);
 
 	// 날짜별 통합 보안 이벤트 집계 (Electron에서 계산된 일별 통계 사용)
-	const dailyCounts = new Map<string, {
-		threat: number;
-		processTerminated: number;
-		recovery: number;
-		fileRename: number;
-		fileWrite: number;
-		processCreate: number;
-		firewall: number;
-		queueDepth: number;
-		eventsDropped: number;
-		blockedCount: number;
-		terminatedCount: number;
-	}>();
+	const dailyCounts = useMemo(() => {
+		const map = new Map<string, {
+			threat: number;
+			processTerminated: number;
+			recovery: number;
+			fileRename: number;
+			fileWrite: number;
+			processCreate: number;
+			firewall: number;
+			queueDepth: number;
+			eventsDropped: number;
+			blockedCount: number;
+			terminatedCount: number;
+		}>();
 
-	for (const stat of dailyStats) {
-		dailyCounts.set(stat.date, {
-			threat: stat.threat,
-			processTerminated: stat.processTerminated,
-			recovery: stat.recovery,
-			fileRename: stat.fileRename,
-			fileWrite: stat.fileWrite,
-			processCreate: stat.processCreate,
-			firewall: stat.firewall,
-			queueDepth: stat.queueDepth ?? 0,
-			eventsDropped: stat.eventsDropped ?? 0,
-			blockedCount: stat.blockedCount,
-			terminatedCount: stat.terminatedCount,
-		});
-	}
+		for (const stat of dailyStats) {
+			map.set(stat.date, {
+				threat: stat.threat,
+				processTerminated: stat.processTerminated,
+				recovery: stat.recovery,
+				fileRename: stat.fileRename,
+				fileWrite: stat.fileWrite,
+				processCreate: stat.processCreate,
+				firewall: stat.firewall,
+				queueDepth: stat.queueDepth ?? 0,
+				eventsDropped: stat.eventsDropped ?? 0,
+				blockedCount: stat.blockedCount,
+				terminatedCount: stat.terminatedCount,
+			});
+		}
 
-	for (const metric of metrics) {
-		if (metric.type === "SYSTEM_STATUS") {
-			const dateKey = toDateKey(metric.timestamp);
-			const existing = dailyCounts.get(dateKey) ?? {
+		for (const metric of metrics) {
+			if (metric.type === "SYSTEM_STATUS") {
+				const dateKey = toDateKey(metric.timestamp);
+				const existing = map.get(dateKey) ?? {
+					threat: 0,
+					processTerminated: 0,
+					recovery: 0,
+					fileRename: 0,
+					fileWrite: 0,
+					processCreate: 0,
+					firewall: 0,
+					queueDepth: 0,
+					eventsDropped: 0,
+					blockedCount: 0,
+					terminatedCount: 0,
+				};
+				existing.queueDepth = Math.max(existing.queueDepth, metric.data.queueDepth);
+				existing.eventsDropped = Math.max(existing.eventsDropped, metric.data.eventsDropped);
+				existing.threat = Math.max(existing.threat, metric.data.processesBlocked);
+				existing.processTerminated = Math.max(existing.processTerminated, metric.data.processesTerminated);
+				map.set(dateKey, existing);
+			}
+		}
+
+		// 오늘 날짜에는 현재 sysData의 최신 queueDepth, eventsDropped도 실시간 반영
+		const todayKey = toDateKey(Date.now());
+		if (sysData) {
+			const todayCounts = map.get(todayKey) ?? {
 				threat: 0,
 				processTerminated: 0,
 				recovery: 0,
@@ -378,59 +429,22 @@ export default function Dashboard() {
 				blockedCount: 0,
 				terminatedCount: 0,
 			};
-			existing.queueDepth = Math.max(existing.queueDepth, metric.data.queueDepth);
-			existing.eventsDropped = Math.max(existing.eventsDropped, metric.data.eventsDropped);
-			existing.threat = Math.max(existing.threat, metric.data.processesBlocked);
-			existing.processTerminated = Math.max(existing.processTerminated, metric.data.processesTerminated);
-			dailyCounts.set(dateKey, existing);
+			todayCounts.queueDepth = Math.max(todayCounts.queueDepth, sysData.queueDepth);
+			todayCounts.eventsDropped = Math.max(todayCounts.eventsDropped, sysData.eventsDropped);
+			map.set(todayKey, todayCounts);
 		}
-	}
 
-	// 오늘 날짜에는 현재 sysData의 최신 queueDepth, eventsDropped도 실시간 반영
-	const todayKey = toDateKey(Date.now());
-	if (sysData) {
-		const todayCounts = dailyCounts.get(todayKey) ?? {
-			threat: 0,
-			processTerminated: 0,
-			recovery: 0,
-			fileRename: 0,
-			fileWrite: 0,
-			processCreate: 0,
-			firewall: 0,
-			queueDepth: 0,
-			eventsDropped: 0,
-			blockedCount: 0,
-			terminatedCount: 0,
-		};
-		todayCounts.queueDepth = Math.max(todayCounts.queueDepth, sysData.queueDepth);
-		todayCounts.eventsDropped = Math.max(todayCounts.eventsDropped, sysData.eventsDropped);
-		dailyCounts.set(todayKey, todayCounts);
-	}
-
-	const chartItems: AreaChartDataItem[] = Array.from({ length: MAX_CHART_DAYS }).map((_, i) => {
-		const d = new Date();
-		d.setDate(d.getDate() - (MAX_CHART_DAYS - 1 - i));
-		const dateStr = toDateKey(d);
-		const counts = dailyCounts.get(dateStr);
-
-		return {
-			date: dateStr,
-			threat: counts?.threat ?? 0,
-			processTerminated: counts?.processTerminated ?? 0,
-			recovery: counts?.recovery ?? 0,
-			fileRename: counts?.fileRename ?? 0,
-			fileWrite: counts?.fileWrite ?? 0,
-			processCreate: counts?.processCreate ?? 0,
-			firewall: counts?.firewall ?? 0,
-			queueDepth: counts?.queueDepth ?? 0,
-			eventsDropped: counts?.eventsDropped ?? 0,
-		};
-	});
-
-	const filteredChartData = chartItems.slice(-timeRange.value);
+		return map;
+	}, [dailyStats, metrics, sysData]);
 
 	// 선택한 차트 Time Range 범위 내 이벤트 필터링 및 상단 수치 카드 집계
-	const rangeDateKeys = new Set(filteredChartData.map((item) => item.date));
+	const rangeDateKeys = new Set(
+		Array.from({ length: timeRange.value }).map((_, i) => {
+			const d = new Date();
+			d.setDate(d.getDate() - (timeRange.value - 1 - i));
+			return toDateKey(d);
+		}),
+	);
 	let logsBlockedCount = 0;
 	let logsTerminatedCount = 0;
 	let logsRecoveryCount = 0;
@@ -449,6 +463,43 @@ export default function Dashboard() {
 	const processesTerminatedCount = Math.max(logsTerminatedCount, sysData?.processesTerminated ?? 0);
 	const filesRecoveredCount = Math.max(logsRecoveryCount, totalCounts.recovery);
 	const eventsDroppedCount = Math.max(logsDroppedCount, sysData?.eventsDropped ?? 0);
+
+	// DB 집계 데이터(dbChartData)를 기반으로 실시간 시스템 큐 상태 반영 (useMemo로 메모이제이션)
+	const filteredChartData = useMemo(() => {
+		if (dbChartData.length > 0) {
+			const cloned = dbChartData.map((item) => ({ ...item }));
+			if (sysData && cloned.length > 0) {
+				const last = cloned[cloned.length - 1];
+				if (last) {
+					last.queueDepth = Math.max(Number(last.queueDepth ?? 0), sysData.queueDepth);
+					last.eventsDropped = Math.max(Number(last.eventsDropped ?? 0), sysData.eventsDropped);
+				}
+			}
+			return cloned;
+		}
+
+		// dbChartData가 아직 로드되지 않은 초기 찰나에만 기본 일별 데이터로 fallback 표시
+		const days = timeRange.value;
+		return Array.from({ length: days }).map((_, i) => {
+			const d = new Date();
+			d.setDate(d.getDate() - (days - 1 - i));
+			const dateStr = toDateKey(d);
+			const counts = dailyCounts.get(dateStr);
+
+			return {
+				date: dateStr,
+				threat: counts?.threat ?? 0,
+				processTerminated: counts?.processTerminated ?? 0,
+				recovery: counts?.recovery ?? 0,
+				fileRename: counts?.fileRename ?? 0,
+				fileWrite: counts?.fileWrite ?? 0,
+				processCreate: counts?.processCreate ?? 0,
+				firewall: counts?.firewall ?? 0,
+				queueDepth: counts?.queueDepth ?? 0,
+				eventsDropped: counts?.eventsDropped ?? 0,
+			};
+		});
+	}, [dbChartData, sysData, timeRange.value, dailyCounts]);
 
 	const statsItems: StatsItem[] = [
 		{

@@ -56,6 +56,7 @@ interface Window {
 
 		setDashboardTimeRange(days: number): Promise<void>;
 		getDashboardTimeRange(): Promise<number | undefined>;
+		getDashboardChartStats(days: number, interval: string): Promise<import("~/main/queries").DailyChartStatsItem[]>;
 
 		onSecurityLogsUpdated(callback: OnSecurityLogsUpdatedCallback): Unsubscribe;
 		getEngineStatus(): Promise<GetLastEngineStatusData>;

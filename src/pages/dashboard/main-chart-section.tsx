@@ -70,10 +70,24 @@ export interface MainChartSectionProps<T extends TimeRangeItem> {
 
 
 
-const getFormatDate = (language: string) => (value: unknown) => {
-	const date = new Date(String(value));
+const getFormatDate = (language: string, interval?: string) => (value: unknown) => {
+	const str = String(value ?? "");
+	const date = new Date(str);
 	if (Number.isNaN(date.getTime())) {
-		return String(value ?? "");
+		return str;
+	}
+	// "1d"가 아니면 시간/분 단위를 포함
+	if (interval && interval !== "1d") {
+		const hours = String(date.getHours()).padStart(2, "0");
+		const minutes = String(date.getMinutes()).padStart(2, "0");
+		// 1일 이내(분 단위 "15m", "10m", "1h" 등)는 시간:분만 표시 (예: 14:15)
+		if (interval.endsWith("m") || interval === "1h") {
+			return `${hours}:${minutes}`;
+		}
+		// 7일, 15일, 30일 등 N시간 단위: 월/일 시:분 표시 (예: 11/16 08:00)
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		return `${month}/${day} ${hours}:${minutes}`;
 	}
 	return date.toLocaleDateString(language, {
 		month: "short",
@@ -149,7 +163,7 @@ export default function MainChartSection<T extends TimeRangeItem>({
 			heading={t($ => $.chart.heading)}
 			description={t($ => $.chart.description, { timeRange: getLabel(timeRange) })}
 			xAxisKey="date"
-			xAxisFormatter={getFormatDate(language)}
+			xAxisFormatter={getFormatDate(language, timeRange.interval)}
 			isLoading={isLoading}
 		>
 			<div className="flex flex-wrap items-center gap-2 sm:ml-auto">

@@ -34,6 +34,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	getDashboardTimeRange() {
 		return ipcRenderer.invoke("dashboard-time-range:get");
 	},
+	getDashboardChartStats(days: number, interval: string) {
+		return ipcRenderer.invoke("dashboard-chart-stats:get", days, interval);
+	},
 
 	onSecurityLogsUpdated(callback: OnSecurityLogsUpdatedCallback) {
 		return generateSubscription(

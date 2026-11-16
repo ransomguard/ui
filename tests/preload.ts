@@ -201,6 +201,9 @@ globalWithWindow.window.electronAPI = {
 	onLanguageChanged: () => () => {},
 	setLanguage: async () => {},
 	getLanguage: async () => "ko",
+	setDashboardTimeRange: async () => {},
+	getDashboardTimeRange: async () => undefined,
+	getDashboardChartStats: async () => [],
 	onSecurityLogsUpdated: () => () => {},
 	getEngineStatus: async () => ({
 		lastEngineStatus: undefined,
