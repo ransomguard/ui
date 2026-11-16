@@ -196,9 +196,34 @@ describe("FirewallTool Test Pipe Server (FW_TEST_PIPE_NAME)", () => {
 			window.electronAPI.setWhitelist = originalSetWhitelist;
 		}
 
-		// 8. 화이트리스트 전체 삭제 (clearWhitelist) - set([]) 호출 후 응답 기반 스토어 최신화 검증
+		// 8. 화이트리스트 전체 삭제 (clearWhitelist) - 보호 대상이 없을 때 set([]) 호출 후 응답 기반 스토어 최신화 검증
 		await store.clearWhitelist("테스트 전체 삭제");
 		expect(useAccessControlStore.getState().whitelistItems.length).toBe(0);
+		expect(useAccessControlStore.getState().whitelistIps.length).toBe(0);
+
+		// 9. 화이트리스트 보호 여부 설정 및 보호 대상 보존 전체 삭제 검증
+		await store.addWhitelist(["192.168.1.100", "protected.company.internal", "temp.unprotected.org"]);
+		expect(useAccessControlStore.getState().whitelistIps).toContain("protected.company.internal");
+		expect(useAccessControlStore.getState().whitelistIps).toContain("temp.unprotected.org");
+
+		// "protected.company.internal"을 보호 상태로 설정
+		store.setProtected(["protected.company.internal"], true);
+		expect(store.isProtected("protected.company.internal")).toBe(true);
+		expect(store.isProtected("temp.unprotected.org")).toBe(false);
+
+		// 보호된 항목이 존재하는 상태에서 clearWhitelist 호출
+		await store.clearWhitelist("보호 항목 보존 전체 삭제");
+
+		// 보호된 항목은 유지되고, 보호되지 않은 임시 항목은 삭제되었는지 검증
+		const keptIps = useAccessControlStore.getState().whitelistIps;
+		expect(keptIps).toContain("protected.company.internal");
+		expect(keptIps).not.toContain("temp.unprotected.org");
+		expect(keptIps).not.toContain("192.168.1.100");
+
+		// 보호 상태 토글 (보호 해제) 후 전체 삭제 시 완전히 삭제되는지 검증
+		store.toggleProtection("protected.company.internal");
+		expect(store.isProtected("protected.company.internal")).toBe(false);
+		await store.clearWhitelist("완전 전체 삭제");
 		expect(useAccessControlStore.getState().whitelistIps.length).toBe(0);
 	});
 });

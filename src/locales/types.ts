@@ -222,6 +222,8 @@ export interface AppTranslations {
 			whitelistIpPlaceholder: string;
 			whitelistDescLabel: string;
 			whitelistDescPlaceholder: string;
+			protectLabel: string;
+			protectDescription: string;
 			helpExamples: string;
 			cancel: string;
 			submit: string;
@@ -232,6 +234,7 @@ export interface AppTranslations {
 			columns: {
 				type: string;
 				target: string;
+				protection: string;
 				port: string;
 				cidr: string;
 				resolvedIps: string;
@@ -241,6 +244,10 @@ export interface AppTranslations {
 			};
 			allPorts: string;
 			removeAction: string;
+			protectAction: string;
+			unprotectAction: string;
+			protectedBadge: string;
+			unprotectedBadge: string;
 		};
 		blockedProcessesTable: {
 			heading: string;
@@ -281,12 +288,14 @@ export interface AppTranslations {
 		deleteDialog: {
 			title: string;
 			description: string;
+			descriptionProtected: string;
 			cancel: string;
 			confirm: string;
 		};
 		clearAllDialog: {
 			title: string;
 			description: string;
+			descriptionWithProtected: string;
 			cancel: string;
 			confirm: string;
 		};
@@ -295,6 +304,10 @@ export interface AppTranslations {
 			description: string;
 			type: string;
 			targetValue: string;
+			protection: string;
+			protectedStatus: string;
+			unprotectedStatus: string;
+			toggleProtectionAction: string;
 			port: string;
 			cidr: string;
 			domain: string;
@@ -317,6 +330,8 @@ export interface AppTranslations {
 			invalidTarget: string;
 			whitelistAdded: string;
 			whitelistRemoved: string;
+			protectionEnabled: string;
+			protectionDisabled: string;
 			clearAllSuccess: string;
 			refreshSuccess: string;
 		};

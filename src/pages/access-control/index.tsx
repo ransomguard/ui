@@ -21,6 +21,8 @@ import {
 	Shield,
 	Terminal,
 	HardDrive,
+	Lock,
+	Unlock,
 } from "lucide-react";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,6 +38,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 	SheetDescription,
+	SheetFooter,
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -65,6 +68,8 @@ import {
 	DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/toast";
 import { I18n } from "@/components/i18n";
 import { useAccessControlStore, useAlertStore, useMetricStore } from "@/store";
@@ -93,6 +98,7 @@ export interface WhitelistedTargetRecord {
 	resolvedIps: string[];
 	description: string;
 	addedAt: string;
+	isProtected: boolean;
 	data: WhitelistItemData;
 	rawItem: WhitelistItem;
 }
@@ -323,6 +329,9 @@ export default function AccessControlPage() {
 	const removeWhitelist = useAccessControlStore((state) => state.removeWhitelist);
 	const clearWhitelist = useAccessControlStore((state) => state.clearWhitelist);
 	const refreshWhitelist = useAccessControlStore((state) => state.refreshWhitelist);
+	const protectedWhitelistValues = useAccessControlStore((state) => state.protectedWhitelistValues);
+	const setProtected = useAccessControlStore((state) => state.setProtected);
+	const toggleProtection = useAccessControlStore((state) => state.toggleProtection);
 
 	const rawAlerts = useAlertStore((state) => state.alerts);
 	const hasMoreAlerts = useAlertStore((state) => state.hasMore);
@@ -420,15 +429,24 @@ export default function AccessControlPage() {
 	// Dialog & Sheet State
 	const [newTargetsInput, setNewTargetsInput] = useState("");
 	const [whitelistDesc, setWhitelistDesc] = useState("");
+	const [isProtectedInput, setIsProtectedInput] = useState(false);
 
 	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 	const [isClearAllDialogOpen, setIsClearAllDialogOpen] = useState(false);
 	const [isClearing, setIsClearing] = useState(false);
-	const [itemToDelete, setItemToDelete] = useState<{ id: string; value: string } | null>(null);
+	const [itemToDelete, setItemToDelete] = useState<{ id: string; value: string; isProtected?: boolean } | null>(null);
 	const [selectedWhitelistItem, setSelectedWhitelistItem] = useState<WhitelistedTargetRecord | null>(null);
 	const [isWhitelistSheetOpen, setIsWhitelistSheetOpen] = useState(false);
 	const [selectedBlockedProcess, setSelectedBlockedProcess] = useState<BlockedProcessRecord | null>(null);
 	const [isBlockedProcessSheetOpen, setIsBlockedProcessSheetOpen] = useState(false);
+
+	// 보호된 항목 및 삭제 대상 항목 카운트 계산
+	const protectedCount = useMemo(() => {
+		const pSet = new Set(protectedWhitelistValues);
+		return whitelistItems.filter((item) => pSet.has(item.value)).length;
+	}, [whitelistItems, protectedWhitelistValues]);
+	const totalWhitelistCount = whitelistItems.length;
+	const clearableWhitelistCount = totalWhitelistCount - protectedCount;
 
 	// Map WhitelistItems to table data
 	const whitelistedTargetsData: WhitelistedTargetRecord[] = useMemo(() => {
@@ -470,6 +488,8 @@ export default function AccessControlPage() {
 				resolvedIps = [...ipv4List, ...ipv6List];
 			}
 
+			const isProtected = protectedWhitelistValues.includes(item.value);
+
 			return {
 				id: item.value,
 				type: item.type,
@@ -484,11 +504,12 @@ export default function AccessControlPage() {
 				resolvedIps,
 				description: matchedLog?.reason || t(($) => $.accessControl.defaults.externalWhitelistDesc),
 				addedAt: matchedLog?.performedAt ? new Date(matchedLog.performedAt).toLocaleString() : "-",
+				isProtected,
 				data: item.data,
 				rawItem: item,
 			};
 		});
-	}, [whitelistItems, storeLogs, t]);
+	}, [whitelistItems, storeLogs, protectedWhitelistValues, t]);
 
 	const blockedProcessesData: BlockedProcessRecord[] = useMemo(() => {
 		return rawAlerts
@@ -608,8 +629,12 @@ export default function AccessControlPage() {
 		const desc = whitelistDesc.trim() || t(($) => $.accessControl.defaults.manualWhitelistDesc);
 		try {
 			await addWhitelist(targets, desc);
+			if (isProtectedInput) {
+				setProtected(targets, true);
+			}
 			setNewTargetsInput("");
 			setWhitelistDesc("");
+			setIsProtectedInput(false);
 			setIsAddDialogOpen(false);
 			toast.add({
 				title: t(($) => $.accessControl.toasts.whitelistAdded, { count: targets.length }),
@@ -625,11 +650,27 @@ export default function AccessControlPage() {
 		}
 	};
 
+	// 화이트리스트 보호 여부 토글 핸들러
+	const handleToggleProtection = useCallback((value: string) => {
+		const isCurrentlyProtected = protectedWhitelistValues.includes(value);
+		toggleProtection(value);
+		toast.add({
+			title: isCurrentlyProtected
+				? t(($) => $.accessControl.toasts.protectionDisabled, { target: value })
+				: t(($) => $.accessControl.toasts.protectionEnabled, { target: value }),
+			type: "info",
+		});
+	}, [protectedWhitelistValues, toggleProtection, t]);
+
 	// 항목 삭제 확인 핸들러
 	const handleConfirmDelete = async () => {
 		if (!itemToDelete) return;
 		try {
 			await removeWhitelist([itemToDelete.value], t(($) => $.accessControl.defaults.manualRemoveWhitelistReason));
+			if (selectedWhitelistItem?.value === itemToDelete.value) {
+				setIsWhitelistSheetOpen(false);
+				setSelectedWhitelistItem(null);
+			}
 			toast.add({
 				title: t(($) => $.accessControl.toasts.whitelistRemoved),
 				type: "success",
@@ -742,6 +783,45 @@ export default function AccessControlPage() {
 				),
 			},
 			{
+				accessorKey: "isProtected",
+				header: () => <I18n i18nKey="accessControl.whitelistTable.columns.protection"/>,
+				cell: ({ row }) => {
+					const isProtected = row.original.isProtected;
+					return (
+						<Button
+							variant="ghost"
+							size="sm"
+							className="h-7 px-2 gap-1.5 cursor-pointer"
+							onClick={(e) => {
+								e.stopPropagation();
+								handleToggleProtection(row.original.value);
+							}}
+							title={
+								isProtected
+									? t(($) => $.accessControl.whitelistTable.unprotectAction)
+									: t(($) => $.accessControl.whitelistTable.protectAction)
+							}
+						>
+							{isProtected ? (
+								<>
+									<Lock className="size-3.5 text-amber-500 shrink-0"/>
+									<Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 font-normal text-[11px] py-0">
+										{t(($) => $.accessControl.whitelistTable.protectedBadge)}
+									</Badge>
+								</>
+							) : (
+								<>
+									<Unlock className="size-3.5 text-muted-foreground shrink-0"/>
+									<span className="text-xs text-muted-foreground">
+										{t(($) => $.accessControl.whitelistTable.unprotectedBadge)}
+									</span>
+								</>
+							)}
+						</Button>
+					);
+				},
+			},
+			{
 				accessorKey: "port",
 				header: () => <I18n i18nKey="accessControl.whitelistTable.columns.port"/>,
 				cell: ({ row }) => {
@@ -811,8 +891,30 @@ export default function AccessControlPage() {
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
 								<DropdownMenuItem
+									className="cursor-pointer"
+									onClick={() => handleToggleProtection(row.original.value)}
+								>
+									{row.original.isProtected ? (
+										<>
+											<Unlock className="size-4 mr-2 text-muted-foreground"/>
+											<I18n i18nKey="accessControl.whitelistTable.unprotectAction"/>
+										</>
+									) : (
+										<>
+											<Lock className="size-4 mr-2 text-amber-500"/>
+											<I18n i18nKey="accessControl.whitelistTable.protectAction"/>
+										</>
+									)}
+								</DropdownMenuItem>
+								<DropdownMenuItem
 									className="text-destructive cursor-pointer"
-									onClick={() => setItemToDelete({ id: row.original.id, value: row.original.value })}
+									onClick={() =>
+										setItemToDelete({
+											id: row.original.id,
+											value: row.original.value,
+											isProtected: row.original.isProtected,
+										})
+									}
 								>
 									<Trash2 className="size-4 mr-2"/>
 									<I18n i18nKey="accessControl.whitelistTable.removeAction"/>
@@ -823,7 +925,7 @@ export default function AccessControlPage() {
 				),
 			},
 		]);
-	}, [whitelistTargetColumnHelper, t]);
+	}, [whitelistTargetColumnHelper, t, handleToggleProtection]);
 
 	const tabsToolbar = (
 		<Tabs
@@ -907,7 +1009,7 @@ export default function AccessControlPage() {
 						size="sm"
 						className="gap-1.5 cursor-pointer text-destructive hover:text-destructive"
 						onClick={() => setIsClearAllDialogOpen(true)}
-						disabled={whitelistItems.length === 0 || isClearing}
+						disabled={totalWhitelistCount === 0 || clearableWhitelistCount === 0 || isClearing}
 					>
 						<Trash2 className="size-3.5"/>
 						<span>{isClearing ? t(($) => $.accessControl.clearing) : t(($) => $.accessControl.clearAllButton)}</span>
@@ -926,7 +1028,13 @@ export default function AccessControlPage() {
 					</Button>
 
 					{/* 화이트리스트 등록 모달 버튼 */}
-					<Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+					<Dialog
+						open={isAddDialogOpen}
+						onOpenChange={(open) => {
+							setIsAddDialogOpen(open);
+							if (!open) setIsProtectedInput(false);
+						}}
+					>
 						<DialogTrigger render={<Button size="sm" className="gap-1.5 cursor-pointer"/>}>
 							<Plus className="size-4"/>
 							<span>{t(($) => $.accessControl.addPolicy)}</span>
@@ -963,6 +1071,22 @@ export default function AccessControlPage() {
 										onChange={(e) => setWhitelistDesc(e.target.value)}
 									/>
 								</Field>
+								<div className="flex items-start gap-2.5 pt-1">
+									<Checkbox
+										id="whitelist-is-protected"
+										checked={isProtectedInput}
+										onCheckedChange={(checked) => setIsProtectedInput(Boolean(checked))}
+										className="mt-0.5"
+									/>
+									<div className="grid gap-1 leading-none">
+										<Label htmlFor="whitelist-is-protected" className="cursor-pointer text-xs font-semibold">
+											{t(($) => $.accessControl.dialog.protectLabel)}
+										</Label>
+										<p className="text-[11px] text-muted-foreground">
+											{t(($) => $.accessControl.dialog.protectDescription)}
+										</p>
+									</div>
+								</div>
 							</div>
 
 							<DialogFooter>
@@ -1056,7 +1180,9 @@ export default function AccessControlPage() {
 					<AlertDialogHeader>
 						<AlertDialogTitle>{t(($) => $.accessControl.deleteDialog.title)}</AlertDialogTitle>
 						<AlertDialogDescription>
-							{t(($) => $.accessControl.deleteDialog.description, { item: itemToDelete?.value ?? "" })}
+							{itemToDelete?.isProtected
+								? t(($) => $.accessControl.deleteDialog.descriptionProtected, { item: itemToDelete.value })
+								: t(($) => $.accessControl.deleteDialog.description, { item: itemToDelete?.value ?? "" })}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -1077,7 +1203,13 @@ export default function AccessControlPage() {
 					<AlertDialogHeader>
 						<AlertDialogTitle>{t(($) => $.accessControl.clearAllDialog.title)}</AlertDialogTitle>
 						<AlertDialogDescription>
-							{t(($) => $.accessControl.clearAllDialog.description)}
+							{protectedCount > 0
+								? t(($) => $.accessControl.clearAllDialog.descriptionWithProtected, {
+										total: totalWhitelistCount,
+										protectedCount,
+										deleteCount: clearableWhitelistCount,
+									})
+								: t(($) => $.accessControl.clearAllDialog.description)}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -1112,8 +1244,58 @@ export default function AccessControlPage() {
 					</SheetHeader>
 
 					{selectedWhitelistItem && (
-						<ScrollArea className="flex-1 min-h-0">
+						<>
+							<ScrollArea className="flex-1 min-h-0">
 							<div className="space-y-4 px-6 py-4 text-xs">
+								{/* 보호 상태 및 전환 카드 */}
+								<div className="flex items-center justify-between p-3 bg-muted/40 rounded-lg border">
+									<div className="space-y-0.5 min-w-0 pr-2">
+										<div className="flex items-center gap-1.5 font-semibold text-xs">
+											{selectedWhitelistItem.isProtected ? (
+												<>
+													<Lock className="size-3.5 text-amber-500 shrink-0"/>
+													<span className="text-amber-600 dark:text-amber-400">
+														{t(($) => $.accessControl.sheet.protectedStatus)}
+													</span>
+												</>
+											) : (
+												<>
+													<Unlock className="size-3.5 text-muted-foreground shrink-0"/>
+													<span className="text-muted-foreground">
+														{t(($) => $.accessControl.sheet.unprotectedStatus)}
+													</span>
+												</>
+											)}
+										</div>
+										<p className="text-[11px] text-muted-foreground truncate">
+											{t(($) => $.accessControl.sheet.protection)}
+										</p>
+									</div>
+									<Button
+										variant="outline"
+										size="sm"
+										className="h-7 text-xs cursor-pointer shrink-0 gap-1.5"
+										onClick={() => {
+											handleToggleProtection(selectedWhitelistItem.value);
+											setSelectedWhitelistItem((prev) =>
+												prev ? { ...prev, isProtected: !prev.isProtected } : null,
+											);
+										}}
+									>
+										{selectedWhitelistItem.isProtected ? (
+											<>
+												<Unlock className="size-3.5 text-muted-foreground"/>
+												<span>{t(($) => $.accessControl.whitelistTable.unprotectAction)}</span>
+											</>
+										) : (
+											<>
+												<Lock className="size-3.5 text-amber-500"/>
+												<span>{t(($) => $.accessControl.whitelistTable.protectAction)}</span>
+											</>
+										)}
+									</Button>
+								</div>
+
 								{/* 기본 정보 카드 */}
 								<div className="grid grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border">
 									<div className="min-w-0">
@@ -1272,7 +1454,33 @@ export default function AccessControlPage() {
 								</div>
 							</div>
 						</ScrollArea>
-					)}
+						<SheetFooter className="p-4 border-t flex flex-row items-center justify-between sm:justify-between gap-2 shrink-0">
+							<Button
+								variant="destructive"
+								size="sm"
+								className="gap-1.5 cursor-pointer"
+								onClick={() => {
+									setItemToDelete({
+										id: selectedWhitelistItem.id,
+										value: selectedWhitelistItem.value,
+										isProtected: selectedWhitelistItem.isProtected,
+									});
+								}}
+							>
+								<Trash2 className="size-4"/>
+								<span>{t(($) => $.accessControl.whitelistTable.removeAction)}</span>
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								className="cursor-pointer"
+								onClick={() => setIsWhitelistSheetOpen(false)}
+							>
+								{t(($) => $.accessControl.dialog.cancel)}
+							</Button>
+						</SheetFooter>
+					</>
+				)}
 				</SheetContent>
 			</Sheet>
 

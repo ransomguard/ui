@@ -6,11 +6,38 @@ import { useMetricStore } from "./use-metrics-store";
 
 
 const PAGE_SIZE = 10;
+const PROTECTED_WHITELIST_STORAGE_KEY = "ransom0_protected_whitelist";
+
+const loadProtectedValues = (): string[] => {
+	try {
+		if (typeof window !== "undefined" && window.localStorage) {
+			const raw = localStorage.getItem(PROTECTED_WHITELIST_STORAGE_KEY);
+			if (raw) {
+				const parsed = JSON.parse(raw);
+				if (Array.isArray(parsed)) return parsed;
+			}
+		}
+	} catch (e) {
+		console.error("[useAccessControlStore] Failed to load protected whitelist:", e);
+	}
+	return [];
+};
+
+const saveProtectedValues = (values: string[]) => {
+	try {
+		if (typeof window !== "undefined" && window.localStorage) {
+			localStorage.setItem(PROTECTED_WHITELIST_STORAGE_KEY, JSON.stringify(values));
+		}
+	} catch (e) {
+		console.error("[useAccessControlStore] Failed to save protected whitelist:", e);
+	}
+};
 
 export interface RuleState {
 	isFirewallActive: boolean;
 	whitelistItems: WhitelistItem[];
 	whitelistIps: string[];
+	protectedWhitelistValues: string[];
 	logs: AccessControlLogItem[];
 	hasMoreLogs: boolean;
 	hasMoreTopLogs: boolean;
@@ -32,6 +59,9 @@ export interface RuleState {
 	removeWhitelist: (items: string[], reason?: string) => Promise<void>;
 	clearWhitelist: (reason?: string) => Promise<void>;
 	refreshWhitelist: () => Promise<void>;
+	setProtected: (values: string[], isProtected: boolean) => void;
+	toggleProtection: (value: string) => void;
+	isProtected: (value: string) => boolean;
 }
 
 
@@ -80,6 +110,7 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 	isFirewallActive: false,
 	whitelistItems: [],
 	whitelistIps: [],
+	protectedWhitelistValues: loadProtectedValues(),
 	logs: [],
 	hasMoreLogs: true,
 	hasMoreTopLogs: false,
@@ -252,10 +283,18 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 		const res = await window.electronAPI.removeWhitelist(items, reason);
 		useMetricStore.getState().incrementAccessLogCount(res.logs.length);
 
-		set((prev) => ({
-			logs: mergeAccessLogs(prev.logs, res.logs),
-			error: res.message ?? null,
-		}));
+		set((prev) => {
+			const removeSet = new Set(items);
+			const newProtected = prev.protectedWhitelistValues.filter((v) => !removeSet.has(v));
+			if (newProtected.length !== prev.protectedWhitelistValues.length) {
+				saveProtectedValues(newProtected);
+			}
+			return {
+				logs: mergeAccessLogs(prev.logs, res.logs),
+				protectedWhitelistValues: newProtected,
+				error: res.message ?? null,
+			};
+		});
 
 		// 응답 내 whitelist로 목록 최신화
 		if (res.whitelist !== undefined) {
@@ -270,7 +309,48 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 	},
 
 	clearWhitelist: async (reason?: string) => {
-		await get().setWhitelist([], reason);
+		const { whitelistItems, protectedWhitelistValues } = get();
+		const protectedSet = new Set(protectedWhitelistValues);
+		// 보호된 항목들만 보존하고 나머지는 삭제
+		const itemsToKeep = whitelistItems
+			.map((item) => item.value)
+			.filter((val) => protectedSet.has(val));
+
+		await get().setWhitelist(itemsToKeep, reason);
+	},
+
+	setProtected: (values, isProtected) => {
+		set((prev) => {
+			const currentSet = new Set(prev.protectedWhitelistValues);
+			for (const val of values) {
+				if (isProtected) {
+					currentSet.add(val);
+				} else {
+					currentSet.delete(val);
+				}
+			}
+			const nextList = Array.from(currentSet);
+			saveProtectedValues(nextList);
+			return { protectedWhitelistValues: nextList };
+		});
+	},
+
+	toggleProtection: (value) => {
+		set((prev) => {
+			const currentSet = new Set(prev.protectedWhitelistValues);
+			if (currentSet.has(value)) {
+				currentSet.delete(value);
+			} else {
+				currentSet.add(value);
+			}
+			const nextList = Array.from(currentSet);
+			saveProtectedValues(nextList);
+			return { protectedWhitelistValues: nextList };
+		});
+	},
+
+	isProtected: (value) => {
+		return get().protectedWhitelistValues.includes(value);
 	},
 
 	refreshWhitelist: async () => {
