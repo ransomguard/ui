@@ -27,6 +27,7 @@ jobs:
           # - name: macOS (DMG)
           #   os: macos-latest
           #   sys_deps: ""
+          #   build_args: "--macos dmg zip"
 
     runs-on: ${{ matrix.os }}
     name: Build - ${{ matrix.name }}
