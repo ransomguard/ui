@@ -5,6 +5,7 @@ import {
 	type FirewallRequest,
 	type IncomingFWMessage,
 	type WhitelistItem,
+	type FirewallResponseDirection,
 } from "~/services/firewall-tool";
 
 import {
@@ -65,25 +66,29 @@ export async function getFirewallStatus(): Promise<IncomingFWMessage> {
 	return sendFirewallRequest({ action: "get" });
 }
 
-export async function setWhitelist(
-	items: string[],
-	reason?: string,
-): Promise<{
+export interface MutateWhitelistResult {
 	success: boolean;
 	active: boolean;
+	direction?: FirewallResponseDirection;
 	whitelist?: WhitelistItem[];
 	message?: string;
 	logs: AccessControlLogItem[];
-}> {
+}
+
+async function mutateWhitelist(
+	action: "add" | "remove" | "set",
+	items: string[],
+	reason?: string,
+): Promise<MutateWhitelistResult> {
 	const db = getDB();
-	const response = await sendFirewallRequest({ action: "set", whitelist: items });
+	const response = await sendFirewallRequest({ action, whitelist: items });
 
 	const success = response.success;
 	const errorMessage = response.success ? undefined : response.message;
 	const active = response.success ? response.active : false;
 	let whitelist: WhitelistItem[] | undefined = response.success && response.whitelist ? response.whitelist : undefined;
 
-	// breaking change 대비: set 응답에 whitelist가 포함되지 않은 경우 기존 get 함수(getFirewallStatus)를 활용
+	// 응답에 whitelist가 누락된 경우 get으로 fallback
 	if (success && whitelist === undefined) {
 		const getRes = await getFirewallStatus();
 		if (getRes.success && getRes.whitelist) {
@@ -91,11 +96,17 @@ export async function setWhitelist(
 		}
 	}
 
-	const logReason = reason || "화이트리스트 설정 갱신";
+	const defaultReason = action === "add"
+		? `화이트리스트 추가 (${items.join(", ")})`
+		: action === "remove"
+		? `화이트리스트 삭제 (${items.join(", ")})`
+		: "화이트리스트 설정 갱신";
+	const logReason = reason || defaultReason;
+	const logAction = action === "remove" ? "remove" : "add";
 
 	const rows = await db.insert(table.accessControlLogs).values({
 		target: "whitelist",
-		action: "add",
+		action: logAction,
 		reason: logReason,
 		success,
 		ips: success ? items : null,
@@ -112,10 +123,23 @@ export async function setWhitelist(
 	return {
 		success,
 		active,
+		direction: response.success ? response.direction : undefined,
 		whitelist,
 		message: errorMessage,
 		logs,
 	};
+}
+
+export async function addWhitelist(items: string[], reason?: string) {
+	return mutateWhitelist("add", items, reason);
+}
+
+export async function removeWhitelist(items: string[], reason?: string) {
+	return mutateWhitelist("remove", items, reason);
+}
+
+export async function setWhitelist(items: string[], reason?: string) {
+	return mutateWhitelist("set", items, reason);
 }
 
 export async function refreshWhitelist(): Promise<IncomingFWMessage> {

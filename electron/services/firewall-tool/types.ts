@@ -1,7 +1,11 @@
-export type FirewallAction = "on" | "off" | "set" | "get" | "refresh";
+export type FirewallAction = "on" | "off" | "set" | "add" | "remove" | "get" | "refresh";
+
+export type FirewallDirection = "both" | "out" | "in";
+export type FirewallResponseDirection = "both" | "outbound" | "inbound";
 
 export interface FirewallRequest {
 	action: FirewallAction;
+	direction?: FirewallDirection;
 	whitelist?: string[];
 }
 
@@ -49,6 +53,7 @@ export interface FWSuccessData {
 	success: true;
 	active: boolean;
 	action: FirewallAction;
+	direction?: FirewallResponseDirection;
 	whitelist?: WhitelistItem[];
 }
 

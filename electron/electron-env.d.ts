@@ -84,9 +84,26 @@ interface Window {
 			topOffset?: number;
 		}>;
 		getFirewallStatus(): Promise<IncomingFWMessage>;
+		addWhitelist(items: string[], reason?: string): Promise<{
+			success: boolean;
+			active: boolean;
+			direction?: import("~/services/firewall-tool").FirewallResponseDirection;
+			whitelist?: WhitelistItem[];
+			message?: string;
+			logs: AccessControlLogItem[];
+		}>;
+		removeWhitelist(items: string[], reason?: string): Promise<{
+			success: boolean;
+			active: boolean;
+			direction?: import("~/services/firewall-tool").FirewallResponseDirection;
+			whitelist?: WhitelistItem[];
+			message?: string;
+			logs: AccessControlLogItem[];
+		}>;
 		setWhitelist(items: string[], reason?: string): Promise<{
 			success: boolean;
 			active: boolean;
+			direction?: import("~/services/firewall-tool").FirewallResponseDirection;
 			whitelist?: WhitelistItem[];
 			message?: string;
 			logs: AccessControlLogItem[];

@@ -13,6 +13,8 @@ import {
 	fetchLogs,
 	fetchLogsAround,
 	getFirewallStatus,
+	addWhitelist,
+	removeWhitelist,
 	setWhitelist,
 	refreshWhitelist,
 } from "./firewall-tool";
@@ -37,6 +39,8 @@ export function registerIpcHandlers(): void {
 		fetchLogsAround(targetTimestamp, limit)
 	);
 	ipcMain.handle("firewall:status", () => getFirewallStatus());
+	ipcMain.handle("firewall:add-whitelist", (_, items: string[], reason?: string) => addWhitelist(items, reason));
+	ipcMain.handle("firewall:remove-whitelist", (_, items: string[], reason?: string) => removeWhitelist(items, reason));
 	ipcMain.handle("firewall:set-whitelist", (_, items: string[], reason?: string) => setWhitelist(items, reason));
 	ipcMain.handle("firewall:refresh-whitelist", () => refreshWhitelist());
 

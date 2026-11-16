@@ -122,6 +122,41 @@ function handleFakeFirewallRequest(req: FirewallRequest): IncomingFWMessage {
 				whitelist: Array.from(mockWhitelistMap.values()),
 			};
 		}
+		case "add": {
+			if (Array.isArray(req.whitelist) && req.whitelist.includes("invalid://error")) {
+				return {
+					success: false,
+					action: "add",
+					message: "유효하지 않은 화이트리스트 대상 형식입니다.",
+				};
+			}
+			if (Array.isArray(req.whitelist)) {
+				for (const item of req.whitelist) {
+					mockWhitelistMap.set(item, parseMockWhitelistItem(item));
+				}
+			}
+			return {
+				success: true,
+				active: mockActive,
+				action: "add",
+				direction: "both",
+				whitelist: Array.from(mockWhitelistMap.values()),
+			};
+		}
+		case "remove": {
+			if (Array.isArray(req.whitelist)) {
+				for (const item of req.whitelist) {
+					mockWhitelistMap.delete(item);
+				}
+			}
+			return {
+				success: true,
+				active: mockActive,
+				action: "remove",
+				direction: "both",
+				whitelist: Array.from(mockWhitelistMap.values()),
+			};
+		}
 		case "set": {
 			if (Array.isArray(req.whitelist) && req.whitelist.includes("invalid://error")) {
 				return {
@@ -152,11 +187,12 @@ function handleFakeFirewallRequest(req: FirewallRequest): IncomingFWMessage {
 	}
 }
 
-async function invokeFakeSetWhitelist(
+async function invokeFakeMutateWhitelist(
+	action: "add" | "remove" | "set",
 	items: string[],
 	reason?: string,
-): Promise<{ success: boolean; active: boolean; whitelist?: WhitelistItem[]; message?: string; logs: AccessControlLogItem[] }> {
-	const raw = await sendToFirewallTool({ action: "set", whitelist: items }, FW_TEST_PIPE_NAME);
+): Promise<{ success: boolean; active: boolean; direction?: "both" | "outbound" | "inbound"; whitelist?: WhitelistItem[]; message?: string; logs: AccessControlLogItem[] }> {
+	const raw = await sendToFirewallTool({ action, whitelist: items }, FW_TEST_PIPE_NAME);
 	const success = raw.success;
 	const errorMessage = raw.success ? undefined : raw.message;
 	const active = raw.success ? raw.active : mockActive;
@@ -171,11 +207,18 @@ async function invokeFakeSetWhitelist(
 
 	const id = ++logIdCounter;
 	const performedAt = Date.now();
+	const defaultReason = action === "add"
+		? `화이트리스트 추가 (${items.join(", ")})`
+		: action === "remove"
+		? `화이트리스트 삭제 (${items.join(", ")})`
+		: "화이트리스트 설정 갱신";
+	const logAction = action === "remove" ? "remove" : "add";
+
 	const logItems: AccessControlLogItem[] = (success ? items : [undefined]).map((ip) => ({
 		id,
 		target: "whitelist",
-		action: "add",
-		reason: reason || "화이트리스트 설정 갱신",
+		action: logAction,
+		reason: reason || defaultReason,
 		success,
 		errorMessage: errorMessage ?? null,
 		performedAt,
@@ -186,6 +229,7 @@ async function invokeFakeSetWhitelist(
 	return {
 		success,
 		active,
+		direction: "both",
 		whitelist,
 		message: errorMessage,
 		logs: logItems,
@@ -228,7 +272,9 @@ globalWithWindow.window.electronAPI = {
 		const raw = await sendToFirewallTool({ action: "get" }, FW_TEST_PIPE_NAME);
 		return isValidFirewallMessage(raw) ? raw : { success: false, message: "Invalid response" };
 	},
-	setWhitelist: (items, reason) => invokeFakeSetWhitelist(items, reason),
+	addWhitelist: (items, reason) => invokeFakeMutateWhitelist("add", items, reason),
+	removeWhitelist: (items, reason) => invokeFakeMutateWhitelist("remove", items, reason),
+	setWhitelist: (items, reason) => invokeFakeMutateWhitelist("set", items, reason),
 	refreshWhitelist: async () => {
 		const raw = await sendToFirewallTool({ action: "refresh" }, FW_TEST_PIPE_NAME);
 		return isValidFirewallMessage(raw) ? raw : { success: false, message: "Invalid response" };

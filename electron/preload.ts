@@ -66,6 +66,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	getFirewallStatus() {
 		return ipcRenderer.invoke("firewall:status");
 	},
+	addWhitelist(items: string[], reason?: string) {
+		return ipcRenderer.invoke("firewall:add-whitelist", items, reason);
+	},
+	removeWhitelist(items: string[], reason?: string) {
+		return ipcRenderer.invoke("firewall:remove-whitelist", items, reason);
+	},
 	setWhitelist(items: string[], reason?: string) {
 		return ipcRenderer.invoke("firewall:set-whitelist", items, reason);
 	},

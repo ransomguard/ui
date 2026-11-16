@@ -70,6 +70,34 @@ describe("FirewallTool Test Pipe Server (FW_TEST_PIPE_NAME)", () => {
 			}
 		}
 
+		// 3-1. 화이트리스트 룰 추가 (add)
+		const addRes = await sendToFirewallTool(
+			{
+				action: "add",
+				whitelist: ["172.16.0.1"],
+			},
+			FW_TEST_PIPE_NAME,
+		);
+		expect(isValidFirewallMessage(addRes)).toBe(true);
+		if (isValidFirewallMessage(addRes) && addRes.success) {
+			const values = addRes.whitelist?.map(x => x.value) ?? [];
+			expect(values).toContain("172.16.0.1");
+		}
+
+		// 3-2. 화이트리스트 룰 삭제 (remove)
+		const removeRes = await sendToFirewallTool(
+			{
+				action: "remove",
+				whitelist: ["172.16.0.1"],
+			},
+			FW_TEST_PIPE_NAME,
+		);
+		expect(isValidFirewallMessage(removeRes)).toBe(true);
+		if (isValidFirewallMessage(removeRes) && removeRes.success) {
+			const values = removeRes.whitelist?.map(x => x.value) ?? [];
+			expect(values).not.toContain("172.16.0.1");
+		}
+
 		// 4. DNS IP 갱신 (refresh)
 		const refreshRes = await sendToFirewallTool(
 			{ action: "refresh" },

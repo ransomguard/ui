@@ -36,7 +36,13 @@ export interface RuleState {
 
 
 const applyFirewallStatus = (
-	res: { success: boolean; active?: boolean; whitelist?: WhitelistItem[]; message?: string },
+	res: {
+		success: boolean;
+		active?: boolean;
+		direction?: import("~/services/firewall-tool").FirewallResponseDirection;
+		whitelist?: WhitelistItem[];
+		message?: string;
+	},
 	set: (partial: Partial<RuleState> | ((prev: RuleState) => Partial<RuleState>)) => void,
 ) => {
 	if (res.success) {
@@ -221,35 +227,45 @@ export const useAccessControlStore = create<RuleState>((set, get) => ({
 	},
 
 	addWhitelist: async (items, reason) => {
-		// CLI나 타 프로세스가 변경했을 수 있으므로 기존 get 함수로 최신 상태 조회 및 스토어 실시간 반영
-		let currentValues = get().whitelistIps;
-		try {
-			const statusRes = await get().getFirewallStatus();
-			if (statusRes.success && statusRes.whitelist) {
-				currentValues = statusRes.whitelist.map((x) => x.value);
-			}
-		} catch (err) {
-			console.warn("[useAccessControlStore] getFirewallStatus before addWhitelist failed:", err);
+		const res = await window.electronAPI.addWhitelist(items, reason);
+		useMetricStore.getState().incrementAccessLogCount(res.logs.length);
+
+		set((prev) => ({
+			logs: mergeAccessLogs(prev.logs, res.logs),
+			error: res.message ?? null,
+		}));
+
+		// 응답 내 whitelist로 목록 최신화
+		if (res.whitelist !== undefined) {
+			applyFirewallStatus(res, set);
+		} else {
+			await get().getFirewallStatus();
 		}
 
-		const nextValues = Array.from(new Set([...currentValues, ...items]));
-		await get().setWhitelist(nextValues, reason || `화이트리스트 추가 (${items.join(", ")})`);
+		if (!res.success) {
+			throw new Error(res.message ?? "화이트리스트 추가에 실패했습니다.");
+		}
 	},
 
 	removeWhitelist: async (items, reason) => {
-		// CLI나 타 프로세스가 변경했을 수 있으므로 기존 get 함수로 최신 상태 조회 및 스토어 실시간 반영
-		let currentValues = get().whitelistIps;
-		try {
-			const statusRes = await get().getFirewallStatus();
-			if (statusRes.success && statusRes.whitelist) {
-				currentValues = statusRes.whitelist.map((x) => x.value);
-			}
-		} catch (err) {
-			console.warn("[useAccessControlStore] getFirewallStatus before removeWhitelist failed:", err);
+		const res = await window.electronAPI.removeWhitelist(items, reason);
+		useMetricStore.getState().incrementAccessLogCount(res.logs.length);
+
+		set((prev) => ({
+			logs: mergeAccessLogs(prev.logs, res.logs),
+			error: res.message ?? null,
+		}));
+
+		// 응답 내 whitelist로 목록 최신화
+		if (res.whitelist !== undefined) {
+			applyFirewallStatus(res, set);
+		} else {
+			await get().getFirewallStatus();
 		}
 
-		const nextValues = currentValues.filter((x) => !items.includes(x));
-		await get().setWhitelist(nextValues, reason || `화이트리스트 삭제 (${items.join(", ")})`);
+		if (!res.success) {
+			throw new Error(res.message ?? "화이트리스트 삭제에 실패했습니다.");
+		}
 	},
 
 	refreshWhitelist: async () => {
