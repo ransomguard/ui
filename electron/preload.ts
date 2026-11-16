@@ -72,4 +72,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	refreshWhitelist() {
 		return ipcRenderer.invoke("firewall:refresh-whitelist");
 	},
+
+	getUpdateStatus() {
+		return ipcRenderer.invoke("updater:get-status");
+	},
+	onUpdateStatusChanged(callback: (status: import("~/main/updater").UpdateStatus) => void) {
+		return generateSubscription("updater:status-changed", callback);
+	},
+	restartAndInstall() {
+		return ipcRenderer.invoke("updater:restart");
+	},
+	checkForUpdates() {
+		return ipcRenderer.invoke("updater:check");
+	},
 });

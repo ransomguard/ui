@@ -233,6 +233,10 @@ globalWithWindow.window.electronAPI = {
 		const raw = await sendToFirewallTool({ action: "refresh" }, FW_TEST_PIPE_NAME);
 		return isValidFirewallMessage(raw) ? raw : { success: false, message: "Invalid response" };
 	},
+	getUpdateStatus: async () => ({ isUpdateDownloaded: false }),
+	onUpdateStatusChanged: () => () => {},
+	restartAndInstall: async () => {},
+	checkForUpdates: async () => null,
 };
 
 let fwServer: net.Server | null = null;

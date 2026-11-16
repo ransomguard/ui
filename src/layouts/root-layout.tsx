@@ -10,6 +10,7 @@ import {
 	Header,
 	Sidebar,
 } from "@/components/layout";
+import { UpdateAlert } from "@/components/update-alert";
 
 
 
@@ -56,6 +57,7 @@ export default function RootLayout() {
 					heading={heading}
 					className="px-6 shrink-0"
 				/>
+				<UpdateAlert/>
 				<ScrollArea
 					ref={scrollAreaRef}
 					className="flex-1 min-h-0 min-w-0"

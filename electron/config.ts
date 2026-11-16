@@ -15,6 +15,7 @@ export const require = createRequire(import.meta.url);
 export const DB_FILE_NAME = "db.sqlite";
 export const SECURITY_LOG_RETENTION_DAYS = 30;
 export const SYSTEM_ERROR_RETENTION_DAYS = 7;
+export const AUTO_UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000;
 
 
 

@@ -20,6 +20,8 @@ export const ko: MenuTranslations = {
 			restoreFailedTitle: "훼손 파일 자동 복구 실패",
 			restoreBody: "대상: {{targetPath}}\n{{message}}",
 			moreEvents: "\n(외 {{count}}건의 중요 보안 이벤트 발생)",
+			updateDownloadedTitle: "Ransom0 업데이트 완료",
+			updateDownloadedBody: "클릭하여 앱을 재시작하고 최신 버전을 적용하세요.",
 		},
 	},
 	menu: {

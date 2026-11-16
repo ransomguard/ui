@@ -9,6 +9,10 @@
 		"email": "me@zuni.kim",
 		"url": "https://github.com/kimzuni"
 	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ransomguard/ui.git"
+	},
 	"type": "module",
 	"main": "dist-electron/index.js",
 	"scripts": {
@@ -39,6 +43,7 @@
 		"cn": "^0.3.0",
 		"drizzle-orm": "^0.45.4",
 		"electron-store": "^11.0.2",
+		"electron-updater": "^6.8.11",
 		"i18next": "^26.4.2",
 		"lucide-react": "^1.47.0",
 		"react": "^19.3.0",

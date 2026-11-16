@@ -311,4 +311,11 @@ export interface AppTranslations {
 			refreshSuccess: string;
 		};
 	};
+
+	updater: {
+		alertTitle: string;
+		alertDescription: string;
+		restartButton: string;
+		checkButton: string;
+	};
 }

@@ -5,6 +5,11 @@
 	"asar": true,
 	"productName": "ransom0-ui",
 	"icon": "public/logo.png",
+	"publish": {
+		"provider": "github",
+		"owner": "ransomguard",
+		"repo": "ui"
+	},
 	"directories": {
 		"output": "release/${version}"
 	},

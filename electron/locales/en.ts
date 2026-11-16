@@ -20,6 +20,8 @@ export const en: MenuTranslations = {
 			restoreFailedTitle: "Automatic File Restore Failed",
 			restoreBody: "Target: {{targetPath}}\n{{message}}",
 			moreEvents: "\n(+{{count}} more critical security events)",
+			updateDownloadedTitle: "Ransom0 Update Ready",
+			updateDownloadedBody: "Click to restart the app and apply the latest version.",
 		},
 	},
 	menu: {

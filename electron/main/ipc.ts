@@ -16,6 +16,11 @@ import {
 	setWhitelist,
 	refreshWhitelist,
 } from "./firewall-tool";
+import {
+	getCachedUpdateStatus,
+	restartAndInstall,
+	checkForUpdates,
+} from "./updater";
 
 
 
@@ -42,4 +47,8 @@ export function registerIpcHandlers(): void {
 	ipcMain.handle("dashboard-chart-stats:get", (_, days: number, interval: string) =>
 		getDashboardChartStats({ days, interval })
 	);
+
+	ipcMain.handle("updater:get-status", () => getCachedUpdateStatus());
+	ipcMain.handle("updater:restart", () => restartAndInstall());
+	ipcMain.handle("updater:check", () => checkForUpdates());
 }

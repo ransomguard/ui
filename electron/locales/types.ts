@@ -19,6 +19,8 @@ export interface TrayNotificationTranslations {
 	restoreFailedTitle: string;
 	restoreBody: string;
 	moreEvents: string;
+	updateDownloadedTitle: string;
+	updateDownloadedBody: string;
 }
 
 

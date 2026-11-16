@@ -328,4 +328,11 @@ export const ko: AppTranslations = {
 			refreshSuccess: "도메인 및 URL의 IP 주소가 성공적으로 갱신되었습니다.",
 		},
 	},
+
+	updater: {
+		alertTitle: "새로운 버전 업데이트 준비 완료",
+		alertDescription: "최신 버전({{ version }}) 다운로드가 완료되었습니다. 앱을 재시작하여 업데이트를 적용하세요.",
+		restartButton: "지금 재시작",
+		checkButton: "업데이트 확인",
+	},
 };

@@ -59,7 +59,10 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: dist-build-${{ matrix.os }}
-          path: release/**/ransom0-ui-*
+          path: |
+            release/**/ransom0-ui-*
+            release/**/*.blockmap
+            release/**/latest-*.yml
           retention-days: 1
 
   release:

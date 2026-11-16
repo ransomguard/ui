@@ -92,5 +92,10 @@ interface Window {
 			logs: AccessControlLogItem[];
 		}>;
 		refreshWhitelist(): Promise<IncomingFWMessage>;
+
+		getUpdateStatus(): Promise<import("~/main/updater").UpdateStatus>;
+		onUpdateStatusChanged(callback: (status: import("~/main/updater").UpdateStatus) => void): Unsubscribe;
+		restartAndInstall(): Promise<void>;
+		checkForUpdates(): Promise<unknown>;
 	};
 }

@@ -8,6 +8,7 @@ import { setApplicationMenu } from "./menu";
 import { createTray } from "./tray";
 import { registerIpcHandlers } from "./ipc";
 import { registerExternalIpcHandlers } from "./ipc-receiver";
+import { initAutoUpdater } from "./updater";
 
 export * from "./env";
 
@@ -23,4 +24,5 @@ app.whenReady().then(() => {
 
 	createWindow();
 	createTray(systemLocale);
+	initAutoUpdater();
 });

@@ -328,4 +328,11 @@ export const en: AppTranslations = {
 			refreshSuccess: "Domain and URL IP addresses refreshed successfully.",
 		},
 	},
+
+	updater: {
+		alertTitle: "Update Ready to Install",
+		alertDescription: "The latest version ({{ version }}) has been downloaded. Restart the app to apply the update.",
+		restartButton: "Restart Now",
+		checkButton: "Check for Updates",
+	},
 };
