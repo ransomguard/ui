@@ -54,6 +54,9 @@ interface Window {
 		setLanguage(lang: string): Promise<void>;
 		getLanguage(): Promise<string>;
 
+		setDashboardTimeRange(days: number): Promise<void>;
+		getDashboardTimeRange(): Promise<number | undefined>;
+
 		onSecurityLogsUpdated(callback: OnSecurityLogsUpdatedCallback): Unsubscribe;
 		getEngineStatus(): Promise<GetLastEngineStatusData>;
 		getSecurityLogs(options?: FetchSecurityLogsOptions): Promise<IncomingIPCMessage[]>;

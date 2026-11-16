@@ -28,6 +28,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		return ipcRenderer.invoke("language:get");
 	},
 
+	setDashboardTimeRange(days: number) {
+		return ipcRenderer.invoke("dashboard-time-range:set", days);
+	},
+	getDashboardTimeRange() {
+		return ipcRenderer.invoke("dashboard-time-range:get");
+	},
+
 	onSecurityLogsUpdated(callback: OnSecurityLogsUpdatedCallback) {
 		return generateSubscription(
 			"security-logs-updated",

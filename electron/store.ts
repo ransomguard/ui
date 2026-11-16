@@ -14,6 +14,7 @@ export interface StoreData {
 	windowState: WindowState;
 	lastAcknowledgedThreatId?: number;
 	lastAcknowledgedThreatTime?: number;
+	dashboardTimeRangeDays?: number;
 }
 
 export interface WindowState {
@@ -42,6 +43,11 @@ export const acknowledgedThreat = {
 	}),
 };
 
+export const dashboardTimeRange = {
+	set: (days: number) => store.set("dashboardTimeRangeDays", days),
+	get: () => store.get("dashboardTimeRangeDays"),
+};
+
 const getStoreCwd = () => {
 	if (!process.versions.electron) {
 		return os.tmpdir();
@@ -62,6 +68,9 @@ export const store = new Store<StoreData>({
 		lastAcknowledgedThreatTime: {
 			type: "number",
 			default: 0,
+		},
+		dashboardTimeRangeDays: {
+			type: "number",
 		},
 		windowState: {
 			type: "object",

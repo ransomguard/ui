@@ -1,5 +1,6 @@
 import { ipcMain } from "electron";
 
+import { dashboardTimeRange } from "~/store";
 import { getLastEngineStatus } from "./ipc-receiver";
 import {
 	fetchSecurityLogs,
@@ -32,4 +33,9 @@ export function registerIpcHandlers(): void {
 	ipcMain.handle("firewall:status", () => getFirewallStatus());
 	ipcMain.handle("firewall:set-whitelist", (_, items: string[], reason?: string) => setWhitelist(items, reason));
 	ipcMain.handle("firewall:refresh-whitelist", () => refreshWhitelist());
+
+	ipcMain.handle("dashboard-time-range:set", (_, days: number) => {
+		dashboardTimeRange.set(days);
+	});
+	ipcMain.handle("dashboard-time-range:get", () => dashboardTimeRange.get());
 }

@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense, useMemo } from "react";
+import { useState, useEffect, lazy, Suspense, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	ShieldBan,
@@ -104,8 +104,21 @@ export default function Dashboard() {
 
 	const [timeRange, setTimeRange] = useState<TimeRangeItem>(DEFAULT_TIME_RANGE);
 
+	useEffect(() => {
+		window.electronAPI?.getDashboardTimeRange?.().then((savedDays) => {
+			if (typeof savedDays === "number") {
+				const found = timeRangeItems.find((item) => item.value === savedDays);
+				if (found) {
+					setTimeRange(found);
+				}
+			}
+		}).catch(() => {});
+	}, []);
+
 	const updateTimeRange = (value: TimeRangeItem | null) => {
-		setTimeRange(value ?? DEFAULT_TIME_RANGE);
+		const next = value ?? DEFAULT_TIME_RANGE;
+		setTimeRange(next);
+		window.electronAPI?.setDashboardTimeRange?.(next.value).catch(() => {});
 	};
 
 	const handleLoadMoreSummary = async (category: "all" | "threat" | "recovery" | "telemetry" | "firewall") => {
