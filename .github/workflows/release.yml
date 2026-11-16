@@ -70,6 +70,32 @@ jobs:
       - build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Update Version and Changelog
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          npm version $VERSION --no-git-tag-version
+          npx conventional-changelog-cli -p angular -i CHANGELOG.md -s
+
+          # for release note
+          npx conventional-changelog-cli -p angular -r 1 > RELEASE_NOTE.md
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "chore(release): ${{ github.ref_name }} [skip ci]"
+          branch: main
+
+      - name: Move Tag
+        run: |
+          git tag -f ${{ github.ref_name }}
+          git push origin -f refs/tags/${{ github.ref_name }}
+
       - name: Download Build Artifacts
         uses: actions/download-artifact@v8
         with:
@@ -80,6 +106,6 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: RELEASE_NOTE.md
           files: |
             dist-build/**/*

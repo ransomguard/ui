@@ -1,7 +1,7 @@
 {
 	"name": "ransom0-ui",
 	"private": true,
-	"version": "0.0.0",
+	"version": "0.1.1",
 	"description": "Ransom0 UI",
 	"desktopName": "ransom0-ui",
 	"author": {
