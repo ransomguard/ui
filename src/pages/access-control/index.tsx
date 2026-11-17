@@ -1,3 +1,5 @@
+import { EventExplanation } from "@/components/event-explanation";
+import { eventDisplayId } from "~/services/event-explanation";
 import { evidenceLabel } from "~/services/outcome-metrics";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router";
@@ -1343,7 +1345,7 @@ export default function AccessControlPage() {
 									<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
 										<Link2 className="size-3.5 shrink-0"/> {t(($) => $.accessControl.sheet.targetValue)}
 									</label>
-									<ScrollArea className="max-h-36 rounded-md border bg-background">
+									<ScrollArea className="max-h-36 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-36 rounded-md border bg-background">
 										<div className="p-2.5 font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 break-all leading-normal">
 											{selectedWhitelistItem.value}
 										</div>
@@ -1356,7 +1358,7 @@ export default function AccessControlPage() {
 										<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
 											<Network className="size-3.5 shrink-0"/> {t(($) => $.accessControl.sheet.ipAddress)}
 										</label>
-										<ScrollArea className="max-h-36 rounded-md border bg-background">
+										<ScrollArea className="max-h-36 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-36 rounded-md border bg-background">
 											<div className="p-2.5 font-mono text-xs break-all leading-normal">
 												{selectedWhitelistItem.ipv4 || selectedWhitelistItem.ipv6}
 											</div>
@@ -1371,7 +1373,7 @@ export default function AccessControlPage() {
 											<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
 												<Globe className="size-3.5 shrink-0"/> {t(($) => $.accessControl.sheet.domain)}
 											</label>
-											<ScrollArea className="max-h-36 rounded-md border bg-background">
+											<ScrollArea className="max-h-36 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-36 rounded-md border bg-background">
 												<div className="p-2.5 font-mono text-xs break-all leading-normal">
 													{selectedWhitelistItem.domain}
 												</div>
@@ -1382,7 +1384,7 @@ export default function AccessControlPage() {
 											<label className="text-xs font-semibold text-muted-foreground">
 												{t(($) => $.accessControl.sheet.ipv4List)} ({selectedWhitelistItem.ipv4List?.length ?? 0})
 											</label>
-											<ScrollArea className="max-h-40 rounded-md border bg-background">
+											<ScrollArea className="max-h-40 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-40 rounded-md border bg-background">
 												<div className="p-2.5 flex flex-wrap gap-1.5">
 													{selectedWhitelistItem.ipv4List && selectedWhitelistItem.ipv4List.length > 0 ? (
 														selectedWhitelistItem.ipv4List.map((ip) => (
@@ -1401,7 +1403,7 @@ export default function AccessControlPage() {
 											<label className="text-xs font-semibold text-muted-foreground">
 												{t(($) => $.accessControl.sheet.ipv6List)} ({selectedWhitelistItem.ipv6List?.length ?? 0})
 											</label>
-											<ScrollArea className="max-h-40 rounded-md border bg-background">
+											<ScrollArea className="max-h-40 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-40 rounded-md border bg-background">
 												<div className="p-2.5 flex flex-wrap gap-1.5">
 													{selectedWhitelistItem.ipv6List && selectedWhitelistItem.ipv6List.length > 0 ? (
 														selectedWhitelistItem.ipv6List.map((ip) => (
@@ -1423,7 +1425,7 @@ export default function AccessControlPage() {
 									<label className="text-xs font-semibold text-muted-foreground">
 										{t(($) => $.accessControl.sheet.ruleDescription)}
 									</label>
-									<ScrollArea className="max-h-40 rounded-md border bg-background">
+									<ScrollArea className="max-h-40 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-40 rounded-md border bg-background">
 										<div className="p-2.5 text-xs text-foreground/90 break-all leading-relaxed whitespace-pre-wrap">
 											{selectedWhitelistItem.description}
 										</div>
@@ -1435,7 +1437,7 @@ export default function AccessControlPage() {
 									<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
 										<FileText className="size-3.5 shrink-0"/> {t(($) => $.accessControl.sheet.ipcData)}
 									</label>
-									<ScrollArea className="max-h-60 rounded-md border bg-muted/80">
+									<ScrollArea className="max-h-60 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-60 rounded-md border bg-muted/80">
 										<pre className="p-3 font-mono text-[11px] whitespace-pre-wrap break-all leading-relaxed text-foreground/90">
 											{JSON.stringify(selectedWhitelistItem.data, null, 2)}
 										</pre>
@@ -1447,7 +1449,7 @@ export default function AccessControlPage() {
 									<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
 										<FileText className="size-3.5 shrink-0"/> {t(($) => $.accessControl.sheet.rawJson)}
 									</label>
-									<ScrollArea className="max-h-60 rounded-md border bg-muted/80">
+									<ScrollArea className="max-h-60 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-60 rounded-md border bg-muted/80">
 										<pre className="p-3 font-mono text-[11px] whitespace-pre-wrap break-all leading-relaxed text-foreground/90">
 											{JSON.stringify(selectedWhitelistItem.rawItem, null, 2)}
 										</pre>
@@ -1495,7 +1497,7 @@ export default function AccessControlPage() {
 						</SheetTitle>
 						<SheetDescription className="text-xs break-all">
 							{t(($) => $.alerts.sheet.description, {
-								id: selectedBlockedProcess?.id ?? "-",
+								id: selectedBlockedProcess ? eventDisplayId(selectedBlockedProcess.details) : "-",
 								source: selectedBlockedProcess?.source ?? "-",
 							})}
 						</SheetDescription>
@@ -1560,7 +1562,7 @@ export default function AccessControlPage() {
 										<label className="text-xs font-semibold text-muted-foreground">
 											{t(($) => $.alerts.sheet.matchedRule)}
 										</label>
-										<ScrollArea className="max-h-36 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+										<ScrollArea className="max-h-36 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-36 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
 											<div className="p-2.5 font-mono text-xs font-medium break-all whitespace-pre-wrap leading-relaxed">
 												{selectedBlockedProcess.reason}
 											</div>
@@ -1574,7 +1576,7 @@ export default function AccessControlPage() {
 										<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
 											<HardDrive className="size-3.5 shrink-0"/> {t(($) => $.alerts.sheet.imagePath)}
 										</label>
-										<ScrollArea className="max-h-36 rounded-md border bg-background">
+										<ScrollArea className="max-h-36 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-36 rounded-md border bg-background">
 											<div className="p-2.5 font-mono text-[11px] break-all leading-normal">
 												{selectedBlockedProcess.imagePath}
 											</div>
@@ -1583,11 +1585,12 @@ export default function AccessControlPage() {
 								)}
 
 								{/* RAW JSON Details */}
+								<EventExplanation raw={selectedBlockedProcess.details}/>
 								<div className="space-y-1.5">
 									<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
 										<FileText className="size-3.5 shrink-0"/> {t(($) => $.alerts.sheet.rawJson)}
 									</label>
-									<ScrollArea className="max-h-80 rounded-md border bg-muted/80">
+									<ScrollArea className="max-h-80 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-80 rounded-md border bg-muted/80">
 										<pre className="p-3 font-mono text-[11px] whitespace-pre-wrap break-all leading-relaxed text-foreground/90">
 											{selectedBlockedProcess.details}
 										</pre>

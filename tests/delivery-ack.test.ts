@@ -24,6 +24,26 @@ test("durable envelope ACK follows consumer commit and excludes uncommitted IDs"
 		expect(response).toBe("");
 		release();
 		for (let i = 0; i < 40 && !response.includes("\n"); i++) await new Promise(resolve => setTimeout(resolve, 10));
-		expect(JSON.parse(response)).toEqual({ deliveryVersion: 1, ack: ["committed"] });
+		expect(JSON.parse(response)).toEqual({ deliveryVersion: 1, ack: ["committed"], maxBatchItems: 64 });
 	} finally { release(); socket.destroy(); receiver.stopAll(); }
+});
+
+test("negotiated envelope commits 64 items together", async () => {
+	const receiver = new ExternalIPCReceiver();
+	const pipe = `\\\\.\\pipe\\Ransom0_ACK_Batch_${process.pid}`;
+	const items = Array.from({ length: 64 }, (_, i) => ({ id: `event-${i}`, message: { value: i } }));
+	receiver.startListening(pipe);
+	receiver.startConsumer((messages, ids) => {
+		expect(messages).toEqual(items.map(item => item.message));
+		return ids;
+	}, 5);
+	const socket = net.createConnection(pipe);
+	try {
+		await new Promise<void>((resolve, reject) => { socket.once("connect", resolve); socket.once("error", reject); });
+		let response = "";
+		socket.setEncoding("utf8"); socket.on("data", data => { response += data; });
+		socket.write(JSON.stringify({ deliveryVersion: 1, items }) + "\n");
+		for (let i = 0; i < 80 && !response.includes("\n"); i++) await new Promise(resolve => setTimeout(resolve, 10));
+		expect(JSON.parse(response)).toEqual({ deliveryVersion: 1, ack: items.map(item => item.id), maxBatchItems: 64 });
+	} finally { socket.destroy(); receiver.stopAll(); }
 });

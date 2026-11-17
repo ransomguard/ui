@@ -1,3 +1,5 @@
+import { EventExplanation } from "@/components/event-explanation";
+import { eventDisplayId } from "~/services/event-explanation";
 import { evidenceLabel } from "~/services/outcome-metrics";
 import { useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router";
@@ -425,7 +427,7 @@ export default function AlertsPage() {
 						</SheetTitle>
 						<SheetDescription className="text-xs break-all">
 							{t(($) => $.alerts.sheet.description, {
-								id: selectedAlert?.id ?? "-",
+								id: selectedAlert ? eventDisplayId(selectedAlert.details) : "-",
 								source: selectedAlert?.source ?? "-",
 							})}
 						</SheetDescription>
@@ -498,7 +500,7 @@ export default function AlertsPage() {
 										<label className="text-xs font-semibold text-muted-foreground">
 											{t(($) => $.alerts.sheet.matchedRule)}
 										</label>
-										<ScrollArea className="max-h-36 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+										<ScrollArea className="max-h-36 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-36 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
 											<div className="p-2.5 font-mono text-xs font-medium break-all whitespace-pre-wrap leading-relaxed">
 												{selectedAlert.matchedRule}
 											</div>
@@ -512,7 +514,7 @@ export default function AlertsPage() {
 										<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
 											<HardDrive className="size-3.5 shrink-0"/> {t(($) => $.alerts.sheet.imagePath)}
 										</label>
-										<ScrollArea className="max-h-36 rounded-md border bg-background">
+										<ScrollArea className="max-h-36 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-36 rounded-md border bg-background">
 											<div className="p-2.5 font-mono text-[11px] break-all leading-normal">
 												{selectedAlert.imagePath}
 											</div>
@@ -520,12 +522,13 @@ export default function AlertsPage() {
 									</div>
 								)}
 
+								<EventExplanation raw={selectedAlert.details}/>
 								{/* RAW JSON Details */}
 								<div className="space-y-1.5">
 									<label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
 										<FileText className="size-3.5 shrink-0"/> {t(($) => $.alerts.sheet.rawJson)}
 									</label>
-									<ScrollArea className="max-h-80 rounded-md border bg-muted/80">
+									<ScrollArea className="max-h-80 overflow-hidden [&_[data-slot=scroll-area-viewport]]:max-h-80 rounded-md border bg-muted/80">
 										<pre className="p-3 font-mono text-[11px] whitespace-pre-wrap break-all leading-relaxed text-foreground/90">
 											{selectedAlert.details}
 										</pre>
