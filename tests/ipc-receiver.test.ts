@@ -22,13 +22,14 @@ import { ensureTestPipeServers } from "./preload";
 
 
 const sendMessagesToTestPipe = (messages: IncomingIPCMessage[]) => (
-	sendMessagesToPipe(messages, IPC_TEST_PIPE_NAME)
+	sendMessagesToPipe(messages.map(m => ({...m, evidence: {mode: "production" as const, source: "unit-fixture"}})), IPC_TEST_PIPE_NAME)
 );
 
 describe("External IPC Receiver (IPC_TEST_PIPE_NAME)", () => {
 	test("외부 엔진 데이터를 테스트 파이프(IPC_TEST_PIPE_NAME)로 전송하고 모든 페이지 스토어 상태 반영 검증", async () => {
 		await ensureTestPipeServers();
 
+		const originalUpdateStatus = useStatusStore.getState().updateStatus;
 		const updateStatusSpy = spyOn(useStatusStore.getState(), "updateStatus");
 
 		try {
@@ -77,6 +78,8 @@ describe("External IPC Receiver (IPC_TEST_PIPE_NAME)", () => {
 			expect(telemetryState.events.some((e) => e.type === "PROCESS_TERMINATE")).toBe(true);
 		} finally {
 			updateStatusSpy.mockRestore();
+			// Zustand replaces the state object during updates; restore its current action too.
+			useStatusStore.setState({ updateStatus: originalUpdateStatus });
 		}
 	});
 

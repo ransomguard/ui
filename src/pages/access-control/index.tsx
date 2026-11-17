@@ -1,3 +1,4 @@
+import { evidenceLabel } from "~/services/outcome-metrics";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -538,7 +539,7 @@ export default function AccessControlPage() {
 							action: "BLOCKED",
 							threatScore: 90,
 							reason,
-							source: t(($) => $.alerts.sources.kernelDriver),
+							source: evidenceLabel(item) + t(($) => $.alerts.sources.kernelDriver),
 							blockedAt,
 							timestamp,
 							details: JSON.stringify(item, null, 2),
@@ -565,7 +566,7 @@ export default function AccessControlPage() {
 							action: alertData.action || "BLOCKED",
 							threatScore: alertData.threatScore ?? 85,
 							reason: alertData.ruleName || alertData.action,
-							source: t(($) => $.alerts.sources.correlationEngine),
+							source: evidenceLabel(item) + t(($) => $.alerts.sources.correlationEngine),
 							blockedAt,
 							timestamp,
 							details: JSON.stringify(item, null, 2),

@@ -1,3 +1,4 @@
+import { isRealThreat } from "~/services/outcome-metrics";
 import { create } from "zustand";
 
 
@@ -15,11 +16,7 @@ export type StatusValue =
 /**
  * 위협 이벤트 타입
  */
-const THREAT_TYPES = new Set([
-	"PROCESS_BLOCKED",
-	"ALERT",
-	"VSS_ATTEMPT",
-]);
+
 
 
 
@@ -82,7 +79,7 @@ export const useStatusStore = create<StatusState>((set) => ({
 		let newLastUpdated = state.lastUpdated;
 
 		for (const item of logs) {
-			if (THREAT_TYPES.has(item.type)) {
+			if (isRealThreat(item)) {
 				newHasUnread = true;
 			}
 

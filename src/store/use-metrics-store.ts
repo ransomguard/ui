@@ -1,3 +1,4 @@
+import { takeOutcomes } from "~/services/outcome-metrics";
 import { create } from "zustand";
 
 
@@ -31,6 +32,7 @@ export interface TotalLogCounts {
 	telemetry: number;
 	blockedProcesses: number;
 	accessControlLogs: number;
+	outcomeKeys?: string[];
 }
 
 const DEFAULT_TOTAL_COUNTS: TotalLogCounts = {
@@ -87,6 +89,7 @@ export const useMetricStore = create<MetricState>((set) => ({
 		}
 
 		const nextTotalCounts = { ...state.totalCounts };
+        const seen = new Set(state.totalCounts.outcomeKeys ?? []);
 
 		for (const item of logs) {
 			const dateKey = toDateKey(item.timestamp);
@@ -112,64 +115,24 @@ export const useMetricStore = create<MetricState>((set) => ({
 				continue;
 			}
 
-			if (item.type === "VSS_STATUS") {
-				nextTotalCounts.recovery += 1;
-			} else if (
-				item.type === "PROCESS_BLOCKED" ||
-				item.type === "VSS_ATTEMPT" ||
-				item.type === "ALERT"
-			) {
-				nextTotalCounts.threat += 1;
-				if (
-					item.type === "PROCESS_BLOCKED" ||
-					(item.type === "ALERT" &&
-						(item.data.action === "BLOCKED" || item.data.action === "QUARANTINED"))
-				) {
-					nextTotalCounts.blockedProcesses += 1;
-				}
-			} else if (
-				item.type === "PROCESS_CREATE" ||
-				item.type === "PROCESS_TERMINATE" ||
-				item.type === "FILE_WRITE" ||
-				item.type === "FILE_RENAME"
-			) {
-				nextTotalCounts.telemetry += 1;
-			}
-
-			if (item.type === "VSS_STATUS") {
-				stat.recovery += 1;
-			} else if (
-				item.type === "PROCESS_BLOCKED" ||
-				item.type === "VSS_ATTEMPT" ||
-				item.type === "ALERT"
-			) {
-				stat.threat += 1;
-			} else if (item.type === "PROCESS_TERMINATE") {
-				stat.processTerminated += 1;
-			} else if (item.type === "PROCESS_CREATE") {
-				stat.processCreate += 1;
-			} else if (item.type === "FILE_RENAME") {
-				stat.fileRename += 1;
-			} else if (item.type === "FILE_WRITE") {
-				stat.fileWrite += 1;
-			}
-
-			const isBlocked =
-				item.type === "PROCESS_BLOCKED" ||
-				item.type === "VSS_ATTEMPT" ||
-				(item.type === "ALERT" && item.data.action !== "ALLOWED");
-
-			if (isBlocked) {
-				stat.blockedCount += 1;
-			}
-
-			if (item.type === "PROCESS_TERMINATE") {
-				stat.terminatedCount += 1;
-			}
+            const counts = takeOutcomes(item, seen);
+            nextTotalCounts.blockedProcesses += counts.blocked;
+            nextTotalCounts.threat += counts.blocked + counts.terminated;
+            nextTotalCounts.recovery += counts.recovered;
+            if (["PROCESS_CREATE","PROCESS_TERMINATE","FILE_WRITE","FILE_RENAME"].includes(item.type)) nextTotalCounts.telemetry++;
+            stat.threat += counts.blocked;
+            stat.blockedCount += counts.blocked;
+            stat.processTerminated += counts.terminated;
+            stat.terminatedCount += counts.terminated;
+            stat.recovery += counts.recovered;
+            if (item.type === "PROCESS_CREATE") stat.processCreate++;
+            if (item.type === "FILE_WRITE") stat.fileWrite++;
+            if (item.type === "FILE_RENAME") stat.fileRename++;
 
 			statsMap.set(dateKey, stat);
 		}
 
+        nextTotalCounts.outcomeKeys = [...seen];
 		return {
 			metrics,
 			dailyStats: Array.from(statsMap.values()),

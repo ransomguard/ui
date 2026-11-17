@@ -1,6 +1,6 @@
 import path from "node:path";
 import { app } from "electron";
-import { lt } from "drizzle-orm";
+import { lt, getTableName } from "drizzle-orm";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import type BetterSqlite3 from "better-sqlite3";
@@ -28,6 +28,10 @@ export type Select<T extends keyof Table> = Table[T] extends { $inferSelect: inf
 
 let sqlite: BetterSqlite3.Database | null = null;
 let db: BetterSQLite3Database | null = null;
+export const getRawDB = () => {
+	if (!sqlite) throw new Error("Database is not initialized");
+	return sqlite;
+};
 export const safeGetDB = () => {
 	return db;
 };
@@ -92,8 +96,8 @@ async function deleteOldLogs(
 		const deletedIds = await db.delete(table)
 			.where(lt(table.timestamp, timestamp))
 			.returning({ id: table.id });
-		console.info(`[DB Cleanup] Removed ${deletedIds.length} old logs in ${table._.name}.`);
+		console.info(`[DB Cleanup] Removed ${deletedIds.length} old logs in ${getTableName(table)}.`);
 	} catch (error) {
-		console.error(`[DB Cleanup] table: ${table._.name}: Failed to delete old logs:`, error);
+		console.error(`[DB Cleanup] table: ${getTableName(table)}: Failed to delete old logs:`, error);
 	}
 }

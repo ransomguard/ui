@@ -48,6 +48,7 @@ export function isValidIPCMessage(raw: unknown): raw is IncomingIPCMessage {
 	if (!isEventType(type)) return false;
 	if (!isNumber(timestamp)) return false;
 	if (!isObject(data)) return false;
+    if (raw.evidence !== undefined && (!isObject(raw.evidence) || !["production", "test", "unclassified"].includes(String(raw.evidence.mode)) || !maybeString(raw.evidence.source) || !maybeString(raw.evidence.runId))) return false;
 
 	switch (type) {
 		// [커널] 프로세스 관련

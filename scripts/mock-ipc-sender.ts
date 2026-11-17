@@ -387,7 +387,7 @@ export function sendMessagesToPipe(
 		const client = net.createConnection(pipeName);
 
 		client.on("connect", () => {
-			const payload = messages.map((msg) => JSON.stringify(msg)).join("\n") + "\n";
+			const payload = messages.map((msg) => JSON.stringify({...msg, evidence: msg.evidence ?? {mode: "test", source: "mock-sender", runId: "mock-ipc"}})).join("\n") + "\n";
 			client.write(payload, (err) => {
 				if (err) {
 					client.destroy();
