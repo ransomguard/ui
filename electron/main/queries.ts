@@ -1,3 +1,4 @@
+import { takeOutcomes, isRealThreat } from "~/services/outcome-metrics";
 import { and, inArray, gte, gt, lt, lte, desc, asc, sql } from "drizzle-orm";
 
 import { acknowledgedThreat } from "~/store";
@@ -36,11 +37,10 @@ export async function checkUnreadThreats() {
 			conditions.push(gt(table.securityLogs.timestamp, lastTime));
 		}
 
-		const unreadExists = await db.select({ id: table.securityLogs.id })
+		const unreadExists = await db.select({ data: table.securityLogs.data })
 			.from(table.securityLogs)
-			.where(and(...conditions))
-			.limit(1);
-		return unreadExists.length > 0;
+			.where(and(...conditions));
+		return unreadExists.some(row => isRealThreat(row.data));
 	} catch (error) {
 		console.error("[DB Error] Failed to check unread threats:", error);
 		return false;
@@ -223,6 +223,7 @@ export interface TotalLogCounts {
 	telemetry: number;
 	blockedProcesses: number;
 	accessControlLogs: number;
+	outcomeKeys?: string[];
 }
 
 /**
@@ -301,70 +302,26 @@ export async function getDashboardStatsAndCounts(days = 90): Promise<{
 			}
 		}
 
-		for (const row of secRows) {
-			// 1. 전체 탭/뱃지용 최종 카운트 집계
-			if (row.type === "VSS_STATUS") {
-				totalCounts.recovery += 1;
-			} else if (
-				row.type === "PROCESS_BLOCKED" ||
-				row.type === "VSS_ATTEMPT" ||
-				row.type === "ALERT"
-			) {
-				totalCounts.threat += 1;
-				if (
-					row.type === "PROCESS_BLOCKED" ||
-					(row.type === "ALERT" &&
-						row.data.type === "ALERT" &&
-						(row.data.data.action === "BLOCKED" || row.data.data.action === "QUARANTINED"))
-				) {
-					totalCounts.blockedProcesses += 1;
-				}
-			} else if (
-				row.type === "PROCESS_CREATE" ||
-				row.type === "PROCESS_TERMINATE" ||
-				row.type === "FILE_WRITE" ||
-				row.type === "FILE_RENAME"
-			) {
-				totalCounts.telemetry += 1;
-			}
-
-			// 2. 차트 기간 내 일별 통계 집계
-			if (row.timestamp >= startTime) {
-				const dateKey = toDateKey(row.timestamp);
-				const item = getOrCreateDay(dateKey);
-
-				if (row.type === "VSS_STATUS") {
-					item.recovery += 1;
-				} else if (
-					row.type === "PROCESS_BLOCKED" ||
-					row.type === "VSS_ATTEMPT" ||
-					row.type === "ALERT"
-				) {
-					item.threat += 1;
-				} else if (row.type === "PROCESS_TERMINATE") {
-					item.processTerminated += 1;
-				} else if (row.type === "PROCESS_CREATE") {
-					item.processCreate += 1;
-				} else if (row.type === "FILE_RENAME") {
-					item.fileRename += 1;
-				} else if (row.type === "FILE_WRITE") {
-					item.fileWrite += 1;
-				}
-
-				const isBlocked =
-					row.type === "PROCESS_BLOCKED" ||
-					row.type === "VSS_ATTEMPT" ||
-					(row.type === "ALERT" && row.data.type === "ALERT" && row.data.data.action !== "ALLOWED");
-
-				if (isBlocked) {
-					item.blockedCount += 1;
-				}
-
-				if (row.type === "PROCESS_TERMINATE") {
-					item.terminatedCount += 1;
-				}
-			}
-		}
+		const seen = new Set<string>();
+        for (const row of secRows) {
+            const counts = takeOutcomes(row.data, seen);
+            totalCounts.blockedProcesses += counts.blocked;
+            totalCounts.threat += counts.blocked + counts.terminated;
+            totalCounts.recovery += counts.recovered;
+            if (["PROCESS_CREATE","PROCESS_TERMINATE","FILE_WRITE","FILE_RENAME"].includes(row.type)) totalCounts.telemetry++;
+            if (row.timestamp >= startTime) {
+                const item = getOrCreateDay(toDateKey(row.timestamp));
+                item.threat += counts.blocked;
+                item.blockedCount += counts.blocked;
+                item.processTerminated += counts.terminated;
+                item.terminatedCount += counts.terminated;
+                item.recovery += counts.recovered;
+                if (row.type === "PROCESS_CREATE") item.processCreate++;
+                if (row.type === "FILE_WRITE") item.fileWrite++;
+                if (row.type === "FILE_RENAME") item.fileRename++;
+            }
+        }
+        totalCounts.outcomeKeys = [...seen];
 
 		return {
 			dailyStats: Array.from(dailyMap.values()),
@@ -540,8 +497,8 @@ export async function getDashboardChartStats({
 		} else {
 			const totalDurationMs = days * 24 * 60 * 60 * 1000;
 			startTime = now - totalDurationMs;
-			bucketCount = Math.ceil(totalDurationMs / intervalMs);
 			startBucketTime = Math.floor(startTime / intervalMs) * intervalMs;
+			bucketCount = Math.floor((now - startBucketTime) / intervalMs) + 1;
 		}
 
 		const formatLabel = (t: number) => {
@@ -606,38 +563,18 @@ export async function getDashboardChartStats({
 			});
 		}
 
-		for (const row of secRows) {
+		const seen = new Set<string>();
+		for (const row of secRows.sort((a, b) => a.timestamp - b.timestamp)) {
 			addToBucket(row.timestamp, (item) => {
-				if (row.type === "VSS_STATUS") {
-					item.recovery += 1;
-				} else if (
-					row.type === "PROCESS_BLOCKED" ||
-					row.type === "VSS_ATTEMPT" ||
-					row.type === "ALERT"
-				) {
-					item.threat += 1;
-				} else if (row.type === "PROCESS_TERMINATE") {
-					item.processTerminated += 1;
-				} else if (row.type === "PROCESS_CREATE") {
-					item.processCreate += 1;
-				} else if (row.type === "FILE_RENAME") {
-					item.fileRename += 1;
-				} else if (row.type === "FILE_WRITE") {
-					item.fileWrite += 1;
-				}
-
-				const isBlocked =
-					row.type === "PROCESS_BLOCKED" ||
-					row.type === "VSS_ATTEMPT" ||
-					(row.type === "ALERT" && row.data.type === "ALERT" && row.data.data.action !== "ALLOWED");
-
-				if (isBlocked) {
-					item.blockedCount += 1;
-				}
-
-				if (row.type === "PROCESS_TERMINATE") {
-					item.terminatedCount += 1;
-				}
+				const counts = takeOutcomes(row.data, seen);
+				item.threat += counts.blocked;
+				item.blockedCount += counts.blocked;
+				item.processTerminated += counts.terminated;
+				item.terminatedCount += counts.terminated;
+				item.recovery += counts.recovered;
+				if (row.type === "PROCESS_CREATE") item.processCreate++;
+				if (row.type === "FILE_WRITE") item.fileWrite++;
+				if (row.type === "FILE_RENAME") item.fileRename++;
 			});
 		}
 

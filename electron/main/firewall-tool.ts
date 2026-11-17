@@ -1,4 +1,5 @@
 import { getDB, table, type Select } from "~/db";
+import { withPolicyOwner } from "~/services/firewall-tool/policy-owner";
 import {
 	sendToFirewallTool,
 	isValidFirewallMessage,
@@ -46,7 +47,7 @@ export async function fetchLogsAround(targetTimestamp: number, limit = 10): Prom
 
 async function sendFirewallRequest(request: FirewallRequest): Promise<IncomingFWMessage> {
 	try {
-		const response = await sendToFirewallTool(request);
+		const response = await withPolicyOwner(request, () => sendToFirewallTool(request));
 		if (!isValidFirewallMessage(response)) {
 			return {
 				success: false,

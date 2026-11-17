@@ -1,3 +1,4 @@
+import { evidenceMode } from "~/services/outcome-metrics";
 import path from "node:path";
 import electron from "electron";
 
@@ -180,7 +181,7 @@ export function notifyImportantEvents(
 		return null;
 	}
 
-	const importantMessages = messages.filter(isImportantEvent);
+	const importantMessages = messages.filter(m => evidenceMode(m) === "production" && isImportantEvent(m));
 	if (importantMessages.length === 0) {
 		return null;
 	}

@@ -1,3 +1,4 @@
+import { evidenceLabel } from "~/services/outcome-metrics";
 import { useState, useEffect, lazy, Suspense, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -183,7 +184,7 @@ export default function Dashboard() {
 				return {
 					id: `recovery-${timestamp}-${idx}`,
 					category: "recovery",
-					action: item.data.action,
+					action: evidenceLabel(item) + item.data.action,
 					target: extractBaseName(item.data.targetPath),
 					summary: item.data.message,
 					timestamp,
@@ -197,7 +198,7 @@ export default function Dashboard() {
 				return {
 					id: `threat-${timestamp}-${idx}`,
 					category: "threat",
-					action: `ALERT (${item.data.action})`,
+					action: evidenceLabel(item) + `ALERT (${item.data.action})`,
 					target: item.data.processName || extractBaseName(item.data.filePath),
 					summary: t(($) => $.recentEvents.threatScoreSummary, {
 						ruleName: item.data.ruleName,
@@ -215,7 +216,7 @@ export default function Dashboard() {
 				return {
 					id: `threat-${timestamp}-${idx}`,
 					category: "threat",
-					action: "PROCESS_BLOCKED",
+					action: evidenceLabel(item) + "PROCESS_BLOCKED",
 					target: procName !== "-" ? procName : `PID ${item.data.processId}`,
 					summary: item.data.matchedRuleId
 						? t(($) => $.recentEvents.ruleSummary, {
@@ -234,7 +235,7 @@ export default function Dashboard() {
 			return {
 				id: `threat-${timestamp}-${idx}`,
 				category: "threat",
-				action: "VSS_ATTEMPT",
+				action: evidenceLabel(item) + "VSS_ATTEMPT",
 				target: `PID ${item.data.processId}`,
 				summary: item.data.action,
 				timestamp,
@@ -407,8 +408,6 @@ export default function Dashboard() {
 				};
 				existing.queueDepth = Math.max(existing.queueDepth, metric.data.queueDepth);
 				existing.eventsDropped = Math.max(existing.eventsDropped, metric.data.eventsDropped);
-				existing.threat = Math.max(existing.threat, metric.data.processesBlocked);
-				existing.processTerminated = Math.max(existing.processTerminated, metric.data.processesTerminated);
 				map.set(dateKey, existing);
 			}
 		}
@@ -459,9 +458,9 @@ export default function Dashboard() {
 		}
 	}
 
-	const processesBlockedCount = Math.max(logsBlockedCount, sysData?.processesBlocked ?? 0);
-	const processesTerminatedCount = Math.max(logsTerminatedCount, sysData?.processesTerminated ?? 0);
-	const filesRecoveredCount = Math.max(logsRecoveryCount, totalCounts.recovery);
+	const processesBlockedCount = logsBlockedCount;
+	const processesTerminatedCount = logsTerminatedCount;
+	const filesRecoveredCount = logsRecoveryCount;
 	const eventsDroppedCount = Math.max(logsDroppedCount, sysData?.eventsDropped ?? 0);
 
 	// DB 집계 데이터(dbChartData)를 기반으로 실시간 시스템 큐 상태 반영 (useMemo로 메모이제이션)

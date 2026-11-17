@@ -1,3 +1,4 @@
+import { evidenceLabel } from "~/services/outcome-metrics";
 import { useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -319,7 +320,7 @@ export default function AlertsPage() {
 			action,
 			matchedRule,
 			threatScore,
-			source,
+			source: evidenceLabel(item) + source,
 			details: JSON.stringify(item, null, 2),
 			createdAt,
 			isThreat,

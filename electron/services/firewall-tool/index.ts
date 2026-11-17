@@ -20,6 +20,26 @@ export function sendToFirewallTool(
 	return new Promise((resolve, reject) => {
 		const client = net.createConnection(pipeName);
 		client.setTimeout(3000);
+		client.setEncoding("utf8");
+		let buffer = "";
+		let settled = false;
+		const fail = (error: Error) => {
+			if (settled) return;
+			settled = true;
+			client.destroy();
+			reject(error);
+		};
+		const finish = (line: string) => {
+			if (settled) return;
+			try {
+				const response = JSON.parse(line.trim()) as IncomingFWMessage;
+				settled = true;
+				client.destroy();
+				resolve(response);
+			} catch {
+				fail(new Error("응답 파싱 실패"));
+			}
+		};
 
 		client.on("connect", () => {
 			const payloadString = `${JSON.stringify(request)}\n`;
@@ -27,27 +47,32 @@ export function sendToFirewallTool(
 		});
 
 		client.on("data", (data) => {
-			try {
-				const response = JSON.parse(data.toString().trim()) as IncomingFWMessage;
-				resolve(response);
-			} catch {
-				reject(new Error(`응답 파싱 실패: ${data.toString()}`));
-			} finally {
-				client.end();
+			buffer += data;
+			if (Buffer.byteLength(buffer, "utf8") > 1024 * 1024) {
+				fail(new Error("FirewallTool 응답 크기 초과"));
+				return;
 			}
+			const newline = buffer.indexOf("\n");
+			if (newline !== -1) finish(buffer.slice(0, newline));
 		});
+
+		// Also accept the daemon's close-delimited single JSON response.
+		client.on("end", () => {
+			if (buffer.trim()) finish(buffer);
+			else fail(new Error("FirewallTool 응답 없이 연결 종료"));
+		});
+		client.on("close", () => fail(new Error("FirewallTool 응답 완료 전 연결 종료")));
 
 		client.on("error", (err) => {
 			if ("code" in err && err.code === "ENOENT") {
-				reject(new Error("FirewallTool 파이프 서버를 찾을 수 없습니다. (FirewallTool이 실행 중인지 확인하세요)"));
+				fail(new Error("FirewallTool 파이프 서버를 찾을 수 없습니다. (FirewallTool이 실행 중인지 확인하세요)"));
 			} else {
-				reject(err);
+				fail(err);
 			}
 		});
 
 		client.on("timeout", () => {
-			client.destroy();
-			reject(new Error("FirewallTool 응답 시간 초과"));
+			fail(new Error("FirewallTool 응답 시간 초과"));
 		});
 	});
 }

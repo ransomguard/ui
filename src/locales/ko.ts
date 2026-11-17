@@ -50,11 +50,11 @@ export const ko: AppTranslations = {
 
 	stats: {
 		processesBlocked: "차단된 프로세스",
-		processesBlockedDesc: "실시간 보호로 차단된 프로세스 수",
+		processesBlockedDesc: "시험 제외 · 실제 생성 차단이 확인된 프로세스 수",
 		processesTerminated: "종료된 프로세스",
-		processesTerminatedDesc: "위협 행위로 강제 종료된 프로세스 수",
+		processesTerminatedDesc: "시험 제외 · 동일 프로세스의 강제 종료가 확인된 수",
 		filesRecovered: "자동 복구된 파일",
-		filesRecoveredDesc: "스냅샷으로 안전하게 복원된 파일 수",
+		filesRecoveredDesc: "사건별 검증된 파일 복구 수 (동일 파일 재복구 포함)",
 		queueDepth: "큐 대기 깊이",
 		queueDepthDesc: "현재 커널 이벤트 처리 대기 수",
 		eventsDropped: "유실된 이벤트",

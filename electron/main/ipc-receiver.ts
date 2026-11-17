@@ -6,11 +6,13 @@ import { externalIPCReceiver, isValidIPCMessage } from "~/services/ipc-receiver"
 import { findWindow } from "~/main/window";
 import {
 	table,
+	getRawDB,
 	getDB,
 	type Insert,
 } from "~/db";
 
 import { checkUnreadThreats, fetchSecurityLogs, getDashboardStatsAndCounts } from "./queries";
+import { createReceiptWriter } from "~/services/ipc-receiver/receipts";
 import { notifyImportantEvents } from "./tray";
 
 
@@ -47,62 +49,27 @@ app.on("before-quit", () => {
 export function registerExternalIpcHandlers() {
 	const db = getDB();
 
+	const persist = createReceiptWriter(getRawDB());
 	externalIPCReceiver.startListening();
-	externalIPCReceiver.startConsumer(async batch => {
-		const validIMessages: IncomingIPCMessage[] = [];
-		const validItems: Insert<"securityLogs">[] = [];
-		const invalidItems: Insert<"systemErrors">[] = [];
-		for (const item of batch) {
-			if (isValidIPCMessage(item)) {
-				validIMessages.push(item);
-
-				if (item.type === "SYSTEM_STATUS") {
-					lastEngineStatus = item;
-				} else {
-					validItems.push({
-						type: item.type,
-						sequenceNumber: item.sequenceNumber,
-						timestamp: item.timestamp,
-						data: item,
-					});
-
-					// 커널 v0.5.0 기준 미니필터 기반 차단이라 ip를 탐지하지 못함?
-					// 네트워크 기반 차단 로직이 없음? 그럼 ip 차단 자동화는 어떻게?
-					// if (item.type === "NETWORK_BLOCKED") {
-					// 	await sendToFirewallTool("BLOCK_ADD", [
-					// 	]);
-					// }
-				}
-			} else {
-				invalidItems.push({
-					source: "IPC_RECEIVER",
-					timestamp: Date.now(),
-					data: JSON.stringify(item),
-					reason: "Invalid IPC message format",
-				});
-			}
+	externalIPCReceiver.startConsumer(async (batch, ids) => {
+		const valid: IncomingIPCMessage[] = [];
+		const validIds: (string | undefined)[] = [];
+		const invalid: Insert<"systemErrors">[] = [];
+		batch.forEach((item, index) => {
+			if (isValidIPCMessage(item)) { valid.push(item); validIds.push(ids[index]); }
+			else invalid.push({ source: "IPC_RECEIVER", timestamp: Date.now(), data: JSON.stringify(item), reason: "Invalid IPC message format" });
+		});
+		// Never publish or acknowledge a log before its transaction commits.
+		const { fresh, ack } = persist(valid, validIds);
+		for (const item of fresh) if (item.type === "SYSTEM_STATUS") lastEngineStatus = item;
+		if (fresh.length) {
+			findWindow()?.webContents.send("security-logs-updated", fresh);
+			notifyImportantEvents(fresh);
 		}
-
-		if (validIMessages.length > 0) {
-			findWindow()?.webContents.send("security-logs-updated", validIMessages);
-			notifyImportantEvents(validIMessages);
+		if (invalid.length) {
+			try { await db.insert(table.systemErrors).values(invalid); }
+			catch (error) { console.error("[IPC] Invalid packet logging failed:", error); }
 		}
-
-		try {
-			if (validItems.length > 0) {
-				await db.insert(table.securityLogs).values(validItems);
-			}
-		} catch (error) {
-			console.error("[IPC] Database bulk insert failed:", error);
-		}
-
-		try {
-			if (invalidItems.length > 0) {
-				await db.insert(table.systemErrors).values(invalidItems);
-				console.warn(`[IPC] Saved ${invalidItems.length} invalid packets to system_errors.`);
-			}
-		} catch (error) {
-			console.error("[IPC] Database bulk insert failed:", error);
-		}
+		return ack;
 	});
 }

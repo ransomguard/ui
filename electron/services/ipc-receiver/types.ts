@@ -27,6 +27,7 @@ export interface BaseIPCMessage<
 	T extends EngineEventType,
 	D = unknown,
 > {
+	evidence?: { mode: "production" | "test" | "unclassified"; source?: string; runId?: string };
 	type: T;
 	timestamp: number;               // ULONG64 (발생 시간)
 	sequenceNumber?: number | null;  // 커널은 전송하지만, 분석(Python 등)은 안 보낼 수도 있으므로 옵셔널
