@@ -10,6 +10,7 @@ export { isValidIPCMessage } from "./guard";
 
 
 const MAX_BATCH_SIZE = 500;
+const MAX_DELIVERY_ITEMS = 64;
 const INTERVAL_MS = 500; // Queue consumer interval in milliseconds
 
 export const PIPE_NAME = getPipeName("Ransom0_UI");
@@ -89,7 +90,7 @@ export class ExternalIPCReceiver {
 					try {
 						const frame = JSON.parse(line);
 						if (frame?.deliveryVersion === 1) {
-							if (!Array.isArray(frame.items) || frame.items.length > 20 || !frame.items.every((item: { id?: unknown; message?: unknown }) => typeof item?.id === "string" && /^[a-zA-Z0-9-]{1,64}$/.test(item.id) && item.message)) throw new Error("Invalid delivery envelope");
+							if (!Array.isArray(frame.items) || frame.items.length > MAX_DELIVERY_ITEMS || !frame.items.every((item: { id?: unknown; message?: unknown }) => typeof item?.id === "string" && /^[a-zA-Z0-9-]{1,64}$/.test(item.id) && item.message)) throw new Error("Invalid delivery envelope");
 							for (const item of frame.items) {
 								batch.push(item.message); ids.push(item.id);
 								const list = destinations.get(socket) ?? []; list.push(item.id); destinations.set(socket, list);
@@ -106,7 +107,7 @@ export class ExternalIPCReceiver {
 						const committed = new Set(result);
 						for (const [socket, requested] of destinations) {
 							const ack = requested.filter(id => committed.has(id));
-							if (!socket.destroyed && socket.writable && ack.length) socket.write(JSON.stringify({ deliveryVersion: 1, ack }) + "\n");
+							if (!socket.destroyed && socket.writable && ack.length) socket.write(JSON.stringify({ deliveryVersion: 1, ack, maxBatchItems: MAX_DELIVERY_ITEMS }) + "\n");
 						}
 					}
 				}

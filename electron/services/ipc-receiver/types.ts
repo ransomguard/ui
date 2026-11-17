@@ -155,6 +155,9 @@ export const alertActions = [
 ] as const;
 
 export interface AlertData {
+	decision?: ResponseDecision;
+	terminationConfirmed?: boolean;
+	processGeneration?: string;
 	processId: number;
 	processName: string;
 	action: AlertAction;
@@ -173,8 +176,32 @@ export const vssActions = [
 ] as const;
 
 export interface VssStatusData {
+	decision?: ResponseDecision;
+	eventId?: string;
+	recoveryVerified?: boolean;
+	recoveredFiles?: string[];
 	action: VssAction;
 	targetPath: string;
 	message: string;
 	snapshotId?: string | null; // 백업/복구 실패(FAILED) 시 스냅샷 ID가 없을 수 있음, 빈 문자열은 생략과 동일
+}
+
+/** Optional provenance; legacy rows retain unknown values rather than fabricated defaults. */
+export interface ResponseDecision {
+	schemaVersion: 1;
+	track: "A" | "B";
+	state: string;
+	reason: string | null;
+	jevScore: number | null;
+	jevClassification: string | null;
+	jevRequestId: string | null;
+	jevModel: string | null;
+	thresholds: { benign: number; malicious: number } | null;
+	thresholdPolicy: string | null;
+	kernelTerminationAccepted: boolean;
+	exitConfirmed: boolean;
+	recoveryVerified: boolean;
+	firewallHoldRetained: boolean;
+	firewallPolicyAcknowledged: boolean;
+	packetEnforcementVerified: boolean;
 }
