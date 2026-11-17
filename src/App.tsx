@@ -29,10 +29,10 @@ function App() {
 	const addMetrics = useMetricStore((state) => state.addMetrics);
 
 	const initAlerts = useAlertStore((state) => state.initAlerts);
-	const addAlerts = useAlertStore((state) => state.addAlerts);
+	const addAlerts = useAlertStore((state) => state.addLiveAlerts);
 
 	const initTelemetryEvents = useTelemetryStore((state) => state.initEvents);
-	const addTelemetryEvents = useTelemetryStore((state) => state.addEvents);
+	const addTelemetryEvents = useTelemetryStore((state) => state.addLiveEvents);
 
 	const fetchRules = useAccessControlStore((state) => state.fetchRules);
 

@@ -134,12 +134,19 @@ export default function Dashboard() {
 	}, [loadChartStats]);
 
 	// 신규 실시간 이벤트 수신 시 차트 버킷 최신화 (디바운스 적용)
+	// Refresh dirty charts even when a bounded cache's length no longer changes.
+	const chartDirty = useRef(false);
 	useEffect(() => {
-		const timer = setTimeout(() => {
+		chartDirty.current = true;
+	}, [alerts, telemetryEvents, storeLogs, metrics]);
+	useEffect(() => {
+		const timer = setInterval(() => {
+			if (!chartDirty.current) return;
+			chartDirty.current = false;
 			loadChartStats(timeRange.value, timeRange.interval);
-		}, 300);
-		return () => clearTimeout(timer);
-	}, [alerts.length, telemetryEvents.length, storeLogs.length, timeRange, loadChartStats]);
+		}, 3000);
+		return () => clearInterval(timer);
+	}, [timeRange, loadChartStats]);
 
 	const updateTimeRange = (value: TimeRangeItem | null) => {
 		const next = value ?? DEFAULT_TIME_RANGE;

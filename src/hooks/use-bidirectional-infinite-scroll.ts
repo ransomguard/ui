@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
+import { LIVE_VIEW_LIMIT, trimTimestampWindow } from "../store/live-cache";
 
 export type ScrollDirection = "older" | "newer";
 
@@ -261,16 +262,21 @@ export function useBidirectionalInfiniteScroll<T>({
 		if (hasMoreTop) return;
 		if (cachedItems.length === 0) return;
 
-		const latestCached = cachedItems[0]!;
 		const latestVisible = visibleItems[0];
-
-		if (!latestVisible || getItemTimestamp(latestCached) > getItemTimestamp(latestVisible)) {
+		const keys = new Set(visibleItems.map(getItemKey));
+		const incoming = cachedItems.filter(item =>
+			(!latestVisible || getItemTimestamp(item) >= getItemTimestamp(latestVisible)) && !keys.has(getItemKey(item)),
+		);
+		if (incoming.length > 0) {
 			const timer = setTimeout(() => {
-				setVisibleItems((prev) => mergeUnique(prev, [latestCached], "prepend"));
+				const merged = mergeUnique(visibleItems, incoming, "prepend");
+				const bounded = trimTimestampWindow(merged, Math.max(LIVE_VIEW_LIMIT, visibleItems.length), getItemTimestamp);
+				setVisibleItems(bounded);
+				if (bounded.length < merged.length) setHasMoreBottom(true);
 			}, 0);
 			return () => clearTimeout(timer);
 		}
-	}, [cachedItems, hasMoreTop, visibleItems, getItemTimestamp, mergeUnique]);
+	}, [cachedItems, hasMoreTop, visibleItems, getItemTimestamp, getItemKey, mergeUnique]);
 
 	// 단일 대칭 무한스크롤 함수 (older / newer)
 	const loadMore = useCallback(

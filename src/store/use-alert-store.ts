@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { LIVE_CACHE_LIMIT, trimLiveCache } from "./live-cache";
 
 
 
@@ -24,6 +25,7 @@ export interface AlertState {
 
 	initAlerts: (logs: IncomingIPCMessage[]) => void;
 	addAlerts: (logs: IncomingIPCMessage[]) => void;
+	addLiveAlerts: (logs: IncomingIPCMessage[]) => void;
 	fetchMoreAlerts: () => Promise<void>;
 	fetchMoreAlertsBottom: () => Promise<void>;
 	fetchMoreAlertsTop: () => Promise<void>;
@@ -69,6 +71,15 @@ export const useAlertStore = create<AlertState>((set, get) => ({
 			hasMoreBottom: hasMore,
 			hasMoreTop: false,
 		};
+	}),
+
+	addLiveAlerts: (logs) => set((state) => {
+		const incoming = filterItems(logs);
+		if (incoming.length === 0 || state.hasMoreTop) return state;
+		const merged = mergeAndSortItems(state.alerts, incoming);
+		const alerts = trimLiveCache(merged, Math.max(LIVE_CACHE_LIMIT, state.alerts.length));
+		const evicted = alerts.length < merged.length;
+		return { alerts, hasMore: state.hasMore || evicted, hasMoreBottom: state.hasMoreBottom || evicted };
 	}),
 
 	addAlerts: (logs) => set((state) => {

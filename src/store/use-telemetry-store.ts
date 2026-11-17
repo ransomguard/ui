@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { LIVE_CACHE_LIMIT, trimLiveCache } from "./live-cache";
 
 
 
@@ -24,6 +25,7 @@ export interface TelemetryState {
 
 	initEvents: (logs: IncomingIPCMessage[]) => void;
 	addEvents: (logs: IncomingIPCMessage[]) => void;
+	addLiveEvents: (logs: IncomingIPCMessage[]) => void;
 	fetchMoreEvents: () => Promise<void>;
 	fetchMoreEventsBottom: () => Promise<void>;
 	fetchMoreEventsTop: () => Promise<void>;
@@ -69,6 +71,15 @@ export const useTelemetryStore = create<TelemetryState>((set, get) => ({
 			hasMoreBottom: hasMore,
 			hasMoreTop: false,
 		};
+	}),
+
+	addLiveEvents: (logs) => set((state) => {
+		const incoming = filterItems(logs);
+		if (incoming.length === 0 || state.hasMoreTop) return state;
+		const merged = mergeAndSortItems(state.events, incoming);
+		const events = trimLiveCache(merged, Math.max(LIVE_CACHE_LIMIT, state.events.length));
+		const evicted = events.length < merged.length;
+		return { events, hasMore: state.hasMore || evicted, hasMoreBottom: state.hasMoreBottom || evicted };
 	}),
 
 	addEvents: (logs) => set((state) => {
