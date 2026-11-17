@@ -1,5 +1,6 @@
 import { takeOutcomes } from "~/services/outcome-metrics";
 import { create } from "zustand";
+import { METRIC_CACHE_LIMIT } from "./live-cache";
 
 
 
@@ -75,13 +76,13 @@ export const useMetricStore = create<MetricState>((set) => ({
 	totalCounts: DEFAULT_TOTAL_COUNTS,
 	initMetrics: (logs, dailyStats = [], totalCounts = DEFAULT_TOTAL_COUNTS) => set(() => {
 		const newItems = filterItems(logs);
-		const metrics = sortItems(newItems);
+		const metrics = sortItems(newItems).slice(0, METRIC_CACHE_LIMIT);
 		return { metrics, dailyStats, totalCounts };
 	}),
 	addMetrics: (logs) => set((state) => {
 		const newItems = filterItems(logs);
 		const combined = [...newItems, ...state.metrics];
-		const metrics = sortItems(combined);
+		const metrics = newItems.length ? sortItems(combined).slice(0, METRIC_CACHE_LIMIT) : state.metrics;
 
 		const statsMap = new Map<string, DailyChartStatsItem>();
 		for (const s of state.dailyStats) {

@@ -1,8 +1,9 @@
+import { telemetryByDay, telemetryByBucket } from "~/services/telemetry-summary";
 import { takeOutcomes, isRealThreat } from "~/services/outcome-metrics";
 import { and, inArray, gte, gt, lt, lte, desc, asc, sql } from "drizzle-orm";
 
 import { acknowledgedThreat } from "~/store";
-import { getDB, table } from "~/db";
+import { getDB, getRawDB, table } from "~/db";
 import type { SecurityLogType } from "~/db/schema/security-logs";
 import type { IncomingIPCMessage } from "~/services/ipc-receiver";
 
@@ -253,7 +254,7 @@ export async function getDashboardStatsAndCounts(days = 90): Promise<{
 				type: table.securityLogs.type,
 				timestamp: table.securityLogs.timestamp,
 				data: table.securityLogs.data,
-			}).from(table.securityLogs),
+			}).from(table.securityLogs).where(inArray(table.securityLogs.type, ["PROCESS_BLOCKED", "ALERT", "VSS_STATUS"])),
 			db.select({
 				ips: table.accessControlLogs.ips,
 				performedAt: table.accessControlLogs.performedAt,
@@ -302,6 +303,15 @@ export async function getDashboardStatsAndCounts(days = 90): Promise<{
 			}
 		}
 
+		for (const summary of telemetryByDay(getRawDB())) {
+			totalCounts.telemetry += summary.telemetry;
+			if (String(summary.bucket) >= toDateKey(startTime)) {
+				const item = getOrCreateDay(String(summary.bucket));
+				item.processCreate += summary.processCreate;
+				item.fileWrite += summary.fileWrite;
+				item.fileRename += summary.fileRename;
+			}
+		}
 		const seen = new Set<string>();
         for (const row of secRows) {
             const counts = takeOutcomes(row.data, seen);
@@ -538,7 +548,7 @@ export async function getDashboardChartStats({
 				data: table.securityLogs.data,
 			})
 				.from(table.securityLogs)
-				.where(gte(table.securityLogs.timestamp, startTime)),
+				.where(and(gte(table.securityLogs.timestamp, startTime), inArray(table.securityLogs.type, ["PROCESS_BLOCKED", "ALERT", "VSS_STATUS"]))),
 			db.select({
 				ips: table.accessControlLogs.ips,
 				performedAt: table.accessControlLogs.performedAt,
@@ -563,6 +573,14 @@ export async function getDashboardChartStats({
 			});
 		}
 
+		for (const summary of telemetryByBucket(getRawDB(), startTime, startBucketTime, intervalMs)) {
+			const item = bucketMap.get(startBucketTime + Number(summary.bucket) * intervalMs);
+			if (item) {
+				item.processCreate += summary.processCreate;
+				item.fileWrite += summary.fileWrite;
+				item.fileRename += summary.fileRename;
+			}
+		}
 		const seen = new Set<string>();
 		for (const row of secRows.sort((a, b) => a.timestamp - b.timestamp)) {
 			addToBucket(row.timestamp, (item) => {
