@@ -2,6 +2,8 @@ import { test, expect } from "bun:test";
 import { explainEvent, eventDisplayId } from "../electron/services/event-explanation";
 const raw = (data: object, type = "ALERT") => JSON.stringify({type, timestamp: 1, data, evidence: {mode: "test", source: "response"}});
 const values = (s: string) => explainEvent(s).rows.map(r => r.value).join("\n");
+
+
 test("legacy scores never acquire invented thresholds, model, or a malware claim", () => {
 	const s = raw({eventId: "incident-1", ruleName: "TRACK_B_JEV_DEMO_UNCALIBRATED", threatScore: 92, action: "BLOCKED", terminationConfirmed: true});
 	expect(eventDisplayId(s)).toBe("incident-1");
@@ -28,4 +30,13 @@ test("malformed optional metadata is rendered as unknown, never trusted or execu
 	expect(() => explainEvent(raw({decision:{jevModel:{key:"unexpected"},thresholds:[],jevScore:"0.92"}}))).not.toThrow();
 	expect(eventDisplayId(raw({large:"x".repeat(4000)})).length).toBeLessThan(40);
 	expect(explainEvent("not json", "en").title).toBe("Decision and response evidence");
+});
+
+test("decision evidence uses submitted counts and does not equate renames with extension changes", () => {
+ const event = raw({decision:{track:"B",jevRequestState:{window_seconds:1,counts:{write_operations:3,rename_operations:0,delete_operations:0},observed_file_extensions:[".txt"]}}});
+ const evidence = explainEvent(event).rows.find(r => r.label === "판단 근거")?.value;
+ expect(evidence).toContain("파일 쓰기 3회");
+ expect(evidence).toContain("파일 이름 변경 0회");
+ expect(evidence).toContain("확장자 변경 횟수: 기록 없음");
+ expect(evidence).not.toContain("응답 점수");
 });

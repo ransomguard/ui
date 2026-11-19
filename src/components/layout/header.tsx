@@ -1,3 +1,5 @@
+import {JevKeyBadge} from "@/components/jev-key-badge";
+import {RecoveryScopeBadge} from "@/components/recovery-scope-badge";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -30,7 +32,9 @@ export function Header({
 				{isMobile && <SidebarTrigger/>}
 				<h1 className="text-lg font-semibold">{heading}</h1>
 			</div>
-			<div className="flex items-center gap-4">
+			<div className="flex flex-wrap justify-end items-center gap-2">
+				<RecoveryScopeBadge/>
+                <JevKeyBadge/>
 				<EngineStatus size="sm"/>
 				<ModeToggle/>
 			</div>

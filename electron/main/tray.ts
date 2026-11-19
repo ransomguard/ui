@@ -4,7 +4,7 @@ import electron from "electron";
 
 import { locales } from "~/locales";
 import { language } from "~/store";
-import { getWindow, findWindow } from "~/main/window";
+import { getWindow, findWindow } from "./window";
 
 const { app, Menu, Tray, Notification } = electron;
 
@@ -234,3 +234,4 @@ export function notifyImportantEvents(
 
 	return payload;
 }
+

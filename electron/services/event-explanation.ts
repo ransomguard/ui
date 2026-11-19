@@ -38,16 +38,43 @@ export function explainEvent(raw: string, language = "ko") {
 			const classification = text(decision.jevClassification);
 			const classified = classification === "malicious" ? tr("악성", "Malicious") : classification === "benign" ? tr("정상", "Benign") : classification === "ambiguous" ? tr("불확실 · 검토 필요", "Ambiguous · review required") : undefined;
 			add("JEV 점수 기반 판정", "Score-based classification", classified);
-			const consistent = score !== undefined && validThresholds && (classification === "malicious" && score >= malicious || classification === "benign" && score <= benign || classification === "ambiguous" && score > benign && score < malicious);
-			add("판정 이유", "Decision explanation", consistent ? tr("응답 점수를 위 기준과 비교해 분류했습니다. 이 점수는 악성일 확률을 뜻하지 않습니다.", "The returned score was compared with the recorded thresholds. It is not a probability of malware.") : tr("이 기록만으로 당시 기준과 최종 판정의 일치 여부를 확인할 수 없습니다.", "This record cannot establish consistency between the original thresholds and final decision."));
+			const request = record(decision.jevRequestState), counts = record(request.counts);
+            const evidence: string[] = [];
+            const count = (key: string, korean: string, english: string) => {
+                const value = number(counts[key]);
+                if (value !== undefined && Number.isSafeInteger(value) && value >= 0)
+                    evidence.push(tr(`${korean} ${value}회`, `${english}: ${value}`));
+            };
+            count("write_attempts", "파일 쓰기 시도", "File write attempts");
+            count("write_operations", "파일 쓰기", "File writes");
+            count("rename_attempts", "파일 이름 변경 시도", "File rename attempts");
+            count("rename_operations", "파일 이름 변경", "File renames");
+            count("extension_change_succeeded", "확장자 변경 성공(파일 시스템 응답)", "Extension change succeeded (filesystem response)");
+            count("extension_change_failed", "확장자 변경 실패", "Extension change failed");
+            count("extension_change_unknown", "확장자 변경 결과 미확인", "Extension change result unknown");
+            count("extension_change_attempts", "확장자 변경 시도", "Extension-change attempts");
+            count("extension_comparison_unknown", "확장자 비교 불가", "Extension comparison unavailable");
+            count("extension_changes", "확장자 변경", "Extension changes");
+            count("delete_operations", "파일 삭제", "File deletions");
+            count("high_entropy_writes", "고엔트로피 쓰기", "High-entropy writes");
+            if (number(counts.extension_changes) === undefined && number(counts.extension_change_attempts) === undefined)
+                evidence.push(tr("확장자 변경 횟수: 기록 없음", "Extension-change count: not recorded"));
+            const seconds = number(request.window_seconds);
+            if (seconds !== undefined && seconds >= 0)
+                evidence.unshift(tr(`관측 시간 ${seconds}초`, `Observation window: ${seconds}s`));
+            const extensions = request.observed_file_extensions ?? record(request.evidence).observed_file_extensions;
+            if (Array.isArray(extensions) && extensions.every(x => typeof x === "string"))
+                evidence.push(tr(`관측 확장자: ${extensions.join(", ") || "없음"}`, `Observed extensions: ${extensions.join(", ") || "none"}`));
+            add("판단 근거", "Decision evidence", Object.keys(request).length ? evidence.join(" · ") : missing);
+
 			if (rule.includes("DEMO") || decision.thresholdPolicy === "uncalibrated_demo_only") add("기준 검증 상태", "Threshold validation", tr("미보정 시험 기준 · 운영 성능 검증 완료를 뜻하지 않음", "Uncalibrated demo thresholds · not validated production performance"));
 			add("JEV 모델", "JEV model", decision.jevModel);
 			add("JEV 요청 ID", "JEV request ID", decision.jevRequestId);
 			add("모델의 상세 근거", "Model rationale", tr("현재 응답에는 특징별 기여도나 설명문이 기록되지 않습니다. 점수만으로 이유를 만들어 표시하지 않습니다.", "No feature contributions or model explanation are recorded. A rationale cannot be inferred from the score alone."));
 		} else if (track === "A") {
-			add("판정 이유", "Decision explanation", rule.includes("CORROBORATED") ? tr("동일 프로세스 세대의 쓰기 및 자식 생성 차단을 연결한 규칙 판정입니다. JEV 판정이 아닙니다.", "Rule decision correlating writes and child-creation blocking for the same process generation. This is not a JEV verdict.") : tr("명시적으로 승인된 Track A 대응입니다. JEV 판정이 아닙니다.", "Explicitly authorized Track A response. This is not a JEV verdict."));
+			add("판단 근거", "Decision evidence", rule.includes("CORROBORATED") ? tr("동일 프로세스 세대의 쓰기 및 자식 생성 차단을 연결한 규칙 판정입니다. JEV 판정이 아닙니다.", "Rule decision correlating writes and child-creation blocking for the same process generation. This is not a JEV verdict.") : tr("명시적으로 승인된 Track A 대응입니다. JEV 판정이 아닙니다.", "Explicitly authorized Track A response. This is not a JEV verdict."));
 			add("표시 점수의 의미", "Displayed score meaning", tr("규칙 대응 표시값 · JEV 점수나 악성 확률이 아님", "Rule-response indicator · not a JEV score or malware probability"));
-		} else add("판정 이유", "Decision explanation", tr("알 수 없는 판정 경로입니다. 원본 규칙과 근거 기록을 확인해야 합니다.", "Unknown decision path. Inspect the original rule and evidence."));
+		} else add("판단 근거", "Decision evidence", tr("알 수 없는 판정 경로입니다. 원본 규칙과 근거 기록을 확인해야 합니다.", "Unknown decision path. Inspect the original rule and evidence."));
 		const termination = decision.schemaVersion === 1 ? decision.kernelTerminationAccepted === true && decision.exitConfirmed === true : d.terminationConfirmed;
 		add("강제 종료 확인", "Forced termination confirmation", flag(termination));
 		add("프로세스 생성 시각 식별값", "Process creation identity", d.processGeneration);

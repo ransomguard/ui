@@ -1,3 +1,4 @@
+import SettingsPage from "@/pages/settings";
 import type { RouteObject } from "react-router";
 
 import RootLayout from "@/layouts/root-layout";
@@ -12,6 +13,7 @@ export const routes: RouteObject[] = [
 		path: "/",
 		element: <RootLayout/>,
 		children: [
+ {path: "settings", element: <SettingsPage/>, handle: {heading: "settings"}},
 			{
 				index: true,
 				element: <Dashboard/>,

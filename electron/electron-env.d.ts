@@ -50,6 +50,28 @@ type AccessControlLogItem = import("~/main/firewall-tool").AccessControlLogItem;
 
 interface Window {
 	electronAPI: {
+ getProgramAllowlist():Promise<{entries:{id:string;path:string;sha256:string;created:number}[]}>;
+ addProgramAllowlist():Promise<Awaited<ReturnType<Window["electronAPI"]["getProgramAllowlist"]>>|null>;
+ removeProgramAllowlist(id:string):ReturnType<Window["electronAPI"]["getProgramAllowlist"]>;
+ resetLossCounter():Promise<{baseline:number;sinceReset:number;resetAt:number}>;
+ getRecoveryScopeStatus():Promise<{configured:boolean}>;
+ getJevKeyStatus():Promise<{configured:boolean}>;
+ setJevApiKey(key:string):Promise<{configured:boolean}>;
+ closeBackendTrace(kind: "kernel"|"decision"|"response"): Promise<void>;
+ openBackendTrace(kind: "kernel"|"decision"|"response"): Promise<void>;
+ getConsoleSettings(): Promise<{visible: boolean; collectOwnDbEvents: boolean}>;
+ getRecoverySettings(): Promise<{protectedRoot:string;ready:boolean;reason:string;detail:string;snapshotBudgetGiB:number;files:number;blockedReason:string|null;automaticResponse:boolean}>;
+ chooseRecoveryFolder(): Promise<string|null>;
+ getSnapshotSettings(): Promise<{intervalMinutes:number;task:{interval?:string;nextRun?:string;lastResult?:number};error:string|null}>;
+ setSnapshotInterval(minutes:number): ReturnType<Window["electronAPI"]["getSnapshotSettings"]>;
+ openSnapshotConsole(): Promise<{viewer_pid:number}>;
+ previewSnapshotRestore(id:string): Promise<{token:string;snapshotId:string;createdAt:string;folder:string;files:string[];bytes:number;expires:number}>;
+ executeSnapshotRestore(token:string,confirmed:boolean): Promise<{verified:boolean;filesVerified:number;filesFailed:number;jobId:string;source:string}>;
+ getSnapshotInventory(): Promise<{snapshots:{snapshot_id:string;volume_id:string;created_at:string;manual:boolean;userProtected:boolean;systemProtected:boolean;minimumKeep:boolean;protected:boolean}[];errors:{volume:string;error:string}[]}>;
+ createManualSnapshot(requestId:string): Promise<{created:boolean;status:string;reason:string;requires_reconciliation?:boolean;duplicate_request?:boolean;schedule_warning?:string;snapshot?:{snapshot_id:string}}>;
+ setSnapshotProtection(snapshotId:string,enabled:boolean): ReturnType<Window["electronAPI"]["getSnapshotInventory"]>;
+ setRecoverySettings(request:{folder:string;acknowledgeFolderRevert:boolean;snapshotBudgetGiB:number}): ReturnType<Window["electronAPI"]["getRecoverySettings"]>;
+ setConsoleSettings(value: {visible: boolean; collectOwnDbEvents: boolean}): Promise<{visible: boolean; collectOwnDbEvents: boolean}>;
 		onLanguageChanged(callback: OnLanguageChangedCallback): Unsubscribe;
 		setLanguage(lang: string): Promise<void>;
 		getLanguage(): Promise<string>;
@@ -116,3 +138,4 @@ interface Window {
 		checkForUpdates(): Promise<unknown>;
 	};
 }
+

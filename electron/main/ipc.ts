@@ -1,4 +1,10 @@
+import {getProgramAllowlist,addProgramAllowlist,removeProgramAllowlist} from "./recovery-settings";
+import {resetLossCounter} from "./recovery-settings";
+import {getRecoveryScopeStatus,getJevKeyStatus,setJevApiKey} from "./recovery-settings";
+import { openBackendTrace, closeBackendTrace } from "./backend-trace";
+import { getConsoleSettings, setConsoleSettings } from "./console-settings";
 import { ipcMain } from "electron";
+import { previewSnapshotRestore, executeSnapshotRestore, chooseRecoveryFolder, getRecoverySettings, setRecoverySettings, getSnapshotSettings, setSnapshotInterval, openSnapshotConsole, getSnapshotInventory, createManualSnapshot, setSnapshotProtection } from "./recovery-settings";
 
 import { dashboardTimeRange } from "~/store";
 import { getLastEngineStatus } from "./ipc-receiver";
@@ -27,6 +33,28 @@ import {
 
 
 export function registerIpcHandlers(): void {
+ ipcMain.handle("program:list",()=>getProgramAllowlist());
+ ipcMain.handle("program:add",()=>addProgramAllowlist());
+ ipcMain.handle("program:remove",(_event,id:string)=>removeProgramAllowlist(id));
+ ipcMain.handle("loss:reset",()=>resetLossCounter());
+ ipcMain.handle("recovery:scope-status",()=>getRecoveryScopeStatus());
+ ipcMain.handle("jev:key-status",()=>getJevKeyStatus());
+ ipcMain.handle("jev:set-key",(_,key)=>setJevApiKey(key));
+ ipcMain.handle("snapshot:restore-preview", (_, id) => previewSnapshotRestore(id));
+ ipcMain.handle("snapshot:restore-execute", (_, token, confirmed) => executeSnapshotRestore(token,confirmed));
+ ipcMain.handle("snapshot:list", () => getSnapshotInventory());
+ ipcMain.handle("snapshot:manual", (_, id) => createManualSnapshot(id));
+ ipcMain.handle("snapshot:protect", (_, id, enabled) => setSnapshotProtection(id,enabled));
+ ipcMain.handle("snapshot:get-settings", () => getSnapshotSettings());
+ ipcMain.handle("snapshot:set-interval", (_, minutes) => setSnapshotInterval(minutes));
+ ipcMain.handle("snapshot:open-console", () => openSnapshotConsole());
+ ipcMain.handle("recovery:choose-folder", () => chooseRecoveryFolder());
+ ipcMain.handle("recovery:get-settings", () => getRecoverySettings());
+ ipcMain.handle("recovery:set-settings", (_, request) => setRecoverySettings(request));
+ ipcMain.handle("backend-trace:close", (_, kind) => closeBackendTrace(kind));
+ ipcMain.handle("backend-trace:open", (_, kind) => openBackendTrace(kind));
+ ipcMain.handle("console:get", () => getConsoleSettings());
+ ipcMain.handle("console:set", (_, value) => setConsoleSettings(value));
 	ipcMain.handle("initial:get-engine-status", getLastEngineStatus);
 	ipcMain.handle("security-logs:fetch", (_, options?: FetchSecurityLogsOptions) => fetchSecurityLogs(options));
 	ipcMain.handle("security-logs:fetch-around", (_, targetTimestamp: number, types?: Parameters<typeof fetchSecurityLogsAround>[1], limit?: number) =>

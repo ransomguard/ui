@@ -28,7 +28,6 @@ export class ExternalIPCReceiver {
 		if (this.#server) return;
 
 		this.#server = net.createServer((socket) => {
-			console.log("[IPC] Connection established with external app.");
 
 			this.#sockets.add(socket);
 			socket.on("close", () => this.#sockets.delete(socket));
@@ -56,9 +55,6 @@ export class ExternalIPCReceiver {
 				if (buffer.length > 65536) socket.destroy();
 			});
 
-			socket.on("end", () => {
-				console.log("[IPC] Connection closed by external app.");
-			});
 
 			socket.on("error", (err) => {
 				console.error("[IPC] Socket error:", err);

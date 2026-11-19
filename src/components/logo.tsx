@@ -8,7 +8,7 @@ export interface LogoProps extends Omit<React.ComponentProps<"img">, "src"> {
 }
 
 export function Logo({
-	alt = "RansomGuard Logo",
+	alt = "Ransom0 로고",
 	className,
 	...props
 }: LogoProps) {

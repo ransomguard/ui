@@ -1,4 +1,4 @@
-import { LayoutDashboard, ShieldAlert, ListClock, ShieldX } from "lucide-react";
+import { LayoutDashboard, ShieldAlert, ListClock, ShieldX, Settings } from "lucide-react";
 
 import type { SidebarNavGroup } from "@/components/layout/sidebar";
 
@@ -27,11 +27,7 @@ export const NAV_ITEMS: SidebarNavGroup[] = [
 				label: "accessControl",
 				icon: ShieldX,
 			},
-			// {
-			// 	href: "/settings",
-			// 	label: "settings",
-			// 	icon: Settings,
-			// },
+			{href: "/settings", label: "settings", icon: Settings},
 		],
 	},
 ];

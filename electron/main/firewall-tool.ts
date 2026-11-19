@@ -1,3 +1,4 @@
+import { managedJevItem, isManagedJevValue } from "~/services/firewall-tool/managed-jev";
 import { getDB, table, type Select } from "~/db";
 import { withPolicyOwner } from "~/services/firewall-tool/policy-owner";
 import {
@@ -47,13 +48,22 @@ export async function fetchLogsAround(targetTimestamp: number, limit = 10): Prom
 
 async function sendFirewallRequest(request: FirewallRequest): Promise<IncomingFWMessage> {
 	try {
-		const response = await withPolicyOwner(request, () => sendToFirewallTool(request));
+		if ((request.action === "add" || request.action === "remove") && request.whitelist?.some(isManagedJevValue)) {
+            return { success:false, message:"JEV(TypeSafe)는 시스템 관리 항목으로 수정·삭제할 수 없습니다." };
+        }
+        const outbound = request.action === "set" ? {...request, whitelist:request.whitelist?.filter(v=>!isManagedJevValue(v))} : request;
+        const response = await withPolicyOwner(outbound, () => sendToFirewallTool(outbound));
 		if (!isValidFirewallMessage(response)) {
 			return {
 				success: false,
 				message: "Invalid response from firewall daemon",
 			};
 		}
+		if (response.success && response.whitelist === undefined && request.action !== "get") {
+            const current = await sendFirewallRequest({action:"get"});
+            if (current.success) response.whitelist=current.whitelist;
+        }
+        if (response.success) response.whitelist = [await managedJevItem(), ...(response.whitelist ?? []).filter(item=>!isManagedJevValue(item.value))];
 		return response;
 	} catch (error) {
 		return {

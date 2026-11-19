@@ -7,6 +7,7 @@ export const en: AppTranslations = {
 	},
 
 	nav: {
+		settings: "Settings",
 		notFound: "404 Not Found",
 		dashboard: "Dashboard",
 		alerts: "Threats & Recovery",

@@ -5,6 +5,7 @@ export interface AppTranslations {
 	};
 
 	nav: {
+		settings: string;
 		notFound: string;
 		dashboard: string;
 		alerts: string;

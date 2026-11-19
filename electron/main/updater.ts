@@ -6,7 +6,7 @@ import { locales } from "~/locales";
 import { language } from "~/store";
 import { AUTO_UPDATE_CHECK_INTERVAL_MS } from "~/config";
 import { externalIPCReceiver } from "~/services/ipc-receiver";
-import { findWindow } from "~/main/window";
+import { findWindow } from "./window";
 
 const { app, Notification } = electron;
 
@@ -160,3 +160,4 @@ export function initAutoUpdater() {
 		checkForUpdates().catch(() => {});
 	}, AUTO_UPDATE_CHECK_INTERVAL_MS);
 }
+

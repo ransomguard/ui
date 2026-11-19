@@ -1,3 +1,4 @@
+import {ProgramAllowlist} from "@/components/program-allowlist";
 import { EventExplanation } from "@/components/event-explanation";
 import { eventDisplayId } from "~/services/event-explanation";
 import { evidenceLabel } from "~/services/outcome-metrics";
@@ -446,7 +447,7 @@ export default function AccessControlPage() {
 	// 보호된 항목 및 삭제 대상 항목 카운트 계산
 	const protectedCount = useMemo(() => {
 		const pSet = new Set(protectedWhitelistValues);
-		return whitelistItems.filter((item) => pSet.has(item.value)).length;
+		return whitelistItems.filter((item) => (item.systemManaged || pSet.has(item.value))).length;
 	}, [whitelistItems, protectedWhitelistValues]);
 	const totalWhitelistCount = whitelistItems.length;
 	const clearableWhitelistCount = totalWhitelistCount - protectedCount;
@@ -491,7 +492,7 @@ export default function AccessControlPage() {
 				resolvedIps = [...ipv4List, ...ipv6List];
 			}
 
-			const isProtected = protectedWhitelistValues.includes(item.value);
+			const isProtected = Boolean(item.systemManaged) || protectedWhitelistValues.includes(item.value);
 
 			return {
 				id: item.value,
@@ -505,7 +506,7 @@ export default function AccessControlPage() {
 				ipv4List,
 				ipv6List,
 				resolvedIps,
-				description: matchedLog?.reason || t(($) => $.accessControl.defaults.externalWhitelistDesc),
+				description: item.managedDescription || matchedLog?.reason || t(($) => $.accessControl.defaults.externalWhitelistDesc),
 				addedAt: matchedLog?.performedAt ? new Date(matchedLog.performedAt).toLocaleString() : "-",
 				isProtected,
 				data: item.data,
@@ -655,6 +656,7 @@ export default function AccessControlPage() {
 
 	// 화이트리스트 보호 여부 토글 핸들러
 	const handleToggleProtection = useCallback((value: string) => {
+		if (whitelistItems.some(item=>item.value===value && item.systemManaged)) return;
 		const isCurrentlyProtected = protectedWhitelistValues.includes(value);
 		toggleProtection(value);
 		toast.add({
@@ -663,7 +665,7 @@ export default function AccessControlPage() {
 				: t(($) => $.accessControl.toasts.protectionEnabled, { target: value }),
 			type: "info",
 		});
-	}, [protectedWhitelistValues, toggleProtection, t]);
+	}, [protectedWhitelistValues, toggleProtection, t, whitelistItems]);
 
 	// 항목 삭제 확인 핸들러
 	const handleConfirmDelete = async () => {
@@ -789,6 +791,7 @@ export default function AccessControlPage() {
 				accessorKey: "isProtected",
 				header: () => <I18n i18nKey="accessControl.whitelistTable.columns.protection"/>,
 				cell: ({ row }) => {
+					if (row.original.rawItem.systemManaged) return <Badge variant="outline">시스템 보호</Badge>;
 					const isProtected = row.original.isProtected;
 					return (
 						<Button
@@ -886,7 +889,7 @@ export default function AccessControlPage() {
 			{
 				id: "actions",
 				header: () => <I18n i18nKey="accessControl.whitelistTable.columns.actions"/>,
-				cell: ({ row }) => (
+				cell: ({ row }) => row.original.rawItem.systemManaged ? <span>시스템 관리</span> : (
 					<div onClick={(e) => e.stopPropagation()}>
 						<DropdownMenu>
 							<DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="cursor-pointer"/>}>
@@ -974,6 +977,7 @@ export default function AccessControlPage() {
 				</div>
 			</div>
 
+			<ProgramAllowlist/>
 			{/* WFP 방화벽 전체 차단 상태 및 컨트롤 배너 카드 */}
 			<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border border-border bg-card p-5 shadow-xs">
 				<div className="flex items-start gap-3.5">
@@ -1277,8 +1281,10 @@ export default function AccessControlPage() {
 									<Button
 										variant="outline"
 										size="sm"
+										disabled={selectedWhitelistItem.rawItem.systemManaged}
 										className="h-7 text-xs cursor-pointer shrink-0 gap-1.5"
 										onClick={() => {
+											if (selectedWhitelistItem.rawItem.systemManaged) return;
 											handleToggleProtection(selectedWhitelistItem.value);
 											setSelectedWhitelistItem((prev) =>
 												prev ? { ...prev, isProtected: !prev.isProtected } : null,
@@ -1460,6 +1466,7 @@ export default function AccessControlPage() {
 						<SheetFooter className="p-4 border-t flex flex-row items-center justify-between sm:justify-between gap-2 shrink-0">
 							<Button
 								variant="destructive"
+                                disabled={selectedWhitelistItem.rawItem.systemManaged}
 								size="sm"
 								className="gap-1.5 cursor-pointer"
 								onClick={() => {
