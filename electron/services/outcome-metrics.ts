@@ -12,7 +12,7 @@ export function evidenceLabel(m: Message): string {
 export function outcomeKeys(m: Message) {
  const d = m.data as Record<string, unknown>;
  const keys: {blocked: string[]; terminated: string[]; recovered: string[]} = {blocked: [], terminated: [], recovered: []};
- if (evidenceMode(m) !== "production") return keys;
+ if (evidenceMode(m) === "unclassified") return keys;
  const generation = typeof d.processGeneration === "string" && /^\d+$/.test(d.processGeneration) && d.processGeneration !== "0" ? d.processGeneration : null;
  if (m.type === "PROCESS_BLOCKED" && m.evidence?.source === "kernel" && generation && Number.isSafeInteger(d.processId) && Number(d.matchedRuleId) > 0) keys.blocked.push(`block:${d.processId}:${generation}`);
  if (m.type === "ALERT" && m.evidence?.source === "response" && d.action === "BLOCKED" && d.terminationConfirmed === true && generation && Number.isSafeInteger(d.processId) && typeof d.eventId === "string" && d.eventId) keys.terminated.push(`kill:${d.processId}:${generation}`);
