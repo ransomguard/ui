@@ -3,7 +3,7 @@ import { app } from "electron";
 import { language } from "~/store";
 import { initDatabase, getDB, cleanupLogs } from "~/db";
 
-import { createWindow } from "./window";
+import { createWindow, getWindow } from "./window";
 import { setApplicationMenu } from "./menu";
 import { createTray } from "./tray";
 import { registerIpcHandlers } from "./ipc";
@@ -14,7 +14,19 @@ export * from "./env";
 
 
 
-app.whenReady().then(async () => {
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) {
+	app.quit();
+} else {
+	app.on("second-instance", () => {
+		const window = getWindow();
+		if (window.isMinimized()) window.restore();
+		window.show();
+		window.focus();
+	});
+}
+
+if (primaryInstance) app.whenReady().then(async () => {
 	const systemLocale = language.get();
 
 	initDatabase();
