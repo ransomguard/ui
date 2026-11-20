@@ -23,9 +23,11 @@ export class ExternalIPCReceiver {
 	#sockets = new Set<net.Socket>();
 	#consumerInterval: NodeJS.Timeout | null = null;
 	#isProcessing = false;
+	#listenRetry: NodeJS.Timeout | null = null;
 
 	startListening(pipeName = PIPE_NAME) {
 		if (this.#server) return;
+		if (this.#listenRetry) { clearTimeout(this.#listenRetry); this.#listenRetry = null; }
 
 		this.#server = net.createServer((socket) => {
 
@@ -63,6 +65,18 @@ export class ExternalIPCReceiver {
 
 		this.#server.on("error", (err) => {
 			console.error("[IPC Server] Failed to start server:", err);
+			// A just-closed dashboard can briefly retain the named-pipe endpoint.
+			// Keep durable delivery pending and retry binding instead of staying
+			// disconnected for the entire lifetime of the replacement dashboard.
+			if ((err as NodeJS.ErrnoException).code === "EADDRINUSE") {
+				const failed = this.#server;
+				this.#server = null;
+				failed?.close(() => {});
+				this.#listenRetry = setTimeout(() => {
+					this.#listenRetry = null;
+					this.startListening(pipeName);
+				}, 1000);
+			}
 		});
 
 		this.#server.listen(pipeName, () => {
@@ -116,6 +130,7 @@ export class ExternalIPCReceiver {
 	}
 
 	stopAll() {
+		if (this.#listenRetry) { clearTimeout(this.#listenRetry); this.#listenRetry = null; }
 		for (const socket of this.#sockets) socket.destroy();
 		this.#queue = [];
 		if (this.#server) {
