@@ -140,15 +140,16 @@ export function formatImportantEventNotification(
 		}
 		case "ALERT": {
 			const isQuarantined = msg.data.action === "QUARANTINED";
+			const isReview = msg.data.action === "REVIEW_REQUIRED";
 			return {
-				title: isQuarantined ? t.alertQuarantinedTitle : t.alertBlockedTitle,
+				title: isReview ? "검토 필요 / Review required" : isQuarantined ? t.alertQuarantinedTitle : t.alertBlockedTitle,
 				content: interpolate(t.alertBody, {
 					processName: msg.data.processName,
 					pid: msg.data.processId,
 					ruleName: msg.data.ruleName,
-					score: msg.data.threatScore,
+					score: msg.data.threatScore ?? "—",
 				}),
-				iconType: isQuarantined ? "warning" : "error",
+				iconType: isReview || isQuarantined ? "warning" : "error",
 			};
 		}
 		case "VSS_STATUS": {

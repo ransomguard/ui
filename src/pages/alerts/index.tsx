@@ -43,7 +43,7 @@ export interface FormattedAlert {
 	imagePath?: string;
 	action: string;
 	matchedRule?: string;
-	threatScore: number;
+	threatScore: number | null;
 	source: string;
 	details: string;
 	createdAt: string;
@@ -75,7 +75,7 @@ const columns: ColumnDef<DataTableFeatures, FormattedAlert>[] = columnHelper.col
 					variant={isThreat ? "destructive" : "default"}
 					className={isRecovery ? "bg-emerald-600 hover:bg-emerald-700 text-[11px] px-2 py-0.5" : "text-[11px] px-2 py-0.5"}
 				>
-					{action}
+					{action === "REVIEW_REQUIRED" ? "검토 필요 / REVIEW_REQUIRED" : action}
 				</Badge>
 			);
 		},
@@ -133,7 +133,7 @@ const columns: ColumnDef<DataTableFeatures, FormattedAlert>[] = columnHelper.col
 		header: () => <I18n i18nKey="alerts.columns.threatScore"/>,
 		cell: ({ row }) => {
 			const { isThreat, threatScore } = row.original;
-			if (!isThreat) {
+		if (!isThreat || threatScore === null) {
 				return <span className="font-mono text-xs text-muted-foreground">-</span>;
 			}
 			return (
@@ -263,7 +263,7 @@ export default function AlertsPage() {
 		let imagePath: string | undefined;
 		let action = item.type as string;
 		let matchedRule: string | undefined;
-		let threatScore = 10;
+		let threatScore: number | null = 10;
 		let source = t(($) => $.alerts.sources.kernelDriver);
 
 		if (item.type === "ALERT") {
@@ -272,7 +272,7 @@ export default function AlertsPage() {
 			processName = alertData.processName;
 			action = alertData.action || "ALERT";
 			matchedRule = alertData.ruleName;
-			threatScore = alertData.threatScore ?? 80;
+			threatScore = action === "REVIEW_REQUIRED" ? alertData.threatScore : alertData.threatScore ?? 80;
 			imagePath = alertData.filePath ?? undefined;
 			source = t(($) => $.alerts.sources.correlationEngine);
 		} else if (item.type === "PROCESS_BLOCKED") {
@@ -333,7 +333,7 @@ export default function AlertsPage() {
 
 	const filteredLogs = formattedAlerts.filter((log) => {
 		if (activeTab === "THREATS") {
-			return log.isThreat;
+			return log.isThreat || log.action === "REVIEW_REQUIRED";
 		}
 		if (activeTab === "RECOVERY") {
 			return log.isRecovery;
@@ -481,7 +481,7 @@ export default function AlertsPage() {
 								</div>
 
 								{/* 위협 스코어 프로그레스 바 */}
-								{selectedAlert.isThreat && (
+									{selectedAlert.isThreat && selectedAlert.threatScore !== null && (
 									<div className="space-y-1.5">
 										<div className="flex justify-between text-xs font-medium">
 											<span className="text-muted-foreground">

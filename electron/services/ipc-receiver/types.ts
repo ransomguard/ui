@@ -152,6 +152,7 @@ export const alertActions = [
 	"BLOCKED",
 	"ALLOWED",
 	"QUARANTINED",
+	"REVIEW_REQUIRED",
 ] as const;
 
 export interface AlertData {
@@ -162,7 +163,7 @@ export interface AlertData {
 	processName: string;
 	action: AlertAction;
 	eventId: string;
-	threatScore: number;
+	threatScore: number | null;
 	ruleName: string;
 	filePath?: string | null; // 파일 훼손이 아닌 행위(인젝션 등) 기반 탐지일 경우 누락, 빈 문자열은 생략과 동일
 }
