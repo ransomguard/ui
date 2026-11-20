@@ -1,4 +1,9 @@
-import Database from "better-sqlite3";
+import type BetterSqlite3 from "better-sqlite3";
+import { createRequire } from "node:module";
+
+// Load the installed native entrypoint, as the main UI database does. Bundling
+// this CommonJS native dependency into the ESM main process breaks its loader.
+const Database = createRequire(import.meta.url)("better-sqlite3") as typeof BetterSqlite3;
 
 import type { FirewallRequest, IncomingFWMessage } from "./types";
 
@@ -12,7 +17,7 @@ export async function withPolicyOwner(
 	statePath = process.env.RANSOM0_FIREWALL_STATE_DB,
 ): Promise<IncomingFWMessage> {
 	if (!statePath || request.action === "get") return send();
-	let db: Database.Database | undefined;
+	let db: BetterSqlite3.Database | undefined;
 	try {
 		db = new Database(statePath, { fileMustExist: true, timeout: 0 });
 		db.exec("BEGIN IMMEDIATE");
@@ -22,7 +27,8 @@ export async function withPolicyOwner(
 				message: "자동 대응이 방화벽 정책을 유지 중입니다. 대응 또는 검토 완료 후 다시 시도하세요." };
 		}
 		return await send();
-	} catch {
+	} catch (error) {
+		console.error("[Firewall policy owner]", error);
 		return { success: false, action: request.action,
 			message: "방화벽 정책 소유권을 확인할 수 없습니다. 엔진 상태를 확인하고 다시 시도하세요." };
 	} finally {
