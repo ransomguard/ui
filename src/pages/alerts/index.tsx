@@ -1,6 +1,6 @@
 import { JevRequestDetails } from "@/components/jev-request-details";
 import { EventExplanation } from "@/components/event-explanation";
-import { eventDisplayId } from "~/services/event-explanation";
+import { eventDisplayId, kernelRuleLabel } from "~/services/event-explanation";
 import { evidenceLabel } from "~/services/outcome-metrics";
 import { useState, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router";
@@ -283,7 +283,7 @@ export default function AlertsPage() {
 				processName = imagePath.split(/[/\\]/).pop();
 			}
 			matchedRule = procData.matchedRuleId
-				? t(($) => $.alerts.defaults.ruleId, { id: procData.matchedRuleId })
+				? kernelRuleLabel(procData.matchedRuleId)
 				: t(($) => $.alerts.defaults.ruleBlocked);
 			action = "BLOCKED";
 			threatScore = 90;
@@ -321,7 +321,7 @@ export default function AlertsPage() {
 			processName,
 			imagePath,
 			action,
-			matchedRule,
+			matchedRule: evidenceLabel(item) + (matchedRule ?? ""),
 			threatScore,
 			source: evidenceLabel(item) + source,
 			details: JSON.stringify(item, null, 2),
