@@ -111,7 +111,7 @@ export function isValidIPCMessage(raw: unknown): raw is IncomingIPCMessage {
 				&& isAlertActions(data.action)
 				&& isString(data.eventId)
 				&& maybeString(data.filePath)
-				&& isNumber(data.threatScore)
+				&& (isNumber(data.threatScore) || (data.action === "REVIEW_REQUIRED" && data.threatScore === null))
 				&& isString(data.ruleName)
 			);
 
