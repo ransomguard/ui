@@ -11,7 +11,6 @@ export { isValidIPCMessage } from "./guard";
 
 const MAX_BATCH_SIZE = 500;
 const MAX_DELIVERY_ITEMS = 64;
-const INTERVAL_MS = 500; // Queue consumer interval in milliseconds
 
 export const PIPE_NAME = getPipeName("Ransom0_UI");
 
@@ -21,9 +20,18 @@ export class ExternalIPCReceiver {
 	#server: net.Server | null = null;
 	#queue: { line: string; socket: net.Socket }[] = [];
 	#sockets = new Set<net.Socket>();
-	#consumerInterval: NodeJS.Timeout | null = null;
+	#consumer: (() => Promise<void>) | null = null;
+	#scheduled: NodeJS.Immediate | null = null;
 	#isProcessing = false;
 	#listenRetry: NodeJS.Timeout | null = null;
+
+	#schedule() {
+		if (!this.#consumer || this.#scheduled || this.#isProcessing || !this.#queue.length) return;
+		this.#scheduled = setImmediate(() => {
+			this.#scheduled = null;
+			void this.#consumer?.();
+		});
+	}
 
 	startListening(pipeName = PIPE_NAME) {
 		if (this.#server) return;
@@ -55,6 +63,7 @@ export class ExternalIPCReceiver {
 					buffer = buffer.slice(startIndex);
 				}
 				if (buffer.length > 65536) socket.destroy();
+				this.#schedule();
 			});
 
 
@@ -84,10 +93,11 @@ export class ExternalIPCReceiver {
 		});
 	}
 
-	startConsumer(onBatchProcess: (batch: unknown[], ids: (string | undefined)[]) => unknown, intervalMs = INTERVAL_MS) {
-		if (this.#consumerInterval) return;
+	startConsumer(onBatchProcess: (batch: unknown[], ids: (string | undefined)[]) => unknown, _legacyIntervalMs?: number) {
+		void _legacyIntervalMs; // Compatibility only; new events never wait for a timer.
+		if (this.#consumer) return;
 
-		this.#consumerInterval = setInterval(async () => {
+		this.#consumer = async () => {
 			if (this.#isProcessing || this.#queue.length === 0) return;
 			this.#isProcessing = true;
 
@@ -125,8 +135,10 @@ export class ExternalIPCReceiver {
 				console.error("[IPC] Error processing batch:", error);
 			} finally {
 				this.#isProcessing = false;
+				this.#schedule();
 			}
-		}, intervalMs);
+		};
+		this.#schedule();
 	}
 
 	stopAll() {
@@ -137,9 +149,10 @@ export class ExternalIPCReceiver {
 			this.#server.close();
 			this.#server = null;
 		}
-		if (this.#consumerInterval) {
-			clearInterval(this.#consumerInterval);
-			this.#consumerInterval = null;
+		this.#consumer = null;
+		if (this.#scheduled) {
+			clearImmediate(this.#scheduled);
+			this.#scheduled = null;
 		}
 	}
 }
