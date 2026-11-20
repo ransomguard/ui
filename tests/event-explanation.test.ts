@@ -40,3 +40,13 @@ test("decision evidence uses submitted counts and does not equate renames with e
  expect(evidence).toContain("확장자 변경 횟수: 기록 없음");
  expect(evidence).not.toContain("응답 점수");
 });
+test("kernel 1001 is Track A family, not proof of full response or malware", () => {
+ const s = raw({matchedRuleId:1001}, "PROCESS_BLOCKED");
+ expect(values(s)).toContain("Track A");
+ expect(values(s)).toContain("자식 프로세스 생성 차단 확인");
+ expect(values(s)).toContain("완료 증거 없음");
+ expect(values(s)).toContain("정상 관리자 작업");
+ expect(values(s)).toContain("시험 기록");
+ expect(values(JSON.stringify({type:"PROCESS_BLOCKED",data:{matchedRuleId:1001}}))).toContain("미분류 기록");
+ expect(values(raw({matchedRuleId:9999},"PROCESS_BLOCKED"))).not.toContain("Track A");
+});
