@@ -5,7 +5,7 @@ import type {IncomingIPCMessage} from "../electron/services/ipc-receiver";
 const msg=(type:string,data:object,mode="production",source="response")=>({type,timestamp:Date.now(),evidence:{mode,source},data});
 const kill=msg("ALERT",{processId:4,processGeneration:"133700000000000001",eventId:"a",action:"BLOCKED",terminationConfirmed:true});
 test("normal exits, guesses, failed/start/backup and unclassified history never count",()=>{
- for(const m of [msg("PROCESS_TERMINATE",kill.data),msg("ALERT",{...kill.data,terminationConfirmed:false}),msg("ALERT",kill.data,"unclassified"),msg("ALERT",kill.data,"test"),...["RESTORE_FAILED","RESTORE_STARTED","BACKUP_CREATED"].map(action=>msg("VSS_STATUS",{action,recoveryVerified:true,eventId:"a",recoveredFiles:["C:\\lab\\a"]}))]) expect(takeOutcomes(m,new Set())).toEqual({blocked:0,terminated:0,recovered:0});
+ for(const m of [msg("PROCESS_TERMINATE",kill.data),msg("ALERT",{...kill.data,terminationConfirmed:false}),msg("ALERT",kill.data,"unclassified"),...["RESTORE_FAILED","RESTORE_STARTED","BACKUP_CREATED"].map(action=>msg("VSS_STATUS",{action,recoveryVerified:true,eventId:"a",recoveredFiles:["C:\\lab\\a"]}))]) expect(takeOutcomes(m,new Set())).toEqual({blocked:0,terminated:0,recovered:0});
 });
 test("generation bound outcomes and file recovery are deduplicated separately",()=>{
  const seen=new Set<string>();
@@ -19,7 +19,7 @@ test("generation bound outcomes and file recovery are deduplicated separately",(
 });
 test("legacy lab signature cannot be promoted to a real threat",()=>{
  const m=msg("ALERT",{...kill.data,ruleName:"TRACK_A_CORROBORATED_LAB"});
- expect(evidenceMode(m)).toBe("test");expect(isRealThreat(m)).toBe(false);expect(takeOutcomes(m,new Set()).terminated).toBe(0);
+ expect(evidenceMode(m)).toBe("test");expect(isRealThreat(m)).toBe(false);expect(takeOutcomes(m,new Set()).terminated).toBe(1);
 });
 test("live store equals persisted seed and normal exits never increase forced count",()=>{
  useMetricStore.getState().initMetrics([],[],{threat:0,recovery:0,telemetry:0,blockedProcesses:0,accessControlLogs:0,outcomeKeys:[]});
@@ -30,3 +30,13 @@ test("live store equals persisted seed and normal exits never increase forced co
  useMetricStore.getState().addMetrics([kill as IncomingIPCMessage,...Array.from({length:100},()=>msg("PROCESS_TERMINATE",{processId:1}) as IncomingIPCMessage)]);
  expect(useMetricStore.getState().dailyStats[0]?.processTerminated).toBe(1);
 });
+
+ test("verified test outcomes count in totals and deduplicate without changing labels",()=>{
+ const seen=new Set<string>();
+ const tested=msg("ALERT",kill.data,"test");
+ expect(takeOutcomes(tested,seen).terminated).toBe(1);
+ expect(takeOutcomes(tested,seen).terminated).toBe(0);
+ expect(evidenceMode(tested)).toBe("test"); expect(isRealThreat(tested)).toBe(false);
+ expect(takeOutcomes(msg("PROCESS_BLOCKED",{processId:5,processGeneration:"133700000000000003",matchedRuleId:1001},"test","kernel"),seen).blocked).toBe(1);
+ expect(takeOutcomes(msg("VSS_STATUS",{action:"RESTORE_COMPLETED",eventId:"test-restore",recoveryVerified:true,recoveredFiles:["C:\\lab\\a"]},"test"),seen).recovered).toBe(1);
+ });

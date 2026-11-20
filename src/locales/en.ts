@@ -51,11 +51,11 @@ export const en: AppTranslations = {
 
 	stats: {
 		processesBlocked: "Processes Blocked",
-		processesBlockedDesc: "Number of processes blocked by real-time protection",
+		processesBlockedDesc: "Confirmed process creation blocks, including tests",
 		processesTerminated: "Processes Terminated",
-		processesTerminatedDesc: "Number of processes terminated due to threat activity",
+		processesTerminatedDesc: "Confirmed forced process terminations, including tests",
 		filesRecovered: "Files Recovered",
-		filesRecoveredDesc: "Files restored from snapshots automatically",
+		filesRecoveredDesc: "Verified file restores per incident, including tests and repeat restores",
 		queueDepth: "Queue Depth",
 		queueDepthDesc: "Current pending kernel event queue size",
 		eventsDropped: "Events Dropped",
