@@ -15,6 +15,28 @@ const generateSubscription = <T>(eventName: string, callback: (data: T) => void)
 
 
 contextBridge.exposeInMainWorld("electronAPI", {
+ getProgramAllowlist(){return ipcRenderer.invoke("program:list");},
+ addProgramAllowlist(){return ipcRenderer.invoke("program:add");},
+ removeProgramAllowlist(id:string){return ipcRenderer.invoke("program:remove",id);},
+ resetLossCounter(){return ipcRenderer.invoke("loss:reset");},
+ getRecoveryScopeStatus(){return ipcRenderer.invoke("recovery:scope-status");},
+ getJevKeyStatus(){return ipcRenderer.invoke("jev:key-status");},
+ setJevApiKey(key:string){return ipcRenderer.invoke("jev:set-key",key);},
+ closeBackendTrace(kind: "kernel"|"decision"|"response") { return ipcRenderer.invoke("backend-trace:close",kind); },
+ openBackendTrace(kind: "kernel"|"decision"|"response") { return ipcRenderer.invoke("backend-trace:open",kind); },
+ getConsoleSettings() { return ipcRenderer.invoke("console:get"); },
+ getRecoverySettings() { return ipcRenderer.invoke("recovery:get-settings"); },
+ getSnapshotSettings() { return ipcRenderer.invoke("snapshot:get-settings"); },
+ setSnapshotInterval(minutes:number) { return ipcRenderer.invoke("snapshot:set-interval",minutes); },
+ openSnapshotConsole() { return ipcRenderer.invoke("snapshot:open-console"); },
+ previewSnapshotRestore(id:string) { return ipcRenderer.invoke("snapshot:restore-preview",id); },
+ executeSnapshotRestore(token:string,confirmed:boolean) { return ipcRenderer.invoke("snapshot:restore-execute",token,confirmed); },
+ getSnapshotInventory() { return ipcRenderer.invoke("snapshot:list"); },
+ createManualSnapshot(requestId:string) { return ipcRenderer.invoke("snapshot:manual",requestId); },
+ setSnapshotProtection(snapshotId:string,enabled:boolean) { return ipcRenderer.invoke("snapshot:protect",snapshotId,enabled); },
+ chooseRecoveryFolder() { return ipcRenderer.invoke("recovery:choose-folder"); },
+ setRecoverySettings(request: {folder:string;acknowledgeFolderRevert:boolean;snapshotBudgetGiB:number}) { return ipcRenderer.invoke("recovery:set-settings",request); },
+ setConsoleSettings(value: {visible: boolean; collectOwnDbEvents: boolean}) { return ipcRenderer.invoke("console:set", value); },
 	onLanguageChanged(callback: OnLanguageChangedCallback) {
 		return generateSubscription(
 			"language:changed",
@@ -92,3 +114,4 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		return ipcRenderer.invoke("updater:check");
 	},
 });
+

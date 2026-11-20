@@ -44,6 +44,8 @@ export type WhitelistItemData =
 	| WhitelistItemUrlData;
 
 export interface WhitelistItem {
+	systemManaged?: boolean;
+	managedDescription?: string;
 	type: WhitelistItemType;
 	value: string;
 	data: WhitelistItemData;

@@ -7,6 +7,7 @@ export const ko: AppTranslations = {
 	},
 
 	nav: {
+		settings: "설정",
 		notFound: "페이지를 찾을 수 없음",
 		dashboard: "대시보드",
 		alerts: "위협 및 복구",

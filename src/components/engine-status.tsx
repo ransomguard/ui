@@ -79,7 +79,6 @@ export default function EngineStatus({
 }: EngineStatusProps) {
 	const { t } = useTranslation();
 	const status = useStatusStore((x) => x.status);
-	const version = useStatusStore((x) => x.version) ?? "0.0.0";
 	const sysData = useStatusStore((x) => x.data);
 	const clearUnreadThreats = useStatusStore((x) => x.clearUnreadThreats);
 
@@ -93,13 +92,11 @@ export default function EngineStatus({
 
 	const title = t($ => $.engine.statuses[variant].title);
 	const description = t($ => $.engine.statuses[variant].description);
-	const kernelVersionText = t(($) => $.engine.kernelVersion, { version });
 
 	if (size === "sm") {
 		return (
 			<Badge
 				className={cariantClassName}
-				title={kernelVersionText}
 				variant="outline"
 				{...props}
 			>
@@ -141,9 +138,6 @@ export default function EngineStatus({
 						<h3 className="font-semibold text-sm leading-none tracking-tight">
 							{t(($) => $.engine.statusLabel)}: {title}
 						</h3>
-						<Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
-							{kernelVersionText}
-						</Badge>
 					</div>
 
 					<p className="text-xs text-muted-foreground leading-relaxed">

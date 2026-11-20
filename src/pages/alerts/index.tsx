@@ -1,3 +1,4 @@
+import { JevRequestDetails } from "@/components/jev-request-details";
 import { EventExplanation } from "@/components/event-explanation";
 import { eventDisplayId } from "~/services/event-explanation";
 import { evidenceLabel } from "~/services/outcome-metrics";
@@ -534,6 +535,7 @@ export default function AlertsPage() {
 										</pre>
 									</ScrollArea>
 								</div>
+                                <JevRequestDetails raw={selectedAlert.details}/>
 							</div>
 						</ScrollArea>
 					)}

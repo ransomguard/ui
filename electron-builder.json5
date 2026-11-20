@@ -4,7 +4,7 @@
 	"appId": "ransomguard-ransom0-ui",
 	"asar": true,
 	"productName": "ransom0-ui",
-	"icon": "public/logo.png",
+	"icon": "public/icons/512x512.png",
 	"publish": {
 		"provider": "github",
 		"owner": "ransomguard",
@@ -31,6 +31,7 @@
 		"artifactName": "${productName}-Mac-${version}-Installer.${ext}"
 	},
 	"win": {
+		"icon": "public/Ransom0.ico",
 		"target": [
 			{
 				"target": "nsis",

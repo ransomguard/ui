@@ -3,7 +3,7 @@ import { app } from "electron";
 import { externalIPCReceiver, isValidIPCMessage } from "~/services/ipc-receiver";
 // import { sendToFirewallTool } from "~/services/firewall-tool";
 
-import { findWindow } from "~/main/window";
+import { findWindow } from "./window";
 import {
 	table,
 	getRawDB,
@@ -73,3 +73,4 @@ export function registerExternalIpcHandlers() {
 		return ack;
 	});
 }
+

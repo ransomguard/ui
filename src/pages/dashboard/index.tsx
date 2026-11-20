@@ -454,21 +454,19 @@ export default function Dashboard() {
 	let logsBlockedCount = 0;
 	let logsTerminatedCount = 0;
 	let logsRecoveryCount = 0;
-	let logsDroppedCount = 0;
 	for (const dateKey of rangeDateKeys) {
 		const counts = dailyCounts.get(dateKey);
 		if (counts) {
 			logsBlockedCount += counts.threat || counts.blockedCount;
 			logsTerminatedCount += counts.processTerminated || counts.terminatedCount;
 			logsRecoveryCount += counts.recovery;
-			logsDroppedCount += counts.eventsDropped;
 		}
 	}
 
 	const processesBlockedCount = logsBlockedCount;
 	const processesTerminatedCount = logsTerminatedCount;
 	const filesRecoveredCount = logsRecoveryCount;
-	const eventsDroppedCount = Math.max(logsDroppedCount, sysData?.eventsDropped ?? 0);
+	const eventsDroppedCount = sysData?.eventsDropped ?? 0;
 
 	// DB 집계 데이터(dbChartData)를 기반으로 실시간 시스템 큐 상태 반영 (useMemo로 메모이제이션)
 	const filteredChartData = useMemo(() => {
@@ -530,7 +528,7 @@ export default function Dashboard() {
 			icon: AlertTriangle,
 			label: "eventsDropped",
 			description: "eventsDroppedDesc",
-			value: eventsDroppedCount.toLocaleString(),
+			value: sysData ? eventsDroppedCount.toLocaleString() : "—",
 			className: eventsDroppedCount > 0
 				? "border-destructive/60 bg-destructive/10 text-destructive dark:bg-destructive/20"
 				: undefined,

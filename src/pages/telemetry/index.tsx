@@ -1,3 +1,4 @@
+import { JevRequestDetails } from "@/components/jev-request-details";
 import { EventExplanation } from "@/components/event-explanation";
 import { eventDisplayId } from "~/services/event-explanation";
 import { useState, useCallback, useMemo } from "react";
@@ -360,6 +361,7 @@ export default function TelemetryPage() {
 										</pre>
 									</ScrollArea>
 								</div>
+                                <JevRequestDetails raw={selectedLog.details}/>
 							</div>
 						</ScrollArea>
 					)}

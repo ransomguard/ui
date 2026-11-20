@@ -2,7 +2,7 @@ import { Menu, shell, app, ipcMain, dialog, clipboard } from "electron";
 
 import { locales } from "~/locales";
 import { language } from "~/store";
-import { getWindow, findWindow } from "~/main/window";
+import { getWindow, findWindow } from "./window";
 
 import { updateTrayMenu } from "./tray";
 
@@ -122,3 +122,4 @@ export function setApplicationMenu(localeCode: string) {
 	const menu = Menu.buildFromTemplate(template);
 	Menu.setApplicationMenu(menu);
 }
+

@@ -13,8 +13,9 @@ const { app, BrowserWindow } = electron;
 /**
  * 현재 열려있는 BrowserWindow를 반환 (없으면 null 반환, 새로 생성하지 않음)
  */
+const dashboardIds = new Set<number>();
 export function findWindow() {
-	const windows = BrowserWindow?.getAllWindows().filter(win => !win.isDestroyed()) ?? [];
+	const windows = BrowserWindow?.getAllWindows().filter(win => !win.isDestroyed() && dashboardIds.has(win.id)) ?? [];
 	return windows[0] ?? null;
 }
 
@@ -77,6 +78,8 @@ export function createWindow() {
 		...windowOptions,
 	});
 
+	dashboardIds.add(win.id);
+ win.on("closed",()=>dashboardIds.delete(win.id));
 	setupWindowStateListener(win);
 
 	if (VITE_DEV_SERVER_URL) {
