@@ -55,6 +55,15 @@ export function initDatabase() {
 			? path.join(app.getPath("userData"), DB_FILE_NAME)
 			: path.join(app.getAppPath(), DB_FILE_NAME);
 		sqlite = new Database(dbPath);
+		// Append committed batches without repeatedly journaling database pages.
+		// FULL keeps commit acknowledgements durable, including in WAL mode.
+		const mode = sqlite.pragma("journal_mode = WAL", { simple: true });
+		if (String(mode).toLowerCase() !== "wal") {
+			sqlite.close();
+			sqlite = null;
+			throw new Error("Unable to enable durable WAL storage for the dashboard");
+		}
+		sqlite.pragma("synchronous = FULL");
 	}
 
 	db = drizzle({
