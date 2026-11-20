@@ -12,6 +12,11 @@ export function eventDisplayId(raw: string): string {
 	return text(d.eventId) ?? (number(m.sequenceNumber) !== undefined ? `${m.type} / #${m.sequenceNumber}` : `${text(m.type) ?? "EVENT"} / ${number(m.timestamp) ?? "-"}`);
 }
 
+export function kernelRuleLabel(id: number, language = "ko"): string {
+ const ko = language.startsWith("ko");
+ return id === 1001 ? (ko ? "Track A · #1001 VSS 스냅샷 삭제 시도" : "Track A · #1001 VSS shadow deletion attempt") : `Rule #${id}`;
+}
+
 /** Explain recorded facts only. Old records are never enriched with today's thresholds. */
 export function explainEvent(raw: string, language = "ko") {
 	const m = parseEvent(raw), d = record(m.data), decision = record(d.decision);
@@ -79,6 +84,14 @@ export function explainEvent(raw: string, language = "ko") {
 		add("강제 종료 확인", "Forced termination confirmation", flag(termination));
 		add("프로세스 생성 시각 식별값", "Process creation identity", d.processGeneration);
 	} else if (m.type === "PROCESS_BLOCKED") {
+        if (d.matchedRuleId === 1001) {
+            add("탐지 분류", "Detection family", tr("Track A · 커널 예방 차단 규칙", "Track A · kernel prevention rule"));
+            add("적용 규칙", "Applied rule", kernelRuleLabel(1001, language));
+            add("규칙 설명", "Rule explanation", tr("vssadmin.exe 실행 이미지와 delete shadows 인수가 일치했습니다. 정상 관리자 작업도 해당할 수 있어 랜섬웨어 확정 판정은 아닙니다.", "The vssadmin.exe image and delete shadows arguments matched. Legitimate administration can match; this alone is not a confirmed ransomware verdict."));
+            add("실제 대응 단계", "Recorded response stage", tr("자식 프로세스 생성 차단 확인", "Child process creation blocked"));
+            add("부모 종료·격리·복구", "Parent termination, isolation and recovery", tr("이 이벤트에는 완료 증거 없음 · 연결된 대응 사건에서 별도 확인", "No completion evidence in this event; inspect the correlated response incident"));
+            add("추가 대응 조건", "Additional response requirements", tr("동일 프로세스 세대·최근 고엔트로피 쓰기·부모/생성자 일치·이벤트 유실 여부 및 대응 예외를 검증합니다.", "Verify process generation, recent high-entropy writes, parent/creator identity, event-loss state and response exemptions."));
+        }
 		add("차단 이유", "Block reason", number(d.matchedRuleId) && Number(d.matchedRuleId) > 0 ? tr(`커널 생성 차단 이벤트에 규칙 ${d.matchedRuleId}가 기록되었습니다. 강제 종료와는 별개입니다.`, `Kernel creation-block event recorded rule ${d.matchedRuleId}. This is separate from forced termination.`) : missing);
 		add("JEV 판정", "JEV verdict", tr("이 커널 이벤트에는 없음", "Not present in this kernel event"));
 	} else if (m.type === "VSS_STATUS") {
