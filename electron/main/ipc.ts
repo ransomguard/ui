@@ -1,4 +1,4 @@
-import {getProgramAllowlist,addProgramAllowlist,removeProgramAllowlist} from "./recovery-settings";
+import {getProgramAllowlist,addProgramAllowlist,removeProgramAllowlist,renameProgramAllowlist} from "./recovery-settings";
 import {resetLossCounter} from "./recovery-settings";
 import {getRecoveryScopeStatus,getJevKeyStatus,setJevApiKey} from "./recovery-settings";
 import { openBackendTrace, closeBackendTrace } from "./backend-trace";
@@ -34,6 +34,7 @@ import {
 
 export function registerIpcHandlers(): void {
  ipcMain.handle("program:list",()=>getProgramAllowlist());
+ ipcMain.handle("program:rename",(_event,id:string,name:string)=>renameProgramAllowlist(id,name));
  ipcMain.handle("program:add",()=>addProgramAllowlist());
  ipcMain.handle("program:remove",(_event,id:string)=>removeProgramAllowlist(id));
  ipcMain.handle("loss:reset",()=>resetLossCounter());

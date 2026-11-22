@@ -16,6 +16,7 @@ const generateSubscription = <T>(eventName: string, callback: (data: T) => void)
 
 contextBridge.exposeInMainWorld("electronAPI", {
  getProgramAllowlist(){return ipcRenderer.invoke("program:list");},
+ renameProgramAllowlist(id:string,name:string){return ipcRenderer.invoke("program:rename",id,name);},
  addProgramAllowlist(){return ipcRenderer.invoke("program:add");},
  removeProgramAllowlist(id:string){return ipcRenderer.invoke("program:remove",id);},
  resetLossCounter(){return ipcRenderer.invoke("loss:reset");},
