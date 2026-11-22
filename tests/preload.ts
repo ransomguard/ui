@@ -243,6 +243,7 @@ if (!globalWithWindow.window) {
 }
 globalWithWindow.window.electronAPI = {
  getProgramAllowlist:async()=>({entries:[]}),
+ renameProgramAllowlist:async()=>({entries:[]}),
  addProgramAllowlist:async()=>null,
  removeProgramAllowlist:async()=>({entries:[]}),
  resetLossCounter:async()=>({baseline:0,sinceReset:0,resetAt:0}),
@@ -412,3 +413,4 @@ beforeAll(async () => {
 afterAll(async () => {
 	await stopTestPipeServers();
 });
+

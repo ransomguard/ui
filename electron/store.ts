@@ -10,6 +10,7 @@ export const WINDOW_MIN_HEIGHT = 600;
 
 
 export interface StoreData {
+ programDisplayNames?: Record<string, string>;
 	language?: string;
 	windowState: WindowState;
 	lastAcknowledgedThreatId?: number;
@@ -58,6 +59,7 @@ const getStoreCwd = () => {
 export const store = new Store<StoreData>({
 	cwd: getStoreCwd(),
 	schema: {
+  programDisplayNames: {type: "object", default: {}, additionalProperties: {type: "string", maxLength: 80}},
 		language: {
 			type: "string",
 		},

@@ -1,4 +1,5 @@
 import { dialog } from "electron";
+import {store} from "../store";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -91,15 +92,33 @@ export async function setJevApiKey(key:unknown) {
 
 export function resetLossCounter(){return invoke("loss-reset");}
 
-export function getProgramAllowlist(){return invoke("program-list");}
+type ProgramList = {entries:{id:string;path:string;sha256:string;created:number;name?:string}[]};
+function programNames(result:unknown):ProgramList {
+ const list=result as ProgramList;
+ const names=store.get("programDisplayNames") ?? {};
+ return {...list,entries:list.entries.map(entry=>({...entry,name:names[entry.id] ?? ""}))};
+}
+export async function getProgramAllowlist(){return programNames(await invoke("program-list"));}
+export async function renameProgramAllowlist(id:string,name:string) {
+ if(typeof id!=="string" || !/^[0-9a-f-]{36}$/i.test(id) || typeof name!=="string" || name.length>80 || Array.from(name).some(char=>char.charCodeAt(0)<32 || char.charCodeAt(0)===127)) throw new Error("프로그램 이름은 80자 이내로 입력해 주세요.");
+ const list=await invoke("program-list") as ProgramList;
+ if(!list.entries.some(entry=>entry.id===id))throw new Error("등록된 프로그램을 찾지 못했습니다. 목록을 새로고침해 주세요.");
+ // Display metadata only; keep exception path/hash policy unchanged.
+ const names={...store.get("programDisplayNames")};
+ if(name.trim())names[id]=name.trim();else delete names[id];
+ store.set("programDisplayNames",names);
+ return programNames(list);
+}
 export async function addProgramAllowlist(){
  const selected=await dialog.showOpenDialog({title:"자동 대응에서 제외할 실행 파일 선택",properties:["openFile"],filters:[{name:"Windows 실행 파일",extensions:["exe"]}]});
  if(selected.canceled) return null;
  const result=await dialog.showMessageBox({type:"warning",buttons:["취소","등록"],defaultId:0,cancelId:0,
  message:"이 프로그램의 자동 대응을 제외할까요?",detail:selected.filePaths[0]+"\n경로와 SHA-256이 일치할 때 자동 격리·종료·복구를 제외합니다. 로그와 커널 자기보호는 유지됩니다. 자식 프로세스에는 적용하지 않습니다."});
- return result.response===1 ? invoke("program-add",{path:selected.filePaths[0]}) : null;
+ return result.response===1 ? programNames(await invoke("program-add",{path:selected.filePaths[0]})) : null;
 }
-export function removeProgramAllowlist(id:string){
+export async function removeProgramAllowlist(id:string){
  if(typeof id!=="string" || !/^[0-9a-f-]{36}$/i.test(id))throw new Error("잘못된 프로그램 예외 ID");
- return invoke("program-remove",{id});
+ const result=await invoke("program-remove",{id});
+ const names={...store.get("programDisplayNames")};delete names[id];store.set("programDisplayNames",names);
+ return programNames(result);
 }

@@ -50,7 +50,8 @@ type AccessControlLogItem = import("~/main/firewall-tool").AccessControlLogItem;
 
 interface Window {
 	electronAPI: {
- getProgramAllowlist():Promise<{entries:{id:string;path:string;sha256:string;created:number}[]}>;
+ getProgramAllowlist():Promise<{entries:{id:string;path:string;sha256:string;created:number;name?:string}[]}>;
+ renameProgramAllowlist(id:string,name:string):ReturnType<Window["electronAPI"]["getProgramAllowlist"]>;
  addProgramAllowlist():Promise<Awaited<ReturnType<Window["electronAPI"]["getProgramAllowlist"]>>|null>;
  removeProgramAllowlist(id:string):ReturnType<Window["electronAPI"]["getProgramAllowlist"]>;
  resetLossCounter():Promise<{baseline:number;sinceReset:number;resetAt:number}>;

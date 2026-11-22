@@ -1,4 +1,5 @@
-import {ProgramAllowlist} from "@/components/program-allowlist";
+import {ProgramAllowlistRegistration, ProgramAllowlistEntries} from "@/components/program-allowlist";
+import {useProgramAllowlist} from "@/hooks/use-program-allowlist";
 import { EventExplanation } from "@/components/event-explanation";
 import { eventDisplayId } from "~/services/event-explanation";
 import { evidenceLabel } from "~/services/outcome-metrics";
@@ -313,6 +314,7 @@ const logsColumns: ColumnDef<DataTableFeatures, AccessControlLogRecord>[] = logs
 
 
 export default function AccessControlPage() {
+ const programAllowlist = useProgramAllowlist();
 	const { t } = useTranslation();
 	const [searchParams] = useSearchParams();
 	const highlightId = searchParams.get("highlightId");
@@ -345,12 +347,13 @@ export default function AccessControlPage() {
 	const totalCounts = useMetricStore((state) => state.totalCounts);
 
 	const [activeTab, setActiveTab] = useSearchParamTab<
-		"whitelisted-targets" | "blocked-processes" | "access-logs"
+		"whitelisted-targets" | "program-allowlist" | "blocked-processes" | "access-logs"
 	>({
 		paramName: "tab",
 		defaultTab: "whitelisted-targets",
 		validTabs: [
 			"whitelisted-targets",
+			"program-allowlist",
 			"blocked-processes",
 			"access-logs",
 		] as const,
@@ -936,12 +939,16 @@ export default function AccessControlPage() {
 	const tabsToolbar = (
 		<Tabs
 			value={activeTab}
-			onValueChange={(val) => setActiveTab((val as "whitelisted-targets" | "blocked-processes" | "access-logs") ?? "whitelisted-targets")}
+			onValueChange={(val) => setActiveTab((val as "whitelisted-targets" | "program-allowlist" | "blocked-processes" | "access-logs") ?? "whitelisted-targets")}
 		>
 			<TabsList>
 				<TabsTrigger value="whitelisted-targets">
 					<ShieldCheck className="text-emerald-600"/>
 					<span>{t(($) => $.accessControl.tabs.whitelistedTargets, { count: whitelistedTargetsData.length })}</span>
+				</TabsTrigger>
+				<TabsTrigger value="program-allowlist">
+					<ShieldCheck/>
+					<span>등록된 프로그램 ({programAllowlist.entries.length})</span>
 				</TabsTrigger>
 				<TabsTrigger value="blocked-processes">
 					<ShieldAlert className="text-destructive"/>
@@ -977,8 +984,8 @@ export default function AccessControlPage() {
 				</div>
 			</div>
 
-			<ProgramAllowlist/>
-			{/* WFP 방화벽 전체 차단 상태 및 컨트롤 배너 카드 */}
+			<ProgramAllowlistRegistration state={programAllowlist}/>
+            {/* WFP 방화벽 전체 차단 상태 및 컨트롤 배너 카드 */}
 			<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border border-border bg-card p-5 shadow-xs">
 				<div className="flex items-start gap-3.5">
 					<div className={`mt-0.5 rounded-lg p-2.5 ${isFirewallActive ? "bg-destructive/15 text-destructive" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"}`}>
@@ -1108,6 +1115,10 @@ export default function AccessControlPage() {
 					</Dialog>
 				</div>
 			</div>
+
+			{activeTab === "program-allowlist" && (
+				<ProgramAllowlistEntries state={programAllowlist} toolbar={tabsToolbar}/>
+			)}
 
 			{/* 탭 1: 허용 대상 목록 (화이트리스트) */}
 			{activeTab === "whitelisted-targets" && (
