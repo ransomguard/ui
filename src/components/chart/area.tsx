@@ -247,6 +247,7 @@ export function ChartAreaInteractive({
 							/>
 							{resolvedAreas.map((area) => (
 								<Area
+									isAnimationActive={false}
 									key={area.dataKey}
 									dataKey={area.dataKey}
 									type="monotone"

@@ -13,6 +13,7 @@ import {
 } from "~/config";
 
 import * as table from "./schema";
+import { invalidateTelemetrySummary } from "~/services/telemetry-summary";
 
 const Database = require("better-sqlite3") as typeof BetterSqlite3;
 
@@ -93,6 +94,7 @@ export async function cleanupLogs(db: BetterSQLite3Database) {
 	const errorRetentionTime = NOW - (SYSTEM_ERROR_RETENTION_DAYS * DAY_IN_MS);
 
 	await deleteOldLogs(db, table.securityLogs, securityRetentionTime);
+	invalidateTelemetrySummary(getRawDB());
 	await deleteOldLogs(db, table.systemErrors, errorRetentionTime);
 }
 
