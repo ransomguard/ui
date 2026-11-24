@@ -14,6 +14,11 @@ import {
 import { checkUnreadThreats, fetchSecurityLogs, getDashboardStatsAndCounts } from "./queries";
 import { createReceiptWriter } from "~/services/ipc-receiver/receipts";
 import { notifyImportantEvents } from "./tray";
+import { createLivePublication } from "~/services/live-publication";
+
+const livePublication = createLivePublication<IncomingIPCMessage>((items) => {
+	findWindow()?.webContents.send("security-logs-updated", items);
+});
 
 
 
@@ -43,6 +48,7 @@ export const getLastEngineStatus = async () => {
 };
 
 app.on("before-quit", () => {
+	livePublication.flush();
 	externalIPCReceiver.stopAll();
 });
 
@@ -63,8 +69,8 @@ export function registerExternalIpcHandlers() {
 		const { fresh, ack } = persist(valid, validIds);
 		for (const item of fresh) if (item.type === "SYSTEM_STATUS") lastEngineStatus = item;
 		if (fresh.length) {
-			findWindow()?.webContents.send("security-logs-updated", fresh);
 			notifyImportantEvents(fresh);
+			livePublication.push(fresh);
 		}
 		if (invalid.length) {
 			try { await db.insert(table.systemErrors).values(invalid); }

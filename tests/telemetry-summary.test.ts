@@ -1,6 +1,27 @@
 import { test, expect } from "bun:test";
 import { Database } from "bun:sqlite";
-import { ensureMemoryAggregation, telemetryByDay, telemetryByBucket } from "../electron/services/telemetry-summary";
+import { ensureMemoryAggregation, telemetryByDay, telemetryByBucket, invalidateTelemetrySummary } from "../electron/services/telemetry-summary";
+
+test("incremental chart equals SQL after late arrivals, moving edges and retention", () => {
+	const db = new Database(":memory:");
+	try {
+		db.exec("CREATE TABLE security_logs(type TEXT, timestamp INTEGER, data TEXT)");
+		const insert = db.prepare("INSERT INTO security_logs VALUES(?, ?, '')");
+		const compare = (since: number) => {
+			const expected = db.prepare(`SELECT CAST(timestamp/100 AS INTEGER) AS bucket, COUNT(*) AS telemetry,
+ SUM(type='PROCESS_CREATE') AS processCreate, SUM(type='FILE_WRITE') AS fileWrite, SUM(type='FILE_RENAME') AS fileRename
+ FROM security_logs WHERE timestamp>=? AND type IN ('PROCESS_CREATE','PROCESS_TERMINATE','FILE_WRITE','FILE_RENAME') GROUP BY bucket ORDER BY bucket`).all(since);
+			expect(telemetryByBucket(db, since, 0, 100)).toEqual(expected as never);
+		};
+		for (let i = 0; i < 1000; i++) insert.run("FILE_WRITE", i);
+		compare(5); compare(12);
+		insert.run("FILE_RENAME", 15); insert.run("PROCESS_CREATE", 333); insert.run("ALERT", 1001);
+		compare(13); compare(101); compare(0);
+		db.exec("DELETE FROM security_logs WHERE timestamp<200");
+		invalidateTelemetrySummary(db);
+		compare(0); compare(222);
+	} finally { db.close(); }
+});
 
 test("120,000 records aggregate without decoding payloads or counting normal exits as responses", () => {
 	const db = new Database(":memory:");
