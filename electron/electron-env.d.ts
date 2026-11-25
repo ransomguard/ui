@@ -50,6 +50,7 @@ type AccessControlLogItem = import("~/main/firewall-tool").AccessControlLogItem;
 
 interface Window {
 	electronAPI: {
+	getWorkerHealth(): Promise<import("./main/worker-health").WorkerHealth>;
  getProgramAllowlist():Promise<{entries:{id:string;path:string;sha256:string;created:number;name?:string}[]}>;
  renameProgramAllowlist(id:string,name:string):ReturnType<Window["electronAPI"]["getProgramAllowlist"]>;
  addProgramAllowlist():Promise<Awaited<ReturnType<Window["electronAPI"]["getProgramAllowlist"]>>|null>;

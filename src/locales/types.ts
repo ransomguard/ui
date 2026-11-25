@@ -28,6 +28,8 @@ export interface AppTranslations {
 			AUDIT_ONLY: { title: string; description: string };
 			DEGRADED: { title: string; description: string };
 			OFFLINE: { title: string; description: string };
+			WORKER_FAILED: { title: string; description: string };
+			HEALTH_UNKNOWN: { title: string; description: string };
 			THREAT_BLOCKED: { title: string; description: string };
 		};
 	};

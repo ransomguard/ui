@@ -2,7 +2,7 @@ import {getProgramAllowlist,addProgramAllowlist,removeProgramAllowlist,renamePro
 import {resetLossCounter} from "./recovery-settings";
 import {getRecoveryScopeStatus,getJevKeyStatus,setJevApiKey} from "./recovery-settings";
 import { openBackendTrace, closeBackendTrace } from "./backend-trace";
-import { getConsoleSettings, setConsoleSettings } from "./console-settings";
+import { getConsoleSettings, getWorkerHealth, setConsoleSettings } from "./console-settings";
 import { ipcMain } from "electron";
 import { previewSnapshotRestore, executeSnapshotRestore, chooseRecoveryFolder, getRecoverySettings, setRecoverySettings, getSnapshotSettings, setSnapshotInterval, openSnapshotConsole, getSnapshotInventory, createManualSnapshot, setSnapshotProtection } from "./recovery-settings";
 
@@ -33,6 +33,7 @@ import {
 
 
 export function registerIpcHandlers(): void {
+	ipcMain.handle("engine:worker-health", () => getWorkerHealth());
  ipcMain.handle("program:list",()=>getProgramAllowlist());
  ipcMain.handle("program:rename",(_event,id:string,name:string)=>renameProgramAllowlist(id,name));
  ipcMain.handle("program:add",()=>addProgramAllowlist());
