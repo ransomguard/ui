@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { collectionAckMatches } from "~/services/collection-ack";
 import { readWorkerHealth } from "./worker-health";
+import { requestStorageOperation } from "../services/storage-owner";
 
 export interface ConsoleSettings { visible: boolean; collectOwnDbEvents: boolean; }
 function runtimeDirectory() {
@@ -30,7 +31,11 @@ export async function setConsoleSettings(value: ConsoleSettings) {
  const dest = path.join(dir,"console-display.json");
  const requestId = randomUUID();
  const data = {...value, showOwnDbEvents:value.collectOwnDbEvents, requestId, uiPid: process.pid, uiDbPath: path.join(app.getPath("userData"),"db.sqlite")};
- await fs.writeFile(dest+".tmp",JSON.stringify(data),"utf8"); await fs.rename(dest+".tmp",dest);
+ if (process.env.RANSOM0_STORAGE_OWNER === "scm") {
+  await requestStorageOperation("console.set", { ...value, requestId, uiPid: process.pid, uiDbPath: data.uiDbPath });
+ } else {
+  await fs.writeFile(dest+".tmp",JSON.stringify(data),"utf8"); await fs.rename(dest+".tmp",dest);
+ }
  const deadline = Date.now()+7000;
  while (Date.now()<deadline) {
   try {

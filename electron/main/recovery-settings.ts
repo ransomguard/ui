@@ -3,6 +3,7 @@ import {store} from "../store";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { requestStorageOperation } from "../services/storage-owner";
 
 function runtime() {
  const dir=process.env.RANSOMGUARD_RUNTIME_DIR || (process.env.RANSOM0_FIREWALL_STATE_DB ? path.dirname(process.env.RANSOM0_FIREWALL_STATE_DB) : undefined);
@@ -11,6 +12,11 @@ function runtime() {
 }
 async function invoke(action: "status"|"change"|"launch"|"list"|"manual"|"protect"|"restore-preview"|"restore-execute"|"loss-reset"|"program-list"|"program-add"|"program-remove", request?: unknown, snapshot=false) {
  const dir=runtime();
+ if (process.env.RANSOM0_STORAGE_OWNER === "scm" && action !== "launch") {
+  if (action.startsWith("program-")) return requestStorageOperation("program." + action.slice(8), request);
+  if (action === "loss-reset") return requestStorageOperation("loss.reset");
+  return requestStorageOperation((snapshot ? "snapshot." : "scope.") + action, request);
+ }
  const config=JSON.parse(await fs.readFile(path.join(dir,"installation.json"),"utf8"));
  if (typeof config.python!=="string" || typeof config.recovery_root!=="string" || !path.isAbsolute(config.python) || !path.isAbsolute(config.recovery_root)) throw new Error("설치 경로가 올바르지 않습니다.");
  return new Promise((resolve,reject)=>{
