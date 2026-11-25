@@ -242,6 +242,7 @@ if (!globalWithWindow.window) {
 	globalWithWindow.window = globalThis as unknown as Window & typeof globalThis;
 }
 globalWithWindow.window.electronAPI = {
+	getWorkerHealth: async () => "unmanaged",
  getProgramAllowlist:async()=>({entries:[]}),
  renameProgramAllowlist:async()=>({entries:[]}),
  addProgramAllowlist:async()=>null,

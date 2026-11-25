@@ -3,10 +3,17 @@ import { app } from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { collectionAckMatches } from "~/services/collection-ack";
+import { readWorkerHealth } from "./worker-health";
 
 export interface ConsoleSettings { visible: boolean; collectOwnDbEvents: boolean; }
+function runtimeDirectory() {
+ return process.env.RANSOMGUARD_RUNTIME_DIR || (process.env.RANSOM0_FIREWALL_STATE_DB ? path.dirname(process.env.RANSOM0_FIREWALL_STATE_DB) : undefined);
+}
+export function getWorkerHealth() {
+ return readWorkerHealth(runtimeDirectory());
+}
 function runtime() {
- const dir = process.env.RANSOMGUARD_RUNTIME_DIR || (process.env.RANSOM0_FIREWALL_STATE_DB ? path.dirname(process.env.RANSOM0_FIREWALL_STATE_DB) : undefined);
+ const dir = runtimeDirectory();
  if (!dir) throw new Error("통합 실행기의 경로 설정이 없습니다. Ransom0 통합 실행으로 시작해 주세요.");
  return dir;
 }

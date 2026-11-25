@@ -15,6 +15,7 @@ const generateSubscription = <T>(eventName: string, callback: (data: T) => void)
 
 
 contextBridge.exposeInMainWorld("electronAPI", {
+	getWorkerHealth() { return ipcRenderer.invoke("engine:worker-health"); },
  getProgramAllowlist(){return ipcRenderer.invoke("program:list");},
  renameProgramAllowlist(id:string,name:string){return ipcRenderer.invoke("program:rename",id,name);},
  addProgramAllowlist(){return ipcRenderer.invoke("program:add");},

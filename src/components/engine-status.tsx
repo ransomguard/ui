@@ -79,10 +79,12 @@ export default function EngineStatus({
 }: EngineStatusProps) {
 	const { t } = useTranslation();
 	const status = useStatusStore((x) => x.status);
+	const health = useStatusStore((x) => x.workerHealth);
 	const sysData = useStatusStore((x) => x.data);
 	const clearUnreadThreats = useStatusStore((x) => x.clearUnreadThreats);
 
-	const variant: StatusValue = status ?? "OFFLINE";
+	const unavailable = health === "failed" || health === "unknown";
+	const variant: StatusValue = unavailable ? "OFFLINE" : status ?? "OFFLINE";
 	if (variant === "SECURE" && activeToHidden) {
 		return null;
 	}
@@ -90,8 +92,9 @@ export default function EngineStatus({
 	const Icon = STATUS_ICONS[variant];
 	const cariantClassName = engineStatusVariants({ variant: variant, size, className });
 
-	const title = t($ => $.engine.statuses[variant].title);
-	const description = t($ => $.engine.statuses[variant].description);
+	const label = health === "failed" ? "WORKER_FAILED" : health === "unknown" ? "HEALTH_UNKNOWN" : variant;
+	const title = t($ => $.engine.statuses[label].title);
+	const description = t($ => $.engine.statuses[label].description);
 
 	if (size === "sm") {
 		return (
@@ -142,7 +145,7 @@ export default function EngineStatus({
 
 					<p className="text-xs text-muted-foreground leading-relaxed">
 						{description}
-						{variant === "DEGRADED" && sysData?.eventsDropped ? (
+						{status === "DEGRADED" && sysData?.eventsDropped ? (
 							<span className="ml-1 font-medium text-orange-600 dark:text-orange-400">
 								{t(($) => $.engine.eventsDropped, { count: sysData.eventsDropped })}
 							</span>
@@ -151,7 +154,7 @@ export default function EngineStatus({
 				</div>
 			</div>
 
-			{variant === "THREAT_BLOCKED" ? (
+			{status === "THREAT_BLOCKED" ? (
 				<Button
 					size="sm"
 					variant="destructive"
