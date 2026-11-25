@@ -21,6 +21,7 @@ export type StatusValue =
 
 
 export interface StatusState {
+	workerHealth: Awaited<ReturnType<Window["electronAPI"]["getWorkerHealth"]>>;
 	status: StatusValue | null;
 	version: string | null;
 	lastUpdated: number | null;
@@ -50,6 +51,7 @@ const toStatusValue = (data: SystemStatusData | null | undefined, hasUnread: boo
 
 
 export const useStatusStore = create<StatusState>((set) => ({
+	workerHealth: "unknown",
 	status: null,
 	version: null,
 	lastUpdated: null,

@@ -38,6 +38,14 @@ export const ko: AppTranslations = {
 				title: "보호 기능 저하됨",
 				description: "커널 이벤트 처리 과부하 또는 유실이 발생하고 있습니다.",
 			},
+			WORKER_FAILED: {
+				title: "분석기 중단",
+				description: "분석기가 중단됐습니다. Windows 응용 프로그램 로그의 Ransom0 오류 기록을 확인하세요.",
+			},
+			HEALTH_UNKNOWN: {
+				title: "분석기 상태 미확인",
+				description: "분석기의 최근 상태를 읽을 수 없습니다.",
+			},
 			OFFLINE: {
 				title: "엔진 비활성화 (연결 끊김)",
 				description: "엔진 서비스가 중지되었거나 커널 드라이버와 연결할 수 없습니다.",

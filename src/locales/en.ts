@@ -38,6 +38,14 @@ export const en: AppTranslations = {
 				title: "Protection Degraded",
 				description: "Kernel engine event drop or system overload detected.",
 			},
+			WORKER_FAILED: {
+				title: "Analysis worker stopped",
+				description: "The analysis worker stopped. Check the Ransom0 failure record in the Windows Application log.",
+			},
+			HEALTH_UNKNOWN: {
+				title: "Analysis worker status unknown",
+				description: "A current analysis worker heartbeat is unavailable.",
+			},
 			OFFLINE: {
 				title: "Engine Offline",
 				description: "Engine service is stopped or disconnected from kernel driver.",

@@ -3,6 +3,7 @@ import { Outlet, useLocation, useMatches, type UIMatch } from "react-router";
 import { useTranslation } from "react-i18next";
 
 import { app, constants } from "@/config";
+import { useStatusStore } from "@/store";
 import type { FlattenedKeys } from "@/locales";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -25,6 +26,24 @@ export default function RootLayout() {
 	const { t } = useTranslation();
 	const { pathname } = useLocation();
 	const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		let mounted = true;
+		let timer: number | undefined;
+		async function poll() {
+			let workerHealth: Awaited<ReturnType<Window["electronAPI"]["getWorkerHealth"]>>;
+			try {
+				workerHealth = (await window.electronAPI?.getWorkerHealth?.()) ?? "unknown";
+			} catch {
+				workerHealth = "unknown";
+			}
+			if (!mounted) return;
+			useStatusStore.setState({ workerHealth });
+			timer = window.setTimeout(poll, 3000);
+		}
+		void poll();
+		return () => { mounted = false; window.clearTimeout(timer); };
+	}, []);
 
 	const matches = useMatches() as UIMatch<Data, Handle>[];
 	const currentMatch = matches.find(match => match.handle?.heading);
